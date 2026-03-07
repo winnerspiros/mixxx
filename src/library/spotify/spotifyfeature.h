@@ -1,8 +1,9 @@
 #pragma once
 
+#include <QDesktopServices>
+
 #include "library/baseexternallibraryfeature.h"
 #include "util/parented_ptr.h"
-#include <QDesktopServices>
 
 #ifdef NETWORKAUTH
 #include <QtNetworkAuth/QOAuth2AuthorizationCodeFlow>
@@ -10,20 +11,22 @@
 
 class SpotifyFeature : public BaseExternalLibraryFeature {
     Q_OBJECT
-public:
+  public:
     SpotifyFeature(Library* pLibrary, UserSettingsPointer pConfig);
     ~SpotifyFeature() override = default;
 
-    QVariant title() override { return tr("Spotify"); }
+    QVariant title() override {
+        return tr("Spotify");
+    }
     void activate() override;
     TreeItemModel* sidebarModel() const override;
 
     void searchAndActivate(const QString& query);
 
-private slots:
+  private slots:
     void slotAuthGranted();
 
-private:
+  private:
 #ifdef NETWORKAUTH
     QOAuth2AuthorizationCodeFlow m_oauth2;
 #endif

@@ -2091,9 +2091,6 @@ if(APPLE)
           src/library/itunes/itunesiostrackresolver.cpp
       )
       target_link_libraries(mixxx-lib PRIVATE "-weak_framework MediaPlayer")
-  Qt${QT_VERSION_MAJOR}::Core
-  Qt${QT_VERSION_MAJOR}::Network
-  Qt${QT_VERSION_MAJOR}::Xml
       target_compile_definitions(mixxx-lib PUBLIC __IOS_ITUNES_LIBRARY__)
     endif()
   else()

@@ -1,6 +1,7 @@
 #include "library/spotify/spotifyfeature.h"
-#include "library/treeitem.h"
+
 #include "library/library.h"
+#include "library/treeitem.h"
 #include "util/logger.h"
 
 namespace {
@@ -8,8 +9,8 @@ const mixxx::Logger kLogger("SpotifyFeature");
 }
 
 SpotifyFeature::SpotifyFeature(Library* pLibrary, UserSettingsPointer pConfig)
-    : BaseExternalLibraryFeature(pLibrary, pConfig, "spotify"),
-      m_pSidebarModel(make_parented<TreeItemModel>(this)) {
+        : BaseExternalLibraryFeature(pLibrary, pConfig, "spotify"),
+          m_pSidebarModel(make_parented<TreeItemModel>(this)) {
 #ifdef NETWORKAUTH
     m_oauth2.setAuthorizationUrl(QUrl("https://accounts.spotify.com/authorize"));
     m_oauth2.setAccessTokenUrl(QUrl("https://accounts.spotify.com/api/token"));

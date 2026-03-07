@@ -6,13 +6,13 @@
 namespace mixxx {
 
 class SoundSourceYouTube : public SoundSource {
-public:
+  public:
     explicit SoundSourceYouTube(const QUrl& url);
     ~SoundSourceYouTube() override;
 
     void close() override;
 
-protected:
+  protected:
     ReadableSampleFrames readSampleFramesClamped(
             const WritableSampleFrames& sampleFrames) override;
 
@@ -22,12 +22,18 @@ protected:
 };
 
 class SoundSourceProviderYouTube : public SoundSourceProvider {
-public:
+  public:
     static const QString kDisplayName;
 
-    QString getDisplayName() const override { return kDisplayName; }
-    QStringList getSupportedFileTypes() const override { return {"youtube"}; }
-    SoundSourceProviderPriority getPriorityHint(const QString& supportedFileType) const override { return SoundSourceProviderPriority::High; }
+    QString getDisplayName() const override {
+        return kDisplayName;
+    }
+    QStringList getSupportedFileTypes() const override {
+        return {"youtube"};
+    }
+    SoundSourceProviderPriority getPriorityHint(const QString& supportedFileType) const override {
+        return SoundSourceProviderPriority::High;
+    }
     SoundSourcePointer newSoundSource(const QUrl& url) override {
         return std::make_shared<SoundSourceYouTube>(url);
     }

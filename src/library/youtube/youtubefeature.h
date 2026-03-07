@@ -5,16 +5,18 @@
 
 class YouTubeFeature : public BaseExternalLibraryFeature {
     Q_OBJECT
-public:
+  public:
     YouTubeFeature(Library* pLibrary, UserSettingsPointer pConfig);
     ~YouTubeFeature() override = default;
 
-    QVariant title() override { return tr("YouTube"); }
+    QVariant title() override {
+        return tr("YouTube");
+    }
     void activate() override;
     TreeItemModel* sidebarModel() const override;
 
     void searchAndActivate(const QString& query);
 
-private:
+  private:
     parented_ptr<TreeItemModel> m_pSidebarModel;
 };

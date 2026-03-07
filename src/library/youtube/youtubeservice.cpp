@@ -1,10 +1,12 @@
 #include "library/youtube/youtubeservice.h"
-#include <QNetworkAccessManager>
-#include <QNetworkRequest>
-#include <QNetworkReply>
+
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QJsonArray>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+
 #include "util/logger.h"
 
 namespace mixxx {
@@ -13,12 +15,14 @@ namespace {
 const Logger kLogger("YouTubeService");
 }
 
-YouTubeService::YouTubeService(QObject* parent) : QObject(parent) {}
+YouTubeService::YouTubeService(QObject* parent)
+        : QObject(parent) {
+}
 
 void YouTubeService::fetchSponsorSegments(const QString& videoId) {
     QNetworkAccessManager* manager = new QNetworkAccessManager(this);
     QUrl url(QString("https://sponsor.ajay.app/api/skipSegments?videoID=%1&categories=[\"sponsor\",\"selfpromo\",\"interaction\",\"intro\",\"outro\",\"preview\",\"music_offtopic\"]")
-             .arg(videoId));
+                     .arg(videoId));
 
     QNetworkRequest request(url);
     QNetworkReply* reply = manager->get(request);
@@ -31,11 +35,9 @@ void YouTubeService::fetchSponsorSegments(const QString& videoId) {
             for (const auto& value : array) {
                 QJsonObject obj = value.toObject();
                 QJsonArray segmentArray = obj["segment"].toArray();
-                segments.append({
-                    segmentArray[0].toDouble(),
-                    segmentArray[1].toDouble(),
-                    obj["category"].toString()
-                });
+                segments.append({segmentArray[0].toDouble(),
+                        segmentArray[1].toDouble(),
+                        obj["category"].toString()});
             }
         }
         emit sponsorSegmentsFetched(videoId, segments);

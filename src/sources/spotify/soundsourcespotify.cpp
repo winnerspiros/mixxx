@@ -1,4 +1,5 @@
 #include "sources/spotify/soundsourcespotify.h"
+
 #include "util/logger.h"
 
 namespace mixxx {
@@ -10,7 +11,7 @@ const Logger kLogger("SoundSourceSpotify");
 const QString SoundSourceProviderSpotify::kDisplayName = "Spotify";
 
 SoundSourceSpotify::SoundSourceSpotify(const QUrl& url)
-    : SoundSource(url) {
+        : SoundSource(url) {
 }
 
 SoundSourceSpotify::~SoundSourceSpotify() {

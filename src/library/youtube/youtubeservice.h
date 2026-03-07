@@ -1,10 +1,10 @@
 #pragma once
 
-#include <QObject>
+#include <QJsonArray>
 #include <QList>
+#include <QObject>
 #include <QString>
 #include <QUrl>
-#include <QJsonArray>
 
 namespace mixxx {
 
@@ -16,15 +16,15 @@ struct SponsorSegment {
 
 class YouTubeService : public QObject {
     Q_OBJECT
-public:
+  public:
     explicit YouTubeService(QObject* parent = nullptr);
 
     void fetchSponsorSegments(const QString& videoId);
 
-signals:
+  signals:
     void sponsorSegmentsFetched(const QString& videoId, const QList<SponsorSegment>& segments);
 
-private:
+  private:
     // We can use QNetworkAccessManager directly or Mixxx's WebTask
 };
 

@@ -1,7 +1,9 @@
 #include "sources/youtube/soundsourceyoutube.h"
+
+#include <QProcess>
+
 #include "library/youtube/youtubeservice.h"
 #include "util/logger.h"
-#include <QProcess>
 
 namespace mixxx {
 
@@ -12,7 +14,7 @@ const Logger kLogger("SoundSourceYouTube");
 const QString SoundSourceProviderYouTube::kDisplayName = "YouTube";
 
 SoundSourceYouTube::SoundSourceYouTube(const QUrl& url)
-    : SoundSource(url) {
+        : SoundSource(url) {
 }
 
 SoundSourceYouTube::~SoundSourceYouTube() {

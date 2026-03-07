@@ -1,19 +1,21 @@
 #include "library/youtube/youtubefeature.h"
-#include "library/treeitem.h"
-#include "library/library.h"
-#include "util/logger.h"
-#include <QProcess>
-#include <QJsonDocument>
+
 #include <QJsonArray>
+#include <QJsonDocument>
 #include <QJsonObject>
+#include <QProcess>
+
+#include "library/library.h"
+#include "library/treeitem.h"
+#include "util/logger.h"
 
 namespace {
 const mixxx::Logger kLogger("YouTubeFeature");
 }
 
 YouTubeFeature::YouTubeFeature(Library* pLibrary, UserSettingsPointer pConfig)
-    : BaseExternalLibraryFeature(pLibrary, pConfig, "youtube"),
-      m_pSidebarModel(make_parented<TreeItemModel>(this)) {
+        : BaseExternalLibraryFeature(pLibrary, pConfig, "youtube"),
+          m_pSidebarModel(make_parented<TreeItemModel>(this)) {
 }
 
 void YouTubeFeature::activate() {
