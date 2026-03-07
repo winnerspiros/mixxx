@@ -38,6 +38,10 @@
 #endif
 #ifdef __STEM__
 #include "sources/soundsourcestem.h"
+#ifdef NETWORKAUTH
+#include "sources/spotify/soundsourcespotify.h"
+#include "sources/youtube/soundsourceyoutube.h"
+#endif
 #endif
 
 #include "library/coverartutils.h"
@@ -136,6 +140,14 @@ bool registerPlatformAndFallbackSoundSourceProviders(
             pProviderRegistry,
             std::make_shared<mixxx::SoundSourceProviderFFmpeg>());
 #endif // __FFMPEG__
+#ifdef NETWORKAUTH
+    registerSoundSourceProvider(
+            pProviderRegistry,
+            std::make_shared<mixxx::SoundSourceProviderSpotify>());
+    registerSoundSourceProvider(
+            pProviderRegistry,
+            std::make_shared<mixxx::SoundSourceProviderYouTube>());
+#endif // NETWORKAUTH
     return true;
 }
 
