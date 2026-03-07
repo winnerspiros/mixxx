@@ -162,6 +162,13 @@ Library::Library(
             m_pAnalysisFeature,
             &AnalysisFeature::analyzeTracks);
     addFeature(m_pAnalysisFeature);
+#ifdef NETWORKAUTH
+    m_pSpotifyFeature = make_parented<SpotifyFeature>(this, m_pConfig);
+    addFeature(m_pSpotifyFeature);
+    m_pYouTubeFeature = make_parented<YouTubeFeature>(this, m_pConfig);
+    addFeature(m_pYouTubeFeature);
+#endif
+
     // Suspend a batch analysis while an ad-hoc analysis of
     // loaded tracks is in progress and resume it afterwards.
     connect(pPlayerManager,
@@ -764,6 +771,14 @@ void Library::searchTracksInCollection(const QString& query) {
         return;
     }
     m_pMixxxLibraryFeature->searchAndActivate(query);
+#ifdef NETWORKAUTH
+    if (m_pSpotifyFeature) {
+        m_pSpotifyFeature->searchAndActivate(query);
+    }
+    if (m_pYouTubeFeature) {
+        m_pYouTubeFeature->searchAndActivate(query);
+    }
+#endif
 }
 
 void Library::showAutoDJ() {

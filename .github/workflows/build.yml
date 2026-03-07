@@ -52,6 +52,7 @@ jobs:
           - name: Ubuntu 24.04
             os: ubuntu-24.04
             cmake_args: >-
+              -DNETWORKAUTH=ON
               -DQT6=ON
               -DQML=ON
               -DBULK=ON
@@ -74,6 +75,7 @@ jobs:
           - name: macOS 15 x64
             os: macos-15-intel
             cmake_args: >-
+              -DNETWORKAUTH=ON
               -DBULK=ON
               -DCOREAUDIO=ON
               -DHSS1394=ON
@@ -97,6 +99,7 @@ jobs:
           - name: macOS 15 arm64
             os: macos-15-intel
             cmake_args: >-
+              -DNETWORKAUTH=ON
               -DBULK=ON
               -DCOREAUDIO=ON
               -DHSS1394=ON
@@ -123,6 +126,7 @@ jobs:
             #            also adjust the for the local Windows build setup in
             #            ./tools/windows_buildenv.bat
             cmake_args: >-
+              -DNETWORKAUTH=ON
               -DBULK=ON
               -DHSS1394=ON
               -DLOCALECOMPARE=ON
@@ -150,6 +154,7 @@ jobs:
             #            also adjust the for the local Windows build setup in
             #            ./tools/windows_buildenv.bat
             cmake_args: >-
+              -DNETWORKAUTH=ON
               -DBULK=ON
               -DHSS1394=ON
               -DLOCALECOMPARE=ON
@@ -176,6 +181,7 @@ jobs:
             os: ubuntu-24.04
             # DBUILD_TESTING=OFF: error: OpenMP support and version of OpenMP (31, 40 or 45) differs
             cmake_args: >-
+              -DNETWORKAUTH=ON
               -DBULK=ON
               -DQT6=ON
               -DQML=ON
