@@ -2562,7 +2562,6 @@ endif()
   # else()
   #   qt_finalize_target(mixxx-lib)
 
-
 # Font files
 #
 # Font installation is only enabled on Windows and macOS, because on Linux/BSD
