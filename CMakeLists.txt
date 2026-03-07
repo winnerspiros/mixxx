@@ -2343,7 +2343,15 @@ endif()
 
 # The mixxx executable
 if(QT6)
-  find_package(Qt6 COMPONENTS Core) # For Qt Core cmake functions
+  set(QT_VERSION_MAJOR 6)
+  set(QT_COMPONENTS Concurrent Core Gui Network OpenGL PrintSupport Qml Quick Sql Svg Test Widgets Xml)
+  if(NOT APPLE AND NOT WIN32 AND NOT ANDROID)
+    list(APPEND QT_COMPONENTS DBus)
+  endif()
+  find_package(Qt6 COMPONENTS ${QT_COMPONENTS} REQUIRED)
+  foreach(component ${QT_COMPONENTS})
+    target_link_libraries(mixxx-lib PUBLIC Qt6::${component})
+  endforeach()
   # This is the first package form the environment, if this fails give hints how to install the environment
   if(NOT Qt6_FOUND)
     fatal_error_missing_env()
@@ -2416,12 +2424,11 @@ if(QT6)
       "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/bin/clang++"
     )
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fPIC")
-    set_target_properties(
-      mixxx
-      PROPERTIES
-        QT_ANDROID_EXTRA_LIBS
-          ${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/lib/clang/18/lib/linux/aarch64/libomp.so
-    )
+    file(GLOB OMP_LIB "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/lib/clang/*/lib/linux/aarch64/libomp.so")
+    if(OMP_LIB)
+      list(GET OMP_LIB 0 OMP_LIB_PATH)
+      set_target_properties(mixxx PROPERTIES QT_ANDROID_EXTRA_LIBS "${OMP_LIB_PATH}")
+    endif()
     add_custom_target(
       copy-resource-android
       COMMENT "Copy resources folder to Android build asset directory"
@@ -2439,7 +2446,18 @@ if(QT6)
     qt_add_executable(mixxx WIN32 src/main.cpp MANUAL_FINALIZATION)
   endif()
 else()
-  find_package(Qt5 COMPONENTS Core) # For Qt Core cmake functions
+  set(QT_VERSION_MAJOR 5)
+  set(QT_COMPONENTS Concurrent Core Gui Network OpenGL PrintSupport Qml Quick Sql Svg Test Widgets Xml)
+  if(NOT APPLE AND NOT WIN32 AND NOT ANDROID)
+    list(APPEND QT_COMPONENTS DBus)
+  endif()
+  if(NETWORKAUTH)
+    list(APPEND QT_COMPONENTS NetworkAuth)
+  endif()
+  find_package(Qt5 COMPONENTS ${QT_COMPONENTS} REQUIRED)
+  foreach(component ${QT_COMPONENTS})
+    target_link_libraries(mixxx-lib PUBLIC Qt5::${component})
+  endforeach()
   # This is the first package form the environment, if this fails give hints how to install the environment
   if(NOT Qt5_FOUND)
     fatal_error_missing_env()
