@@ -76,13 +76,15 @@ namespace {
 // while Mixxx is running.
 // This is a reimplementation of QGenericUnixTheme > checkDBusGlobalMenuAvailable()
 inline bool supportsGlobalMenu() {
-#ifndef QT_NO_DBUS
+#if defined(Q_OS_ANDROID) || defined(QT_NO_DBUS) || !defined(__LINUX__)
+    return false;
+#else
     QDBusConnection conn = QDBusConnection::sessionBus();
     if (const auto* pIface = conn.interface()) {
         return pIface->isServiceRegistered("com.canonical.AppMenu.Registrar");
     }
-#endif
     return false;
+#endif
 }
 #endif
 

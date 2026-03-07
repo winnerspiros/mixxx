@@ -119,7 +119,11 @@ int runMixxx(MixxxApplication* pApp, const CmdlineArgs& args) {
             exitCode = kFatalErrorOnStartupExitCode;
         } else {
             qDebug() << "Displaying main window";
+#ifdef Q_OS_ANDROID
+            mainWindow.showMaximized();
+#else
             mainWindow.show();
+#endif
 
             qDebug() << "Running Mixxx";
             exitCode = pApp->exec();

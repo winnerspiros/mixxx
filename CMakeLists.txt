@@ -2377,7 +2377,7 @@ if(QT6)
     set_target_properties(
       mixxx
       PROPERTIES
-        QT_ANDROID_APPLICATION_ARGUMENTS "--qml --log-level debug --developer"
+        QT_ANDROID_APPLICATION_ARGUMENTS "--log-level debug --developer"
     )
     qt_add_android_permission(mixxx
     NAME android.permission.ACCESS_NETWORK_STATE
@@ -2532,6 +2532,7 @@ if(NOT ANDROID)
     RUNTIME DESTINATION "${MIXXX_INSTALL_BINDIR}"
     BUNDLE DESTINATION .
   )
+endif()
 
   # Skins
   install(
@@ -2560,7 +2561,6 @@ if(NOT ANDROID)
   )
   # else()
   #   qt_finalize_target(mixxx-lib)
-endif()
 
 # Font files
 #
