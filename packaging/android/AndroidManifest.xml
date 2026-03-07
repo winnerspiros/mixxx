@@ -52,7 +52,7 @@
 
           <meta-data
                 android:name="android.app.arguments"
-                android:value="--new-ui --log-level debug --developer" />
+                android:value="--log-level debug --developer" />
         </activity>
 
         <provider

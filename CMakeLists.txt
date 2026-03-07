@@ -2532,6 +2532,7 @@ if(NOT ANDROID)
     RUNTIME DESTINATION "${MIXXX_INSTALL_BINDIR}"
     BUNDLE DESTINATION .
   )
+endif()
 
   # Skins
   install(
@@ -2560,7 +2561,7 @@ if(NOT ANDROID)
   )
   # else()
   #   qt_finalize_target(mixxx-lib)
-endif()
+
 
 # Font files
 #
