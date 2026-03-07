@@ -104,9 +104,7 @@ MixxxMainWindow::MixxxMainWindow(std::shared_ptr<mixxx::CoreServices> pCoreServi
           m_noMicInputDialog(nullptr),
           m_noAuxInputDialog(nullptr),
           m_pGuiTick(nullptr),
-#ifdef __LINUX__
           m_supportsGlobalMenuBar(supportsGlobalMenu()),
-#endif
           m_inRebootMixxxView(false),
           m_pDeveloperToolsDlg(nullptr),
           m_pPrefDlg(nullptr),
@@ -127,7 +125,6 @@ MixxxMainWindow::MixxxMainWindow(std::shared_ptr<mixxx::CoreServices> pCoreServi
                 Qt::AA_DontUseNativeMenuBar,
                 CmdlineArgs::Instance().getStartInFullscreen() || fullscreenPref);
     }
-#endif // __LINUX__
 
     connect(m_pCoreServices.get(),
             &mixxx::CoreServices::libraryScanSummary,
