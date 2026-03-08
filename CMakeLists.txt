@@ -1,6 +1,23 @@
 include(FetchContent)
 cmake_minimum_required(VERSION 3.21)
 
+# --- TOOLCHAIN SETUP ---
+
+if(DEFINED ENV{MIXXX_VCPKG_ROOT} AND NOT DEFINED MIXXX_VCPKG_ROOT)
+  set(MIXXX_VCPKG_ROOT "$ENV{MIXXX_VCPKG_ROOT}")
+endif()
+
+if(DEFINED MIXXX_VCPKG_ROOT AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+  if(EXISTS "${MIXXX_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
+    set(
+      CMAKE_TOOLCHAIN_FILE
+      "${MIXXX_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+      CACHE STRING
+      ""
+    )
+  endif()
+endif()
+
 project(mixxx VERSION 2.7.0 LANGUAGES C CXX)
 
 set(MIXXX_VERSION_PRERELEASE "alpha") # set to "alpha" "beta" or ""
@@ -1535,6 +1552,219 @@ target_include_directories(
   mixxx-lib
   PUBLIC src "${CMAKE_CURRENT_BINARY_DIR}/src"
 )
+
+#
+# Installation directories
+#
+set(MIXXX_INSTALL_BINDIR ".")
+set(MIXXX_INSTALL_DATADIR ".")
+set(MIXXX_INSTALL_DOCDIR "./doc")
+set(MIXXX_INSTALL_LICENSEDIR "./doc")
+if(APPLE AND MACOS_BUNDLE)
+  set(MIXXX_INSTALL_BINDIR "${CMAKE_INSTALL_BINDIR}")
+  set(
+    MACOS_BUNDLE_NAME
+    Mixxx
+    CACHE STRING
+    "The macOS app bundle and executable name"
+  )
+  set(
+    MACOS_BUNDLE_IDENTIFIER
+    org.mixxx.mixxx
+    CACHE STRING
+    "The macOS app bundle identifier"
+  )
+  set(MIXXX_INSTALL_PREFIX "${MACOS_BUNDLE_NAME}.app")
+  set(MIXXX_INSTALL_DATADIR "${MIXXX_INSTALL_PREFIX}/Contents/Resources")
+  set(MIXXX_INSTALL_DOCDIR "${MIXXX_INSTALL_DATADIR}")
+  set(MIXXX_INSTALL_LICENSEDIR "${MIXXX_INSTALL_DATADIR}/licenses")
+elseif(APPLE AND IOS)
+  set(MIXXX_INSTALL_BINDIR "${CMAKE_INSTALL_BINDIR}")
+  set(
+    IOS_BUNDLE_NAME
+    Mixxx
+    CACHE STRING
+    "The iOS app bundle and executable name"
+  )
+  set(
+    IOS_BUNDLE_IDENTIFIER
+    org.mixxx.mixxx
+    CACHE STRING
+    "The iOS app bundle identifier"
+  )
+elseif(UNIX)
+  set(MIXXX_INSTALL_BINDIR "${CMAKE_INSTALL_BINDIR}")
+  set(MIXXX_INSTALL_DATADIR "${CMAKE_INSTALL_DATADIR}/${CMAKE_PROJECT_NAME}")
+  set(MIXXX_INSTALL_DOCDIR "${CMAKE_INSTALL_DOCDIR}")
+  set(MIXXX_INSTALL_LICENSEDIR "${CMAKE_INSTALL_DOCDIR}")
+endif()
+
+if(WIN32)
+  target_compile_definitions(mixxx-lib PUBLIC __WINDOWS__)
+
+  # Helps prevent duplicate symbols
+  target_compile_definitions(mixxx-lib PUBLIC _ATL_MIN_CRT)
+
+  # Need this on Windows until we have UTF16 support in Mixxx use stl min max
+  # defines
+  # http://connect.microsoft.com/VisualStudio/feedback/details/553420/std-cpp-
+  # max-and-std-cpp-min-not-available-in-visual-c-2010
+  target_compile_definitions(mixxx-lib PUBLIC NOMINMAX UNICODE)
+
+  # shoutidjc/shout.h checks for WIN32 to see if we are on Windows.
+  target_compile_definitions(mixxx-lib PUBLIC WIN32)
+
+  target_link_libraries(mixxx-lib PRIVATE comctl32 shell32)
+
+  if(MSVC)
+    target_link_options(mixxx-lib PUBLIC /entry:mainCRTStartup)
+    # Force MSVS to generate a manifest (MSVC2010)
+    target_link_options(mixxx-lib PUBLIC /manifest)
+  endif()
+elseif(UNIX)
+  if(APPLE)
+    target_compile_definitions(mixxx-lib PUBLIC __APPLE__)
+  elseif(ANDROID)
+    target_compile_definitions(mixxx-lib PUBLIC __ANDROID__)
+  else()
+    target_compile_definitions(mixxx-lib PUBLIC __UNIX__)
+    if(CMAKE_SYSTEM_NAME STREQUAL Linux)
+      target_compile_definitions(mixxx-lib PUBLIC __LINUX__)
+    elseif(CMAKE_SYSTEM_NAME MATCHES "^.*BSD$")
+      target_compile_definitions(mixxx-lib PUBLIC __BSD__)
+    endif()
+  endif()
+endif()
+
+# --- BEGIN RELOCATED BUILD SETUP ---
+function(fatal_error_missing_env)
+  if(WIN32)
+    if(CMAKE_BUILD_TYPE MATCHES "Debug")
+      message(
+        FATAL_ERROR
+        "Did you download the Mixxx build environment using `${CMAKE_SOURCE_DIR}/tools/windows_buildenv.bat`?"
+      )
+    else()
+      message(
+        FATAL_ERROR
+        "Did you download the Mixxx build environment using `${CMAKE_SOURCE_DIR}/tools/windows_release_buildenv.bat` or `${CMAKE_SOURCE_DIR}/tools/windows_buildenv.bat`(includes Debug)?"
+      )
+    endif()
+  elseif(APPLE AND NOT IOS)
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
+      message(
+        FATAL_ERROR
+        "Did you build the Mixxx build environment as described here: https://github.com/mixxxdj/mixxx/wiki/Compiling-dependencies-for-macOS-arm64?"
+      )
+    elseif(CMAKE_BUILD_TYPE MATCHES "Debug")
+      message(
+        FATAL_ERROR
+        "Did you download the Mixxx build environment using `source ${CMAKE_SOURCE_DIR}/tools/macos_buildenv.sh setup`"
+      )
+    else()
+      message(
+        FATAL_ERROR
+        "Did you download the Mixxx build environment using `source ${CMAKE_SOURCE_DIR}/tools/macos_release_buildenv.sh setup` or `source ${CMAKE_SOURCE_DIR}/tools/macos_buildenv.sh setup` (includes Debug)?"
+      )
+    endif()
+  elseif(UNIX AND NOT APPLE AND NOT ANDROID)
+    # Linux, BSD, Solaris, Minix
+    if(EXISTS "/etc/debian_version") # exists also on Ubuntu and Mint
+      message(
+        FATAL_ERROR
+        "Did you install the required Debian dev packages via `${CMAKE_SOURCE_DIR}/tools/debian_buildenv.sh setup`?"
+      )
+    elseif(EXISTS "/etc/redhat-release") # exists also on Fedora Mageia Madndriva Alma CentOS
+      message(
+        FATAL_ERROR
+        "Did you install the required RPM dev packages via `${CMAKE_SOURCE_DIR}/tools/rpm_buildenv.sh setup`?"
+      )
+    else()
+      message(
+        FATAL_ERROR
+        "Did you install the equivalent dev packages listed in `${CMAKE_SOURCE_DIR}/tools/debian_buildenv.sh setup`?"
+      )
+    endif()
+  elseif(DEFINED VCPKG_TARGET_TRIPLET)
+    message(
+      FATAL_ERROR
+      "You are targeting ${VCPKG_TARGET_TRIPLET}, which does not have a prebuilt environment. Please make sure that -DMIXXX_VCPKG_ROOT points to a vcpkg environment containing installed dependencies for ${VCPKG_TARGET_TRIPLET}!"
+    )
+  else()
+    message(
+      FATAL_ERROR
+      "You are building for an unknown platform and are missing a build environment. Please set -DVCPKG_TARGET_TRIPLET and make sure that -DMIXXX_VCPKG_ROOT points to a vcpkg environment containing installed dependencies for your target platform!"
+    )
+  endif()
+endfunction()
+
+# We use here ENV{MIXXX_VCPKG_ROOT} as a workaround to find the overlay folders
+# in manifest mode https://github.com/microsoft/vcpkg/issues/12289.
+# Note: VCPKG_ROOT, the default location for the vcpkg cli tool is later
+# adjusted by CMAKE_TOOLCHAIN_FILE.
+if(DEFINED ENV{MIXXX_VCPKG_ROOT} AND NOT DEFINED MIXXX_VCPKG_ROOT)
+  set(MIXXX_VCPKG_ROOT "$ENV{MIXXX_VCPKG_ROOT}")
+endif()
+
+if(DEFINED MIXXX_VCPKG_ROOT)
+  if(
+    EXISTS "${MIXXX_VCPKG_ROOT}/overlay/ports"
+    OR NOT EXISTS "${MIXXX_VCPKG_ROOT}/ports"
+  )
+    # MIXXX_VCPKG_ROOT points to our vcpkg environment
+    # and we configure the CMAKE_TOOLCHAIN_FILE and overlays accordingly
+    message(STATUS "Using MIXXX_VCPKG_ROOT: ${MIXXX_VCPKG_ROOT}")
+  else()
+    message(
+      STATUS
+      "MIXXX_VCPKG_ROOT not correct (missing ${MIXXX_VCPKG_ROOT}/overlay/ports)"
+    )
+    fatal_error_missing_env()
+  endif()
+
+  if(NOT DEFINED VCPKG_OVERLAY_PORTS)
+    # required for manifest mode
+    set(VCPKG_OVERLAY_PORTS "${MIXXX_VCPKG_ROOT}/overlay/ports")
+    if(APPLE)
+      list(APPEND VCPKG_OVERLAY_PORTS "${MIXXX_VCPKG_ROOT}/overlay/osx")
+    elseif(WIN32)
+      list(APPEND VCPKG_OVERLAY_PORTS "${MIXXX_VCPKG_ROOT}/overlay/windows")
+    endif()
+  endif()
+
+  if(NOT DEFINED VCPKG_OVERLAY_TRIPLETS)
+    # required for manifest mode
+    set(VCPKG_OVERLAY_TRIPLETS "${MIXXX_VCPKG_ROOT}/overlay/triplets")
+  endif()
+
+  if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+    set(
+      CMAKE_TOOLCHAIN_FILE
+      "${MIXXX_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+      CACHE STRING
+      ""
+    )
+  endif()
+endif()
+
+if(NOT DEFINED VCPKG_TARGET_TRIPLET)
+  if(DEFINED ENV{VCPKG_TARGET_TRIPLET})
+    set(VCPKG_TARGET_TRIPLET "$ENV{VCPKG_TARGET_TRIPLET}")
+  elseif(DEFINED ENV{VCPKG_DEFAULT_TRIPLET})
+    set(VCPKG_TARGET_TRIPLET "$ENV{VCPKG_DEFAULT_TRIPLET}")
+  endif()
+
+if(
+  ((APPLE AND NOT IOS) OR WIN32 OR ANDROID)
+  AND NOT IS_DIRECTORY "${MIXXX_VCPKG_ROOT}"
+)
+  if(NOT DEFINED BUILDENV_BASEPATH)
+    if(DEFINED ENV{BUILDENV_BASEPATH})
+      set(BUILDENV_BASEPATH "$ENV{BUILDENV_BASEPATH}")
+    else()
+      set(BUILDENV_BASEPATH "${CMAKE_SOURCE_DIR}/buildenv")
+    endif()
+
 if(UNIX AND NOT APPLE)
   target_sources(mixxx-lib PRIVATE src/util/rlimit.cpp)
   set(MIXXX_SETTINGS_PATH ".mixxx/")
@@ -1737,89 +1967,39 @@ if(WIN32)
     target_compile_definitions(mixxx-lib PUBLIC _USE_MATH_DEFINES)
   endif()
 endif()
-
-#
-# Installation directories
-#
-set(MIXXX_INSTALL_BINDIR ".")
-set(MIXXX_INSTALL_DATADIR ".")
-set(MIXXX_INSTALL_DOCDIR "./doc")
-set(MIXXX_INSTALL_LICENSEDIR "./doc")
-if(APPLE AND MACOS_BUNDLE)
-  set(MIXXX_INSTALL_BINDIR "${CMAKE_INSTALL_BINDIR}")
-  set(
-    MACOS_BUNDLE_NAME
-    Mixxx
-    CACHE STRING
-    "The macOS app bundle and executable name"
-  )
-  set(
-    MACOS_BUNDLE_IDENTIFIER
-    org.mixxx.mixxx
-    CACHE STRING
-    "The macOS app bundle identifier"
-  )
-  set(MIXXX_INSTALL_PREFIX "${MACOS_BUNDLE_NAME}.app")
-  set(MIXXX_INSTALL_DATADIR "${MIXXX_INSTALL_PREFIX}/Contents/Resources")
-  set(MIXXX_INSTALL_DOCDIR "${MIXXX_INSTALL_DATADIR}")
-  set(MIXXX_INSTALL_LICENSEDIR "${MIXXX_INSTALL_DATADIR}/licenses")
-elseif(APPLE AND IOS)
-  set(MIXXX_INSTALL_BINDIR "${CMAKE_INSTALL_BINDIR}")
-  set(
-    IOS_BUNDLE_NAME
-    Mixxx
-    CACHE STRING
-    "The iOS app bundle and executable name"
-  )
-  set(
-    IOS_BUNDLE_IDENTIFIER
-    org.mixxx.mixxx
-    CACHE STRING
-    "The iOS app bundle identifier"
-  )
-elseif(UNIX)
-  set(MIXXX_INSTALL_BINDIR "${CMAKE_INSTALL_BINDIR}")
-  set(MIXXX_INSTALL_DATADIR "${CMAKE_INSTALL_DATADIR}/${CMAKE_PROJECT_NAME}")
-  set(MIXXX_INSTALL_DOCDIR "${CMAKE_INSTALL_DOCDIR}")
-  set(MIXXX_INSTALL_LICENSEDIR "${CMAKE_INSTALL_DOCDIR}")
+set(default_build_type "RelWithDebInfo")
+if(EXISTS "${CMAKE_SOURCE_DIR}/.git" AND NOT WIN32 AND NOT ANDROID)
+  # On Windows and Android, Debug builds are linked to unoptimized libs
+  # generating unusable slow Mixxx builds.
+  set(default_build_type "Debug")
 endif()
 
-if(WIN32)
-  target_compile_definitions(mixxx-lib PUBLIC __WINDOWS__)
-
-  # Helps prevent duplicate symbols
-  target_compile_definitions(mixxx-lib PUBLIC _ATL_MIN_CRT)
-
-  # Need this on Windows until we have UTF16 support in Mixxx use stl min max
-  # defines
-  # http://connect.microsoft.com/VisualStudio/feedback/details/553420/std-cpp-
-  # max-and-std-cpp-min-not-available-in-visual-c-2010
-  target_compile_definitions(mixxx-lib PUBLIC NOMINMAX UNICODE)
-
-  # shoutidjc/shout.h checks for WIN32 to see if we are on Windows.
-  target_compile_definitions(mixxx-lib PUBLIC WIN32)
-
-  target_link_libraries(mixxx-lib PRIVATE comctl32 shell32)
-
-  if(MSVC)
-    target_link_options(mixxx-lib PUBLIC /entry:mainCRTStartup)
-    # Force MSVS to generate a manifest (MSVC2010)
-    target_link_options(mixxx-lib PUBLIC /manifest)
-  endif()
-elseif(UNIX)
-  if(APPLE)
-    target_compile_definitions(mixxx-lib PUBLIC __APPLE__)
-  elseif(ANDROID)
-    target_compile_definitions(mixxx-lib PUBLIC __ANDROID__)
-  else()
-    target_compile_definitions(mixxx-lib PUBLIC __UNIX__)
-    if(CMAKE_SYSTEM_NAME STREQUAL Linux)
-      target_compile_definitions(mixxx-lib PUBLIC __LINUX__)
-    elseif(CMAKE_SYSTEM_NAME MATCHES "^.*BSD$")
-      target_compile_definitions(mixxx-lib PUBLIC __BSD__)
-    endif()
+if(NOT CMAKE_CONFIGURATION_TYPES)
+  if(NOT CMAKE_BUILD_TYPE)
+    message(
+      STATUS
+      "Setting CMAKE_BUILD_TYPE to '${default_build_type}' as none was specified."
+    )
+    set(
+      CMAKE_BUILD_TYPE
+      "${default_build_type}"
+      CACHE STRING
+      "Choose the type of build."
+      FORCE
+    )
+    # Set the possible values of build type for cmake-gui
+    set_property(
+      CACHE CMAKE_BUILD_TYPE
+      PROPERTY STRINGS "Debug" "Release" "RelWithDebInfo"
+    )
+  elseif(NOT CMAKE_BUILD_TYPE MATCHES "^(Debug|Release|RelWithDebInfo)$")
+    message(
+      FATAL_ERROR
+      "CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} is not supported, use one of Debug, Release or RelWithDebInfo."
+    )
   endif()
 endif()
+# --- END RELOCATED BUILD SETUP ---
 
 # The mixxx executable
 if(QT6)
@@ -2741,16 +2921,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL Android)
   )
 endif()
 
-if(
-  ((APPLE AND NOT IOS) OR WIN32 OR ANDROID)
-  AND NOT IS_DIRECTORY "${MIXXX_VCPKG_ROOT}"
-)
-  if(NOT DEFINED BUILDENV_BASEPATH)
-    if(DEFINED ENV{BUILDENV_BASEPATH})
-      set(BUILDENV_BASEPATH "$ENV{BUILDENV_BASEPATH}")
-    else()
-      set(BUILDENV_BASEPATH "${CMAKE_SOURCE_DIR}/buildenv")
-    endif()
   endif()
 
   if(NOT DEFINED BUILDENV_URL)
@@ -2838,66 +3008,6 @@ endif()
 
 # Use this function to throw an error because the build environment is not set
 # up correctly.
-function(fatal_error_missing_env)
-  if(WIN32)
-    if(CMAKE_BUILD_TYPE MATCHES "Debug")
-      message(
-        FATAL_ERROR
-        "Did you download the Mixxx build environment using `${CMAKE_SOURCE_DIR}/tools/windows_buildenv.bat`?"
-      )
-    else()
-      message(
-        FATAL_ERROR
-        "Did you download the Mixxx build environment using `${CMAKE_SOURCE_DIR}/tools/windows_release_buildenv.bat` or `${CMAKE_SOURCE_DIR}/tools/windows_buildenv.bat`(includes Debug)?"
-      )
-    endif()
-  elseif(APPLE AND NOT IOS)
-    if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
-      message(
-        FATAL_ERROR
-        "Did you build the Mixxx build environment as described here: https://github.com/mixxxdj/mixxx/wiki/Compiling-dependencies-for-macOS-arm64?"
-      )
-    elseif(CMAKE_BUILD_TYPE MATCHES "Debug")
-      message(
-        FATAL_ERROR
-        "Did you download the Mixxx build environment using `source ${CMAKE_SOURCE_DIR}/tools/macos_buildenv.sh setup`"
-      )
-    else()
-      message(
-        FATAL_ERROR
-        "Did you download the Mixxx build environment using `source ${CMAKE_SOURCE_DIR}/tools/macos_release_buildenv.sh setup` or `source ${CMAKE_SOURCE_DIR}/tools/macos_buildenv.sh setup` (includes Debug)?"
-      )
-    endif()
-  elseif(UNIX AND NOT APPLE AND NOT ANDROID)
-    # Linux, BSD, Solaris, Minix
-    if(EXISTS "/etc/debian_version") # exists also on Ubuntu and Mint
-      message(
-        FATAL_ERROR
-        "Did you install the required Debian dev packages via `${CMAKE_SOURCE_DIR}/tools/debian_buildenv.sh setup`?"
-      )
-    elseif(EXISTS "/etc/redhat-release") # exists also on Fedora Mageia Madndriva Alma CentOS
-      message(
-        FATAL_ERROR
-        "Did you install the required RPM dev packages via `${CMAKE_SOURCE_DIR}/tools/rpm_buildenv.sh setup`?"
-      )
-    else()
-      message(
-        FATAL_ERROR
-        "Did you install the equivalent dev packages listed in `${CMAKE_SOURCE_DIR}/tools/debian_buildenv.sh setup`?"
-      )
-    endif()
-  elseif(DEFINED VCPKG_TARGET_TRIPLET)
-    message(
-      FATAL_ERROR
-      "You are targeting ${VCPKG_TARGET_TRIPLET}, which does not have a prebuilt environment. Please make sure that -DMIXXX_VCPKG_ROOT points to a vcpkg environment containing installed dependencies for ${VCPKG_TARGET_TRIPLET}!"
-    )
-  else()
-    message(
-      FATAL_ERROR
-      "You are building for an unknown platform and are missing a build environment. Please set -DVCPKG_TARGET_TRIPLET and make sure that -DMIXXX_VCPKG_ROOT points to a vcpkg environment containing installed dependencies for your target platform!"
-    )
-  endif()
-endfunction()
 
 if(UNIX AND NOT APPLE)
   execute_process(
@@ -2931,61 +3041,6 @@ if(WIN32)
   endif()
 endif()
 
-# We use here ENV{MIXXX_VCPKG_ROOT} as a workaround to find the overlay folders
-# in manifest mode https://github.com/microsoft/vcpkg/issues/12289.
-# Note: VCPKG_ROOT, the default location for the vcpkg cli tool is later
-# adjusted by CMAKE_TOOLCHAIN_FILE.
-if(DEFINED ENV{MIXXX_VCPKG_ROOT} AND NOT DEFINED MIXXX_VCPKG_ROOT)
-  set(MIXXX_VCPKG_ROOT "$ENV{MIXXX_VCPKG_ROOT}")
-endif()
-
-if(DEFINED MIXXX_VCPKG_ROOT)
-  if(
-    EXISTS "${MIXXX_VCPKG_ROOT}/overlay/ports"
-    OR NOT EXISTS "${MIXXX_VCPKG_ROOT}/ports"
-  )
-    # MIXXX_VCPKG_ROOT points to our vcpkg environment
-    # and we configure the CMAKE_TOOLCHAIN_FILE and overlays accordingly
-    message(STATUS "Using MIXXX_VCPKG_ROOT: ${MIXXX_VCPKG_ROOT}")
-  else()
-    message(
-      STATUS
-      "MIXXX_VCPKG_ROOT not correct (missing ${MIXXX_VCPKG_ROOT}/overlay/ports)"
-    )
-    fatal_error_missing_env()
-  endif()
-
-  if(NOT DEFINED VCPKG_OVERLAY_PORTS)
-    # required for manifest mode
-    set(VCPKG_OVERLAY_PORTS "${MIXXX_VCPKG_ROOT}/overlay/ports")
-    if(APPLE)
-      list(APPEND VCPKG_OVERLAY_PORTS "${MIXXX_VCPKG_ROOT}/overlay/osx")
-    elseif(WIN32)
-      list(APPEND VCPKG_OVERLAY_PORTS "${MIXXX_VCPKG_ROOT}/overlay/windows")
-    endif()
-  endif()
-
-  if(NOT DEFINED VCPKG_OVERLAY_TRIPLETS)
-    # required for manifest mode
-    set(VCPKG_OVERLAY_TRIPLETS "${MIXXX_VCPKG_ROOT}/overlay/triplets")
-  endif()
-
-  if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
-    set(
-      CMAKE_TOOLCHAIN_FILE
-      "${MIXXX_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-      CACHE STRING
-      ""
-    )
-  endif()
-endif()
-
-if(NOT DEFINED VCPKG_TARGET_TRIPLET)
-  if(DEFINED ENV{VCPKG_TARGET_TRIPLET})
-    set(VCPKG_TARGET_TRIPLET "$ENV{VCPKG_TARGET_TRIPLET}")
-  elseif(DEFINED ENV{VCPKG_DEFAULT_TRIPLET})
-    set(VCPKG_TARGET_TRIPLET "$ENV{VCPKG_DEFAULT_TRIPLET}")
-  endif()
 endif()
 set(
   X_VCPKG_APPLOCAL_DEPS_INSTALL
@@ -2997,38 +3052,6 @@ set(
 
 # Set a default build type if none was specified
 # See https://blog.kitware.com/cmake-and-the-default-build-type/ for details.
-set(default_build_type "RelWithDebInfo")
-if(EXISTS "${CMAKE_SOURCE_DIR}/.git" AND NOT WIN32 AND NOT ANDROID)
-  # On Windows and Android, Debug builds are linked to unoptimized libs
-  # generating unusable slow Mixxx builds.
-  set(default_build_type "Debug")
-endif()
-
-if(NOT CMAKE_CONFIGURATION_TYPES)
-  if(NOT CMAKE_BUILD_TYPE)
-    message(
-      STATUS
-      "Setting CMAKE_BUILD_TYPE to '${default_build_type}' as none was specified."
-    )
-    set(
-      CMAKE_BUILD_TYPE
-      "${default_build_type}"
-      CACHE STRING
-      "Choose the type of build."
-      FORCE
-    )
-    # Set the possible values of build type for cmake-gui
-    set_property(
-      CACHE CMAKE_BUILD_TYPE
-      PROPERTY STRINGS "Debug" "Release" "RelWithDebInfo"
-    )
-  elseif(NOT CMAKE_BUILD_TYPE MATCHES "^(Debug|Release|RelWithDebInfo)$")
-    message(
-      FATAL_ERROR
-      "CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} is not supported, use one of Debug, Release or RelWithDebInfo."
-    )
-  endif()
-endif()
 
 option(QT6 "Build with Qt6" ON)
 option(NETWORKAUTH "Enable Spotify and YouTube features" OFF)
