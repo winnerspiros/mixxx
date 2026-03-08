@@ -122,7 +122,11 @@ int runMixxx(MixxxApplication* pApp, const CmdlineArgs& args) {
 #ifdef Q_OS_ANDROID
             mainWindow.showMaximized();
 #else
+#ifdef Q_OS_ANDROID
+            mainWindow.showMaximized();
+#else
             mainWindow.show();
+#endif
 #endif
 
             qDebug() << "Running Mixxx";

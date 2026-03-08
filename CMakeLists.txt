@@ -4,522 +4,6 @@ cmake_minimum_required(VERSION 3.21)
 project(mixxx VERSION 2.7.0 LANGUAGES C CXX)
 
 set(MIXXX_VERSION_PRERELEASE "alpha") # set to "alpha" "beta" or ""
-if(MIXXX_VERSION_PRERELEASE STREQUAL "")
-  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}")
-else()
-  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}-${MIXXX_VERSION_PRERELEASE}")
-endif()
-
-# lint_cmake: -readability/wonkycase
-
-message(STATUS "CMAKE_VERSION: ${CMAKE_VERSION}")
-
-# CMAKE_CXX_COMPILER_ID: Distinguish between "AppleClang" and "Clang"
-if(POLICY CMP0025)
-  cmake_policy(SET CMP0025 NEW)
-endif()
-
-# MACOSX_RPATH is set by default
-if(POLICY CMP0042)
-  cmake_policy(SET CMP0042 NEW)
-endif()
-
-# Support new IN_LIST if() operator
-if(POLICY CMP0057)
-  cmake_policy(SET CMP0057 NEW)
-endif()
-
-# Enforce interprocedural optimization
-if(POLICY CMP0069)
-  cmake_policy(SET CMP0069 NEW)
-endif()
-
-# Let AUTOMOC and AUTOUIC process GENERATED files
-if(POLICY CMP0071)
-  cmake_policy(SET CMP0071 NEW)
-endif()
-
-# Propagate interface link properties
-if(POLICY CMP0099)
-  # This avoids a warning when qt deals with different behaviours controlled by this policy
-  # in its cmake functions. See
-  # https://github.com/qt/qtbase/commit/e3e1007f9778d8fc629a06f7d3d216bb7f81351b
-  cmake_policy(SET CMP0099 NEW)
-endif()
-
-# Add support for cmake_dependent_option
-if(POLICY CMP0127)
-  cmake_policy(SET CMP0127 NEW)
-endif()
-
-# An imported target missing its location property fails during generation.
-if(POLICY CMP0111)
-  cmake_policy(SET CMP0111 NEW)
-endif()
-
-# Set the timestamp of extracted files to the time of the extraction instead of
-# the archived timestamp to make sure that dependent files are rebuilt if the
-# URL changes.
-if(POLICY CMP0135)
-  cmake_policy(SET CMP0135 NEW)
-endif()
-
-if(CMAKE_SYSTEM_NAME STREQUAL Android)
-  set(SOURCE_TARGET mixxx)
-  if(NOT DEFINED ENV{JAVA_HOME})
-    message(FATAL_ERROR "JAVA_HOME is not set. Did you source the setup file?")
-  endif()
-  if((NOT CMAKE_ANDROID_NDK) AND DEFINED ENV{ANDROID_NDK_HOME})
-    set(CMAKE_ANDROID_NDK "$ENV{ANDROID_NDK_HOME}")
-  endif()
-  set(ANDROID ON)
-  if(DEFINED ENV{QT_ANDROID_KEYSTORE_PATH})
-    set(QT_ANDROID_SIGN_APK ON)
-  endif()
-
-  set(QT_ANDROID_APP_PATH "$<TARGET_FILE:${SOURCE_TARGET}>")
-  set(
-    QT_ANDROID_APP_PACKAGE_SOURCE_ROOT
-    "${CMAKE_SOURCE_DIR}/packaging/android"
-  )
-
-  if((NOT ANDROID_SDK_ROOT) AND DEFINED ENV{ANDROID_SDK})
-    set(ANDROID_SDK_ROOT "$ENV{ANDROID_SDK}")
-  endif()
-  set(ANDROID_ABI arm64-v8a)
-  set(ANDROID_NDK_HOST_SYSTEM_NAME linux-x86_64)
-  set(CMAKE_SYSTEM_VERSION 35) # API level
-  set(ANDROID_PLATFORM "android-${CMAKE_SYSTEM_VERSION}")
-  set(ANDROID_API_VERSION "android-${CMAKE_SYSTEM_VERSION}")
-  set(CMAKE_ANDROID_ARCH_ABI "${ANDROID_ABI}") # or x86_64, armeabi-v7a, etc.
-  set(CMAKE_ANDROID_NDK_TOOLCHAIN_VERSION clang)
-  set(CMAKE_ANDROID_STL_TYPE c++_shared)
-  set(
-    CMAKE_SYSROOT
-    "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/sysroot"
-  )
-  include_directories(
-    BEFORE
-    SYSTEM
-    "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/sysroot/usr/include/"
-  )
-  set(
-    CMAKE_LIBRARY_PATH
-    "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/sysroot/usr/lib/aarch64-linux-android/${CMAKE_SYSTEM_VERSION}/;${CMAKE_LIBRARY_PATH}"
-  )
-endif()
-
-if(
-  ((APPLE AND NOT IOS) OR WIN32 OR ANDROID)
-  AND NOT IS_DIRECTORY "${MIXXX_VCPKG_ROOT}"
-)
-  if(NOT DEFINED BUILDENV_BASEPATH)
-    if(DEFINED ENV{BUILDENV_BASEPATH})
-      set(BUILDENV_BASEPATH "$ENV{BUILDENV_BASEPATH}")
-    else()
-      set(BUILDENV_BASEPATH "${CMAKE_SOURCE_DIR}/buildenv")
-    endif()
-  endif()
-
-  if(NOT DEFINED BUILDENV_URL)
-    if(DEFINED ENV{BUILDENV_URL})
-      set(BUILDENV_URL "$ENV{BUILDENV_URL}")
-    elseif(NOT DEFINED BUILDENV_URL)
-      message(FATAL_ERROR "BUILDENV_URL not specified")
-    endif()
-  endif()
-
-  # Extract the filename from the URL
-  get_filename_component(FILENAME_WITH_EXTENSION "${BUILDENV_URL}" NAME)
-
-  # Remove the extension from the filename (note that our buildenv names contain two dots)
-  string(
-    REGEX REPLACE
-    "\\.[^.]*$"
-    ""
-    BUILDENV_NAME
-    "${FILENAME_WITH_EXTENSION}"
-  )
-
-  message(STATUS "BUILDENV_NAME is: ${BUILDENV_NAME}")
-
-  if(
-    NOT EXISTS "${BUILDENV_BASEPATH}/${BUILDENV_NAME}"
-    OR NOT IS_DIRECTORY "${BUILDENV_BASEPATH}/${BUILDENV_NAME}"
-  )
-    if(NOT DEFINED BUILDENV_SHA256)
-      if(DEFINED ENV{BUILDENV_SHA256})
-        set(BUILDENV_SHA256 "$ENV{BUILDENV_SHA256}")
-      elseif(NOT DEFINED BUILDENV_SHA256)
-        message(STATUS "BUILDENV_SHA256 not specified")
-      endif()
-    endif()
-
-    if(NOT EXISTS "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip")
-      message(
-        STATUS
-        "Downloading file ${BUILDENV_URL} to ${BUILDENV_BASEPATH} ..."
-      )
-      file(
-        DOWNLOAD ${BUILDENV_URL} "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip"
-        SHOW_PROGRESS
-        TLS_VERIFY ON
-      )
-    else()
-      # Reference to suppress intentionally unused variable warnings
-      set(_dummy "${BUILDENV_URL}")
-    endif()
-
-    if(NOT "${BUILDENV_SHA256}" STREQUAL "")
-      message(
-        STATUS
-        "Verify SHA256 of downloaded file ${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip ..."
-      )
-      file(SHA256 "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip" actual_sha256)
-
-      if(NOT actual_sha256 STREQUAL ${BUILDENV_SHA256})
-        message(
-          FATAL_ERROR
-          "SHA256 checksum mismatch:\nexpected: ${BUILDENV_SHA256}\n     got: ${actual_sha256}"
-        )
-      else()
-        message(STATUS "SHA256 ${BUILDENV_SHA256} is correct!")
-      endif()
-    endif()
-
-    message(
-      STATUS
-      "Unpacking file ${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip ..."
-    )
-    execute_process(
-      COMMAND ${CMAKE_COMMAND} -E tar xzf "${BUILDENV_NAME}.zip"
-      WORKING_DIRECTORY ${BUILDENV_BASEPATH}
-    )
-  else()
-    # Reference to suppress intentionally unused variable warnings
-    set(_dummy "${BUILDENV_SHA256}")
-  endif()
-else()
-  # Reference to suppress intentionally unused variable warnings
-  set(_dummy "${BUILDENV_URL} ${BUILDENV_BASEPATH} ${BUILDENV_SHA256}")
-endif()
-
-# Use this function to throw an error because the build environment is not set
-# up correctly.
-function(fatal_error_missing_env)
-  if(WIN32)
-    if(CMAKE_BUILD_TYPE MATCHES "Debug")
-      message(
-        FATAL_ERROR
-        "Did you download the Mixxx build environment using `${CMAKE_SOURCE_DIR}/tools/windows_buildenv.bat`?"
-      )
-    else()
-      message(
-        FATAL_ERROR
-        "Did you download the Mixxx build environment using `${CMAKE_SOURCE_DIR}/tools/windows_release_buildenv.bat` or `${CMAKE_SOURCE_DIR}/tools/windows_buildenv.bat`(includes Debug)?"
-      )
-    endif()
-  elseif(APPLE AND NOT IOS)
-    if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
-      message(
-        FATAL_ERROR
-        "Did you build the Mixxx build environment as described here: https://github.com/mixxxdj/mixxx/wiki/Compiling-dependencies-for-macOS-arm64?"
-      )
-    elseif(CMAKE_BUILD_TYPE MATCHES "Debug")
-      message(
-        FATAL_ERROR
-        "Did you download the Mixxx build environment using `source ${CMAKE_SOURCE_DIR}/tools/macos_buildenv.sh setup`"
-      )
-    else()
-      message(
-        FATAL_ERROR
-        "Did you download the Mixxx build environment using `source ${CMAKE_SOURCE_DIR}/tools/macos_release_buildenv.sh setup` or `source ${CMAKE_SOURCE_DIR}/tools/macos_buildenv.sh setup` (includes Debug)?"
-      )
-    endif()
-  elseif(UNIX AND NOT APPLE AND NOT ANDROID)
-    # Linux, BSD, Solaris, Minix
-    if(EXISTS "/etc/debian_version") # exists also on Ubuntu and Mint
-      message(
-        FATAL_ERROR
-        "Did you install the required Debian dev packages via `${CMAKE_SOURCE_DIR}/tools/debian_buildenv.sh setup`?"
-      )
-    elseif(EXISTS "/etc/redhat-release") # exists also on Fedora Mageia Madndriva Alma CentOS
-      message(
-        FATAL_ERROR
-        "Did you install the required RPM dev packages via `${CMAKE_SOURCE_DIR}/tools/rpm_buildenv.sh setup`?"
-      )
-    else()
-      message(
-        FATAL_ERROR
-        "Did you install the equivalent dev packages listed in `${CMAKE_SOURCE_DIR}/tools/debian_buildenv.sh setup`?"
-      )
-    endif()
-  elseif(DEFINED VCPKG_TARGET_TRIPLET)
-    message(
-      FATAL_ERROR
-      "You are targeting ${VCPKG_TARGET_TRIPLET}, which does not have a prebuilt environment. Please make sure that -DMIXXX_VCPKG_ROOT points to a vcpkg environment containing installed dependencies for ${VCPKG_TARGET_TRIPLET}!"
-    )
-  else()
-    message(
-      FATAL_ERROR
-      "You are building for an unknown platform and are missing a build environment. Please set -DVCPKG_TARGET_TRIPLET and make sure that -DMIXXX_VCPKG_ROOT points to a vcpkg environment containing installed dependencies for your target platform!"
-    )
-  endif()
-endfunction()
-
-if(UNIX AND NOT APPLE)
-  execute_process(
-    COMMAND uname -r
-    OUTPUT_VARIABLE UNAME_R
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-  )
-  if(UNAME_R MATCHES ".*[Mm]icrosoft.*" OR UNAME_R MATCHES ".*WSL.*")
-    message(
-      FATAL_ERROR
-      "Building on Windows Subsystem for Linux (WSL) is not supported. If you want to build Mixxx from command line on Windows, you need to use the \"x64 Native Tools Command Prompt for VS 2022\"!"
-    )
-  endif()
-endif()
-if(WIN32)
-  # Check if we are running from "Visual Studio 20XX Developer Command Prompt"
-  if(NOT DEFINED ENV{INCLUDE})
-    message(
-      FATAL_ERROR
-      "The INCLUDE environment variable is not defined. Please ensure you are using the correct shell like 'x64 Native Tools Command Prompt for VS 20XX'"
-    )
-  endif()
-endif()
-if(WIN32)
-  # Check if we are running from "Visual Studio 20XX Developer Command Prompt"
-  if(NOT DEFINED ENV{INCLUDE})
-    message(
-      FATAL_ERROR
-      "The INCLUDE environment variable is not defined. Please ensure you are using the correct shell like 'x64 Native Tools Command Prompt for VS 20XX'"
-    )
-  endif()
-endif()
-
-# We use here ENV{MIXXX_VCPKG_ROOT} as a workaround to find the overlay folders
-# in manifest mode https://github.com/microsoft/vcpkg/issues/12289.
-# Note: VCPKG_ROOT, the default location for the vcpkg cli tool is later
-# adjusted by CMAKE_TOOLCHAIN_FILE.
-if(DEFINED ENV{MIXXX_VCPKG_ROOT} AND NOT DEFINED MIXXX_VCPKG_ROOT)
-  set(MIXXX_VCPKG_ROOT "$ENV{MIXXX_VCPKG_ROOT}")
-endif()
-
-if(DEFINED MIXXX_VCPKG_ROOT)
-  if(
-    EXISTS "${MIXXX_VCPKG_ROOT}/overlay/ports"
-    OR NOT EXISTS "${MIXXX_VCPKG_ROOT}/ports"
-  )
-    # MIXXX_VCPKG_ROOT points to our vcpkg environment
-    # and we configure the CMAKE_TOOLCHAIN_FILE and overlays accordingly
-    message(STATUS "Using MIXXX_VCPKG_ROOT: ${MIXXX_VCPKG_ROOT}")
-  else()
-    message(
-      STATUS
-      "MIXXX_VCPKG_ROOT not correct (missing ${MIXXX_VCPKG_ROOT}/overlay/ports)"
-    )
-    fatal_error_missing_env()
-  endif()
-
-  if(NOT DEFINED VCPKG_OVERLAY_PORTS)
-    # required for manifest mode
-    set(VCPKG_OVERLAY_PORTS "${MIXXX_VCPKG_ROOT}/overlay/ports")
-    if(APPLE)
-      list(APPEND VCPKG_OVERLAY_PORTS "${MIXXX_VCPKG_ROOT}/overlay/osx")
-    elseif(WIN32)
-      list(APPEND VCPKG_OVERLAY_PORTS "${MIXXX_VCPKG_ROOT}/overlay/windows")
-    endif()
-  endif()
-
-  if(NOT DEFINED VCPKG_OVERLAY_TRIPLETS)
-    # required for manifest mode
-    set(VCPKG_OVERLAY_TRIPLETS "${MIXXX_VCPKG_ROOT}/overlay/triplets")
-  endif()
-
-  if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
-    set(
-      CMAKE_TOOLCHAIN_FILE
-      "${MIXXX_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-      CACHE STRING
-      ""
-    )
-  endif()
-endif()
-
-if(NOT DEFINED VCPKG_TARGET_TRIPLET)
-  if(DEFINED ENV{VCPKG_TARGET_TRIPLET})
-    set(VCPKG_TARGET_TRIPLET "$ENV{VCPKG_TARGET_TRIPLET}")
-  elseif(DEFINED ENV{VCPKG_DEFAULT_TRIPLET})
-    set(VCPKG_TARGET_TRIPLET "$ENV{VCPKG_DEFAULT_TRIPLET}")
-  endif()
-endif()
-set(
-  X_VCPKG_APPLOCAL_DEPS_INSTALL
-  ON
-  CACHE BOOL
-  "Automatically copy dependencies into the install target directory for executables."
-  FORCE
-)
-
-# Set a default build type if none was specified
-# See https://blog.kitware.com/cmake-and-the-default-build-type/ for details.
-set(default_build_type "RelWithDebInfo")
-if(EXISTS "${CMAKE_SOURCE_DIR}/.git" AND NOT WIN32 AND NOT ANDROID)
-  # On Windows and Android, Debug builds are linked to unoptimized libs
-  # generating unusable slow Mixxx builds.
-  set(default_build_type "Debug")
-endif()
-
-if(NOT CMAKE_CONFIGURATION_TYPES)
-  if(NOT CMAKE_BUILD_TYPE)
-    message(
-      STATUS
-      "Setting CMAKE_BUILD_TYPE to '${default_build_type}' as none was specified."
-    )
-    set(
-      CMAKE_BUILD_TYPE
-      "${default_build_type}"
-      CACHE STRING
-      "Choose the type of build."
-      FORCE
-    )
-    # Set the possible values of build type for cmake-gui
-    set_property(
-      CACHE CMAKE_BUILD_TYPE
-      PROPERTY STRINGS "Debug" "Release" "RelWithDebInfo"
-    )
-  elseif(NOT CMAKE_BUILD_TYPE MATCHES "^(Debug|Release|RelWithDebInfo)$")
-    message(
-      FATAL_ERROR
-      "CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} is not supported, use one of Debug, Release or RelWithDebInfo."
-    )
-  endif()
-endif()
-
-include(CMakeDependentOption)
-
-option(QT6 "Build with Qt6" ON)
-option(NETWORKAUTH "Enable Spotify and YouTube features" OFF)
-cmake_dependent_option(
-  QML
-  "Build with QML"
-  ON
-  "QT6"
-  OFF
-)
-
-if(QT6)
-  set(QOPENGL ON CACHE INTERNAL "Forced ON because QT6=ON")
-else()
-  option(QOPENGL "Use QOpenGLWindow based widget instead of QGLWidget" ON)
-endif()
-
-if(QOPENGL)
-  add_compile_definitions(MIXXX_USE_QOPENGL)
-endif()
-
-if(QML)
-  add_compile_definitions(MIXXX_USE_QML)
-endif()
-
-if(VCPKG_TARGET_TRIPLET MATCHES "^wasm(32|64)-emscripten")
-  message(STATUS "Targeting Emscripten (${VCPKG_TARGET_TRIPLET})")
-  if(DEFINED ENV{EMSDK})
-    message(STATUS "Found EMSDK at $ENV{EMSDK}")
-  else()
-    message(
-      FATAL_ERROR
-      "Please make sure emsdk is installed and the environment variable EMSDK is set (see https://emscripten.org/docs/getting_started/downloads.html)"
-    )
-  endif()
-  if(NOT DEFINED VCPKG_CHAINLOAD_TOOLCHAIN_FILE)
-    set(
-      VCPKG_CHAINLOAD_TOOLCHAIN_FILE
-      "$ENV{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
-      CACHE STRING
-      ""
-    )
-  endif()
-  # Enabling this causes Qt's FindWrapRt C++ compile check to fail as it tries
-  # to run `clang-scan-deps` (because we set the C++ standard to 20). Emscripten
-  # does not ship this binary yet, though. Potentially relevant upstream bug:
-  # https://github.com/emscripten-core/emscripten/issues/21042
-  set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
-elseif(APPLE)
-  # Check if xcode-select is installed
-  execute_process(
-    COMMAND xcode-select -v
-    RESULT_VARIABLE XCODE_SELECT_RESULT
-    OUTPUT_QUIET
-  )
-  if(XCODE_SELECT_RESULT)
-    # xcode-select command failed, meaning it is not installed or not configured properly
-    message(
-      FATAL_ERROR
-      "'xcode-select -v' failed with '${XCODE_SELECT_RESULT}'. You may need to install Xcode and run 'sudo xcode-select --install'."
-    )
-  endif()
-
-  if(VCPKG_TARGET_TRIPLET MATCHES "^[a-zA-Z0-9]+-osx")
-    message(STATUS "Targeting macOS (${VCPKG_TARGET_TRIPLET})")
-    set(CMAKE_SYSTEM_NAME Darwin CACHE STRING "Target macOS")
-    if(VCPKG_TARGET_TRIPLET MATCHES "^arm64-")
-      # Minimum macOS version for arm64 Support
-      set(
-        CMAKE_OSX_DEPLOYMENT_TARGET
-        11.0
-        CACHE STRING
-        "Minimum macOS version the build will be able to run on"
-      )
-      set(CMAKE_OSX_ARCHITECTURES arm64 CACHE STRING "The target architecture")
-      set(
-        CMAKE_SYSTEM_PROCESSOR
-        arm64
-        CACHE STRING
-        "The target system processor"
-      )
-    else()
-      if(QT6)
-        # Minimum macOS version supported by Qt 6.5
-        set(
-          CMAKE_OSX_DEPLOYMENT_TARGET
-          11.0
-          CACHE STRING
-          "Minimum macOS version the build will be able to run on"
-        )
-      else()
-        # Minimum macOS version supported by Qt 5.12
-        set(
-          CMAKE_OSX_DEPLOYMENT_TARGET
-          10.12
-          CACHE STRING
-          "Minimum macOS version the build will be able to run on"
-        )
-        # Needed for deployment target < 10.14
-        add_compile_options(-fno-aligned-allocation)
-      endif()
-    endif()
-  elseif(VCPKG_TARGET_TRIPLET MATCHES "^[a-zA-Z0-9]+-ios")
-    message(STATUS "Targeting iOS (${VCPKG_TARGET_TRIPLET})")
-    set(CMAKE_SYSTEM_NAME iOS CACHE STRING "Target iOS")
-    set(
-      CMAKE_OSX_DEPLOYMENT_TARGET
-      14.0
-      CACHE STRING
-      "Minimum iOS version to target"
-    )
-  else()
-    message(
-      WARNING
-      "Targeting an Apple platform, but VCPKG_TARGET_TRIPLET is not set. This is not a supported scenario!"
-    )
-  endif()
-endif()
-
-# Work around missing version suffixes support https://gitlab.kitware.com/cmake/cmake/-/issues/16716
-set(MIXXX_VERSION_PRERELEASE "alpha") # set to "alpha" "beta" or ""
 
 set(CMAKE_PROJECT_HOMEPAGE_URL "https://www.mixxx.org")
 set(
@@ -1022,9 +506,7 @@ if(MSVC)
         "sccache: Does not work with precompiled headers. Set CMAKE_DISABLE_PRECOMPILE_HEADERS=ON"
       )
     endif()
-    set(CMAKE_C_COMPILER_LAUNCHER "${SCCACHE_EXECUTABLE}")
-    set(CMAKE_CXX_COMPILER_LAUNCHER "${SCCACHE_EXECUTABLE}")
-  endif()
+          endif()
 else()
   # ccache support
   find_program(CCACHE_EXECUTABLE "ccache")
@@ -1074,9 +556,7 @@ else()
         )
       endif()
     endif()
-    set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE_EXECUTABLE}")
-    set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_EXECUTABLE}")
-  endif()
+          endif()
   message(STATUS "Support for ccache: ${CCACHE_SUPPORT}")
 endif()
 
@@ -1166,6 +646,15 @@ set(
   "CMAKE_CXX_CLANG_TIDY equivalent that only applies to mixxx sources, not bundled dependencies"
 )
 
+target_include_directories(mixxx-lib
+  PUBLIC
+    lib/replaygain
+    lib/qm-dsp
+    lib/reverb
+    src/rendergraph/common
+    src/rendergraph/opengl
+    src/rendergraph/scenegraph
+)
 # Mixxx itself
 add_library(
   mixxx-lib
@@ -2063,15 +1552,7 @@ set_target_properties(
 )
 target_include_directories(
   mixxx-lib
-  PUBLIC
-    src
-    "${CMAKE_CURRENT_BINARY_DIR}/src"
-    lib/replaygain
-    lib/qm-dsp
-    lib/reverb
-    src/rendergraph/common
-    src/rendergraph/opengl
-    src/rendergraph/scenegraph
+  PUBLIC src "${CMAKE_CURRENT_BINARY_DIR}/src"
 )
 if(UNIX AND NOT APPLE)
   target_sources(mixxx-lib PRIVATE src/util/rlimit.cpp)
@@ -2347,39 +1828,18 @@ if(WIN32)
 elseif(UNIX)
   if(APPLE)
     target_compile_definitions(mixxx-lib PUBLIC __APPLE__)
-  elseif(ANDROID)
-    target_compile_definitions(mixxx-lib PUBLIC __ANDROID__)
-  else()
-    target_compile_definitions(mixxx-lib PUBLIC __UNIX__)
-    if(CMAKE_SYSTEM_NAME STREQUAL Linux)
-      target_compile_definitions(mixxx-lib PUBLIC __LINUX__)
-    elseif(CMAKE_SYSTEM_NAME MATCHES "^.*BSD$")
-      target_compile_definitions(mixxx-lib PUBLIC __BSD__)
-    endif()
-  endif()
-endif()
-
-# The mixxx executable
-if(QT6)
-  find_package(Qt6 COMPONENTS Core) # For Qt Core cmake functions
-  # This is the first package form the environment, if this fails give hints how to install the environment
-  if(NOT Qt6_FOUND)
-    fatal_error_missing_env()
-  endif()
-  # qt_add_executable() is the recommended initial call for qt_finalize_target()
-  # below that takes care of the correct object order in the resulting binary
-  # According to https://doc.qt.io/qt-6/qt-finalize-target.html it is importand for
-  # builds with Qt < 3.21
-  if(ANDROID)
+    elseif(ANDROID)
     target_compile_definitions(
       mixxx-lib
+      PUBLIC __ANDROID__
       PUBLIC __STDC_CONSTANT_MACROS __STDC_LIMIT_MACROS __STDC_FORMAT_MACROS
-    )
-    set_property(TARGET mixxx-lib PROPERTY ANDROID_ABIS "arm64-v8a")
-    target_compile_definitions(
-      mixxx-lib
       PUBLIC ANDROID_PACKAGE_NAME="org.mixxx"
     )
+    set_property(TARGET mixxx-lib PROPERTY ANDROID_ABIS "arm64-v8a")
+
+    find_package(OpenMP REQUIRED COMPONENTS CXX)
+    target_link_libraries(mixxx-lib PUBLIC OpenMP::OpenMP_CXX)
+
     qt_add_executable(mixxx src/main.cpp MANUAL_FINALIZATION)
     set_property(
       TARGET mixxx
@@ -2397,56 +1857,42 @@ if(QT6)
       PROPERTIES
         QT_ANDROID_APPLICATION_ARGUMENTS "--log-level debug --developer"
     )
-    qt_add_android_permission(mixxx
-    NAME android.permission.ACCESS_NETWORK_STATE
-    )
-    qt_add_android_permission(mixxx
-    NAME android.permission.INTERNET
-    )
-    qt_add_android_permission(mixxx
-    NAME android.permission.MODIFY_AUDIO_SETTINGS
-    )
-    qt_add_android_permission(mixxx
-    NAME android.permission.RECORD_AUDIO
-    )
-    qt_add_android_permission(mixxx
-    NAME android.permission.WRITE_EXTERNAL_STORAGE
-    )
-    qt_add_android_permission(mixxx
-    NAME android.permission.MANAGE_EXTERNAL_STORAGE
-    )
-    qt_add_android_permission(mixxx
-    NAME android.permission.WAKE_LOCK
-    )
-    qt_add_android_permission(mixxx
-    NAME android.permission.USB_PERMISSION
-    )
-        find_package(OpenMP REQUIRED COMPONENTS CXX)
-    target_link_libraries(mixxx-lib PUBLIC OpenMP::OpenMP_CXX)
-    file(GLOB LIBOMP_PATH "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/lib/clang/*/lib/linux/aarch64/libomp.so")
-    set_target_properties(
-      mixxx
-      PROPERTIES
-        QT_ANDROID_EXTRA_LIBS "${LIBOMP_PATH}"
-    )
+    qt_add_android_permission(mixxx NAME android.permission.ACCESS_NETWORK_STATE)
+    qt_add_android_permission(mixxx NAME android.permission.INTERNET)
+    qt_add_android_permission(mixxx NAME android.permission.MODIFY_AUDIO_SETTINGS)
+    qt_add_android_permission(mixxx NAME android.permission.RECORD_AUDIO)
+    qt_add_android_permission(mixxx NAME android.permission.WRITE_EXTERNAL_STORAGE)
+    qt_add_android_permission(mixxx NAME android.permission.MANAGE_EXTERNAL_STORAGE)
+    qt_add_android_permission(mixxx NAME android.permission.WAKE_LOCK)
+    qt_add_android_permission(mixxx NAME android.permission.USB_PERMISSION)
+
     add_custom_target(
       copy-resource-android
       COMMENT "Copy resources folder to Android build asset directory"
-      COMMAND
-        ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/packaging/android
-        ${CMAKE_CURRENT_BINARY_DIR}/android
-      COMMAND
-        ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/res
-        ${CMAKE_CURRENT_BINARY_DIR}/android-build/assets
+      COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/packaging/android ${CMAKE_CURRENT_BINARY_DIR}/android
+      COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/res ${CMAKE_CURRENT_BINARY_DIR}/android-build/assets
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     )
     add_dependencies(mixxx copy-resource-android)
-
   else()
     qt_add_executable(mixxx WIN32 src/main.cpp MANUAL_FINALIZATION)
   endif()
 else()
-  find_package(Qt5 COMPONENTS Core) # For Qt Core cmake functions
+  set(QT_VERSION_MAJOR 5)
+  set(QT_COMPONENTS Concurrent Core Gui Network OpenGL PrintSupport Qml Quick Sql Svg Test Widgets Xml)
+  if(NOT APPLE AND NOT WIN32 AND NOT ANDROID)
+    list(APPEND QT_COMPONENTS DBus)
+  endif()
+  if(NETWORKAUTH)
+    list(APPEND QT_COMPONENTS NetworkAuth)
+  endif()
+  find_package(Qt5 COMPONENTS ${QT_COMPONENTS} REQUIRED)
+  foreach(component ${QT_COMPONENTS})
+    target_link_libraries(mixxx-lib PUBLIC Qt${QT_VERSION_MAJOR}::${component})
+  endforeach()
+  foreach(component ${QT_COMPONENTS})
+    target_link_libraries(mixxx-lib PUBLIC Qt5::${component})
+  endforeach()
   # This is the first package form the environment, if this fails give hints how to install the environment
   if(NOT Qt5_FOUND)
     fatal_error_missing_env()
@@ -3121,6 +2567,524 @@ else()
   set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}-${MIXXX_VERSION_PRERELEASE}")
 endif()
 
+set(SOURCE_TARGET "mixxx")
+if(QT6)
+  set(QT_VERSION_MAJOR 6)
+else()
+  set(QT_VERSION_MAJOR 5)
+endif()
+
+# lint_cmake: -readability/wonkycase
+
+message(STATUS "CMAKE_VERSION: ${CMAKE_VERSION}")
+
+# CMAKE_CXX_COMPILER_ID: Distinguish between "AppleClang" and "Clang"
+if(POLICY CMP0025)
+  cmake_policy(SET CMP0025 NEW)
+endif()
+
+# MACOSX_RPATH is set by default
+if(POLICY CMP0042)
+  cmake_policy(SET CMP0042 NEW)
+endif()
+
+# Support new IN_LIST if() operator
+if(POLICY CMP0057)
+  cmake_policy(SET CMP0057 NEW)
+endif()
+
+# Enforce interprocedural optimization
+if(POLICY CMP0069)
+  cmake_policy(SET CMP0069 NEW)
+endif()
+
+# Let AUTOMOC and AUTOUIC process GENERATED files
+if(POLICY CMP0071)
+  cmake_policy(SET CMP0071 NEW)
+endif()
+
+# Propagate interface link properties
+if(POLICY CMP0099)
+  # This avoids a warning when qt deals with different behaviours controlled by this policy
+  # in its cmake functions. See
+  # https://github.com/qt/qtbase/commit/e3e1007f9778d8fc629a06f7d3d216bb7f81351b
+  cmake_policy(SET CMP0099 NEW)
+endif()
+
+# Add support for cmake_dependent_option
+if(POLICY CMP0127)
+  cmake_policy(SET CMP0127 NEW)
+endif()
+
+# An imported target missing its location property fails during generation.
+if(POLICY CMP0111)
+  cmake_policy(SET CMP0111 NEW)
+endif()
+
+# Set the timestamp of extracted files to the time of the extraction instead of
+# the archived timestamp to make sure that dependent files are rebuilt if the
+# URL changes.
+if(POLICY CMP0135)
+  cmake_policy(SET CMP0135 NEW)
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL Android)
+  if(NOT DEFINED ENV{JAVA_HOME})
+    message(FATAL_ERROR "JAVA_HOME is not set. Did you source the setup file?")
+  endif()
+  if((NOT CMAKE_ANDROID_NDK) AND DEFINED ENV{ANDROID_NDK_HOME})
+    set(CMAKE_ANDROID_NDK "$ENV{ANDROID_NDK_HOME}")
+  endif()
+  set(ANDROID ON)
+  if(DEFINED ENV{QT_ANDROID_KEYSTORE_PATH})
+    set(QT_ANDROID_SIGN_APK ON)
+  endif()
+
+  set(QT_ANDROID_APP_PATH "$<TARGET_FILE:${SOURCE_TARGET}>")
+  set(
+    QT_ANDROID_APP_PACKAGE_SOURCE_ROOT
+    "${CMAKE_SOURCE_DIR}/packaging/android"
+  )
+
+  if((NOT ANDROID_SDK_ROOT) AND DEFINED ENV{ANDROID_SDK})
+    set(ANDROID_SDK_ROOT "$ENV{ANDROID_SDK}")
+  endif()
+  set(ANDROID_ABI arm64-v8a)
+  set(ANDROID_NDK_HOST_SYSTEM_NAME linux-x86_64)
+  set(CMAKE_SYSTEM_VERSION 35) # API level
+  set(ANDROID_PLATFORM "android-${CMAKE_SYSTEM_VERSION}")
+  set(ANDROID_API_VERSION "android-${CMAKE_SYSTEM_VERSION}")
+  set(CMAKE_ANDROID_ARCH_ABI "${ANDROID_ABI}") # or x86_64, armeabi-v7a, etc.
+  set(CMAKE_ANDROID_NDK_TOOLCHAIN_VERSION clang)
+  set(CMAKE_ANDROID_STL_TYPE c++_shared)
+  set(
+    CMAKE_SYSROOT
+    "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/sysroot"
+  )
+  include_directories(
+    BEFORE
+    SYSTEM
+    "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/sysroot/usr/include/"
+  )
+  set(
+    CMAKE_LIBRARY_PATH
+    "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/sysroot/usr/lib/aarch64-linux-android/${CMAKE_SYSTEM_VERSION}/;${CMAKE_LIBRARY_PATH}"
+  )
+endif()
+
+if(
+  ((APPLE AND NOT IOS) OR WIN32 OR ANDROID)
+  AND NOT IS_DIRECTORY "${MIXXX_VCPKG_ROOT}"
+)
+  if(NOT DEFINED BUILDENV_BASEPATH)
+    if(DEFINED ENV{BUILDENV_BASEPATH})
+      set(BUILDENV_BASEPATH "$ENV{BUILDENV_BASEPATH}")
+    else()
+      set(BUILDENV_BASEPATH "${CMAKE_SOURCE_DIR}/buildenv")
+    endif()
+  endif()
+
+  if(NOT DEFINED BUILDENV_URL)
+    if(DEFINED ENV{BUILDENV_URL})
+      set(BUILDENV_URL "$ENV{BUILDENV_URL}")
+    elseif(NOT DEFINED BUILDENV_URL)
+      message(FATAL_ERROR "BUILDENV_URL not specified")
+    endif()
+  endif()
+
+  # Extract the filename from the URL
+  get_filename_component(FILENAME_WITH_EXTENSION "${BUILDENV_URL}" NAME)
+
+  # Remove the extension from the filename (note that our buildenv names contain two dots)
+  string(
+    REGEX REPLACE
+    "\\.[^.]*$"
+    ""
+    BUILDENV_NAME
+    "${FILENAME_WITH_EXTENSION}"
+  )
+
+  message(STATUS "BUILDENV_NAME is: ${BUILDENV_NAME}")
+
+  if(
+    NOT EXISTS "${BUILDENV_BASEPATH}/${BUILDENV_NAME}"
+    OR NOT IS_DIRECTORY "${BUILDENV_BASEPATH}/${BUILDENV_NAME}"
+  )
+    if(NOT DEFINED BUILDENV_SHA256)
+      if(DEFINED ENV{BUILDENV_SHA256})
+        set(BUILDENV_SHA256 "$ENV{BUILDENV_SHA256}")
+      elseif(NOT DEFINED BUILDENV_SHA256)
+        message(STATUS "BUILDENV_SHA256 not specified")
+      endif()
+    endif()
+
+    if(NOT EXISTS "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip")
+      message(
+        STATUS
+        "Downloading file ${BUILDENV_URL} to ${BUILDENV_BASEPATH} ..."
+      )
+      file(
+        DOWNLOAD ${BUILDENV_URL} "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip"
+        SHOW_PROGRESS
+        TLS_VERIFY ON
+      )
+    else()
+      # Reference to suppress intentionally unused variable warnings
+      set(_dummy "${BUILDENV_URL}")
+    endif()
+
+    if(NOT ${BUILDENV_SHA256} STREQUAL "")
+      message(
+        STATUS
+        "Verify SHA256 of downloaded file ${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip ..."
+      )
+      file(SHA256 "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip" actual_sha256)
+
+      if(NOT actual_sha256 STREQUAL ${BUILDENV_SHA256})
+        message(
+          FATAL_ERROR
+          "SHA256 checksum mismatch:\nexpected: ${BUILDENV_SHA256}\n     got: ${actual_sha256}"
+        )
+      else()
+        message(STATUS "SHA256 ${BUILDENV_SHA256} is correct!")
+      endif()
+    endif()
+
+    message(
+      STATUS
+      "Unpacking file ${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip ..."
+    )
+    execute_process(
+      COMMAND ${CMAKE_COMMAND} -E tar xzf "${BUILDENV_NAME}.zip"
+      WORKING_DIRECTORY ${BUILDENV_BASEPATH}
+    )
+  else()
+    # Reference to suppress intentionally unused variable warnings
+    set(_dummy "${BUILDENV_SHA256}")
+  endif()
+else()
+  # Reference to suppress intentionally unused variable warnings
+  set(_dummy "${BUILDENV_URL} ${BUILDENV_BASEPATH} ${BUILDENV_SHA256}")
+endif()
+
+# Use this function to throw an error because the build environment is not set
+# up correctly.
+function(fatal_error_missing_env)
+  if(WIN32)
+    if(CMAKE_BUILD_TYPE MATCHES "Debug")
+      message(
+        FATAL_ERROR
+        "Did you download the Mixxx build environment using `${CMAKE_SOURCE_DIR}/tools/windows_buildenv.bat`?"
+      )
+    else()
+      message(
+        FATAL_ERROR
+        "Did you download the Mixxx build environment using `${CMAKE_SOURCE_DIR}/tools/windows_release_buildenv.bat` or `${CMAKE_SOURCE_DIR}/tools/windows_buildenv.bat`(includes Debug)?"
+      )
+    endif()
+  elseif(APPLE AND NOT IOS)
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
+      message(
+        FATAL_ERROR
+        "Did you build the Mixxx build environment as described here: https://github.com/mixxxdj/mixxx/wiki/Compiling-dependencies-for-macOS-arm64?"
+      )
+    elseif(CMAKE_BUILD_TYPE MATCHES "Debug")
+      message(
+        FATAL_ERROR
+        "Did you download the Mixxx build environment using `source ${CMAKE_SOURCE_DIR}/tools/macos_buildenv.sh setup`"
+      )
+    else()
+      message(
+        FATAL_ERROR
+        "Did you download the Mixxx build environment using `source ${CMAKE_SOURCE_DIR}/tools/macos_release_buildenv.sh setup` or `source ${CMAKE_SOURCE_DIR}/tools/macos_buildenv.sh setup` (includes Debug)?"
+      )
+    endif()
+  elseif(UNIX AND NOT APPLE AND NOT ANDROID)
+    # Linux, BSD, Solaris, Minix
+    if(EXISTS "/etc/debian_version") # exists also on Ubuntu and Mint
+      message(
+        FATAL_ERROR
+        "Did you install the required Debian dev packages via `${CMAKE_SOURCE_DIR}/tools/debian_buildenv.sh setup`?"
+      )
+    elseif(EXISTS "/etc/redhat-release") # exists also on Fedora Mageia Madndriva Alma CentOS
+      message(
+        FATAL_ERROR
+        "Did you install the required RPM dev packages via `${CMAKE_SOURCE_DIR}/tools/rpm_buildenv.sh setup`?"
+      )
+    else()
+      message(
+        FATAL_ERROR
+        "Did you install the equivalent dev packages listed in `${CMAKE_SOURCE_DIR}/tools/debian_buildenv.sh setup`?"
+      )
+    endif()
+  elseif(DEFINED VCPKG_TARGET_TRIPLET)
+    message(
+      FATAL_ERROR
+      "You are targeting ${VCPKG_TARGET_TRIPLET}, which does not have a prebuilt environment. Please make sure that -DMIXXX_VCPKG_ROOT points to a vcpkg environment containing installed dependencies for ${VCPKG_TARGET_TRIPLET}!"
+    )
+  else()
+    message(
+      FATAL_ERROR
+      "You are building for an unknown platform and are missing a build environment. Please set -DVCPKG_TARGET_TRIPLET and make sure that -DMIXXX_VCPKG_ROOT points to a vcpkg environment containing installed dependencies for your target platform!"
+    )
+  endif()
+endfunction()
+
+if(UNIX AND NOT APPLE)
+  execute_process(
+    COMMAND uname -r
+    OUTPUT_VARIABLE UNAME_R
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+  if(UNAME_R MATCHES ".*[Mm]icrosoft.*" OR UNAME_R MATCHES ".*WSL.*")
+    message(
+      FATAL_ERROR
+      "Building on Windows Subsystem for Linux (WSL) is not supported. If you want to build Mixxx from command line on Windows, you need to use the \"x64 Native Tools Command Prompt for VS 2022\"!"
+    )
+  endif()
+endif()
+if(WIN32)
+  # Check if we are running from "Visual Studio 20XX Developer Command Prompt"
+  if(NOT DEFINED ENV{INCLUDE})
+    message(
+      FATAL_ERROR
+      "The INCLUDE environment variable is not defined. Please ensure you are using the correct shell like 'x64 Native Tools Command Prompt for VS 20XX'"
+    )
+  endif()
+endif()
+if(WIN32)
+  # Check if we are running from "Visual Studio 20XX Developer Command Prompt"
+  if(NOT DEFINED ENV{INCLUDE})
+    message(
+      FATAL_ERROR
+      "The INCLUDE environment variable is not defined. Please ensure you are using the correct shell like 'x64 Native Tools Command Prompt for VS 20XX'"
+    )
+  endif()
+endif()
+
+# We use here ENV{MIXXX_VCPKG_ROOT} as a workaround to find the overlay folders
+# in manifest mode https://github.com/microsoft/vcpkg/issues/12289.
+# Note: VCPKG_ROOT, the default location for the vcpkg cli tool is later
+# adjusted by CMAKE_TOOLCHAIN_FILE.
+if(DEFINED ENV{MIXXX_VCPKG_ROOT} AND NOT DEFINED MIXXX_VCPKG_ROOT)
+  set(MIXXX_VCPKG_ROOT "$ENV{MIXXX_VCPKG_ROOT}")
+endif()
+
+if(DEFINED MIXXX_VCPKG_ROOT)
+  if(
+    EXISTS "${MIXXX_VCPKG_ROOT}/overlay/ports"
+    OR NOT EXISTS "${MIXXX_VCPKG_ROOT}/ports"
+  )
+    # MIXXX_VCPKG_ROOT points to our vcpkg environment
+    # and we configure the CMAKE_TOOLCHAIN_FILE and overlays accordingly
+    message(STATUS "Using MIXXX_VCPKG_ROOT: ${MIXXX_VCPKG_ROOT}")
+  else()
+    message(
+      STATUS
+      "MIXXX_VCPKG_ROOT not correct (missing ${MIXXX_VCPKG_ROOT}/overlay/ports)"
+    )
+    fatal_error_missing_env()
+  endif()
+
+  if(NOT DEFINED VCPKG_OVERLAY_PORTS)
+    # required for manifest mode
+    set(VCPKG_OVERLAY_PORTS "${MIXXX_VCPKG_ROOT}/overlay/ports")
+    if(APPLE)
+      list(APPEND VCPKG_OVERLAY_PORTS "${MIXXX_VCPKG_ROOT}/overlay/osx")
+    elseif(WIN32)
+      list(APPEND VCPKG_OVERLAY_PORTS "${MIXXX_VCPKG_ROOT}/overlay/windows")
+    endif()
+  endif()
+
+  if(NOT DEFINED VCPKG_OVERLAY_TRIPLETS)
+    # required for manifest mode
+    set(VCPKG_OVERLAY_TRIPLETS "${MIXXX_VCPKG_ROOT}/overlay/triplets")
+  endif()
+
+  if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+    set(
+      CMAKE_TOOLCHAIN_FILE
+      "${MIXXX_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+      CACHE STRING
+      ""
+    )
+  endif()
+endif()
+
+if(NOT DEFINED VCPKG_TARGET_TRIPLET)
+  if(DEFINED ENV{VCPKG_TARGET_TRIPLET})
+    set(VCPKG_TARGET_TRIPLET "$ENV{VCPKG_TARGET_TRIPLET}")
+  elseif(DEFINED ENV{VCPKG_DEFAULT_TRIPLET})
+    set(VCPKG_TARGET_TRIPLET "$ENV{VCPKG_DEFAULT_TRIPLET}")
+  endif()
+endif()
+set(
+  X_VCPKG_APPLOCAL_DEPS_INSTALL
+  ON
+  CACHE BOOL
+  "Automatically copy dependencies into the install target directory for executables."
+  FORCE
+)
+
+# Set a default build type if none was specified
+# See https://blog.kitware.com/cmake-and-the-default-build-type/ for details.
+set(default_build_type "RelWithDebInfo")
+if(EXISTS "${CMAKE_SOURCE_DIR}/.git" AND NOT WIN32 AND NOT ANDROID)
+  # On Windows and Android, Debug builds are linked to unoptimized libs
+  # generating unusable slow Mixxx builds.
+  set(default_build_type "Debug")
+endif()
+
+if(NOT CMAKE_CONFIGURATION_TYPES)
+  if(NOT CMAKE_BUILD_TYPE)
+    message(
+      STATUS
+      "Setting CMAKE_BUILD_TYPE to '${default_build_type}' as none was specified."
+    )
+    set(
+      CMAKE_BUILD_TYPE
+      "${default_build_type}"
+      CACHE STRING
+      "Choose the type of build."
+      FORCE
+    )
+    # Set the possible values of build type for cmake-gui
+    set_property(
+      CACHE CMAKE_BUILD_TYPE
+      PROPERTY STRINGS "Debug" "Release" "RelWithDebInfo"
+    )
+  elseif(NOT CMAKE_BUILD_TYPE MATCHES "^(Debug|Release|RelWithDebInfo)$")
+    message(
+      FATAL_ERROR
+      "CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} is not supported, use one of Debug, Release or RelWithDebInfo."
+    )
+  endif()
+endif()
+
+include(CMakeDependentOption)
+
+option(QT6 "Build with Qt6" ON)
+option(NETWORKAUTH "Enable Spotify and YouTube features" OFF)
+cmake_dependent_option(
+  QML
+  "Build with QML"
+  ON
+  "QT6"
+  OFF
+)
+
+if(QT6)
+  set(QOPENGL ON CACHE INTERNAL "Forced ON because QT6=ON")
+else()
+  option(QOPENGL "Use QOpenGLWindow based widget instead of QGLWidget" ON)
+endif()
+
+if(QOPENGL)
+  add_compile_definitions(MIXXX_USE_QOPENGL)
+endif()
+
+if(QML)
+  add_compile_definitions(MIXXX_USE_QML)
+endif()
+
+if(VCPKG_TARGET_TRIPLET MATCHES "^wasm(32|64)-emscripten")
+  message(STATUS "Targeting Emscripten (${VCPKG_TARGET_TRIPLET})")
+  if(DEFINED ENV{EMSDK})
+    message(STATUS "Found EMSDK at $ENV{EMSDK}")
+  else()
+    message(
+      FATAL_ERROR
+      "Please make sure emsdk is installed and the environment variable EMSDK is set (see https://emscripten.org/docs/getting_started/downloads.html)"
+    )
+  endif()
+  if(NOT DEFINED VCPKG_CHAINLOAD_TOOLCHAIN_FILE)
+    set(
+      VCPKG_CHAINLOAD_TOOLCHAIN_FILE
+      "$ENV{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
+      CACHE STRING
+      ""
+    )
+  endif()
+  # Enabling this causes Qt's FindWrapRt C++ compile check to fail as it tries
+  # to run `clang-scan-deps` (because we set the C++ standard to 20). Emscripten
+  # does not ship this binary yet, though. Potentially relevant upstream bug:
+  # https://github.com/emscripten-core/emscripten/issues/21042
+  set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+elseif(APPLE)
+  # Check if xcode-select is installed
+  execute_process(
+    COMMAND xcode-select -v
+    RESULT_VARIABLE XCODE_SELECT_RESULT
+    OUTPUT_QUIET
+  )
+  if(XCODE_SELECT_RESULT)
+    # xcode-select command failed, meaning it is not installed or not configured properly
+    message(
+      FATAL_ERROR
+      "'xcode-select -v' failed with '${XCODE_SELECT_RESULT}'. You may need to install Xcode and run 'sudo xcode-select --install'."
+    )
+  endif()
+
+  if(VCPKG_TARGET_TRIPLET MATCHES "^[a-zA-Z0-9]+-osx")
+    message(STATUS "Targeting macOS (${VCPKG_TARGET_TRIPLET})")
+    set(CMAKE_SYSTEM_NAME Darwin CACHE STRING "Target macOS")
+    if(VCPKG_TARGET_TRIPLET MATCHES "^arm64-")
+      # Minimum macOS version for arm64 Support
+      set(
+        CMAKE_OSX_DEPLOYMENT_TARGET
+        11.0
+        CACHE STRING
+        "Minimum macOS version the build will be able to run on"
+      )
+      set(CMAKE_OSX_ARCHITECTURES arm64 CACHE STRING "The target architecture")
+      set(
+        CMAKE_SYSTEM_PROCESSOR
+        arm64
+        CACHE STRING
+        "The target system processor"
+      )
+    else()
+      if(QT6)
+        # Minimum macOS version supported by Qt 6.5
+        set(
+          CMAKE_OSX_DEPLOYMENT_TARGET
+          11.0
+          CACHE STRING
+          "Minimum macOS version the build will be able to run on"
+        )
+      else()
+        # Minimum macOS version supported by Qt 5.12
+        set(
+          CMAKE_OSX_DEPLOYMENT_TARGET
+          10.12
+          CACHE STRING
+          "Minimum macOS version the build will be able to run on"
+        )
+        # Needed for deployment target < 10.14
+        add_compile_options(-fno-aligned-allocation)
+      endif()
+    endif()
+  elseif(VCPKG_TARGET_TRIPLET MATCHES "^[a-zA-Z0-9]+-ios")
+    message(STATUS "Targeting iOS (${VCPKG_TARGET_TRIPLET})")
+    set(CMAKE_SYSTEM_NAME iOS CACHE STRING "Target iOS")
+    set(
+      CMAKE_OSX_DEPLOYMENT_TARGET
+      14.0
+      CACHE STRING
+      "Minimum iOS version to target"
+    )
+  else()
+    message(
+      WARNING
+      "Targeting an Apple platform, but VCPKG_TARGET_TRIPLET is not set. This is not a supported scenario!"
+    )
+  endif()
+endif()
+
+
+# Work around missing version suffixes support https://gitlab.kitware.com/cmake/cmake/-/issues/16716
+
+
 get_target_property(MIXXX_BUILD_FLAGS mixxx-lib COMPILE_OPTIONS)
 
 # uses CMAKE_PROJECT_VERSION MIXXX_VERSION_PRERELEASE MIXXX_BUILD_FLAGS
@@ -3702,21 +3666,7 @@ endif()
 
 # Protobuf
 add_subdirectory(src/proto)
-target_link_libraries(
-  mixxx-lib
-  PUBLIC
-    mixxx-proto
-    Qt${QT_VERSION_MAJOR}::Concurrent
-    Qt${QT_VERSION_MAJOR}::Core
-    Qt${QT_VERSION_MAJOR}::Gui
-    Qt${QT_VERSION_MAJOR}::Network
-    Qt${QT_VERSION_MAJOR}::OpenGL
-    Qt${QT_VERSION_MAJOR}::Sql
-    Qt${QT_VERSION_MAJOR}::Svg
-    Qt${QT_VERSION_MAJOR}::Widgets
-    Qt${QT_VERSION_MAJOR}::Xml
-    Qt${QT_VERSION_MAJOR}::Qml
-)
+target_link_libraries(mixxx-lib PUBLIC mixxx-proto)
 
 # Rigtorp SPSC Queue
 # https://github.com/rigtorp/SPSCQueue
@@ -3758,7 +3708,9 @@ if(NETWORKAUTH)
 
   FetchContent_Declare(
     librespot-cpp
-    URL https://github.com/librespot-org/librespot-cpp/archive/refs/heads/master.zip
+    GIT_REPOSITORY https://github.com/librespot-org/librespot-cpp.git
+    GIT_TAG master
+    GIT_SHALLOW TRUE
   )
   FetchContent_MakeAvailable(librespot-cpp)
   target_link_libraries(mixxx-lib PRIVATE librespot-cpp)
