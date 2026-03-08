@@ -652,15 +652,6 @@ set(
 )
 
 # Mixxx itself
-target_include_directories(mixxx-lib
-  PUBLIC
-    lib/replaygain
-    lib/qm-dsp
-    lib/reverb
-    src/rendergraph/common
-    src/rendergraph/opengl
-    src/rendergraph/scenegraph
-)
 add_library(
   mixxx-lib
   STATIC
@@ -1318,6 +1309,15 @@ add_library(
   src/widget/wwidgetstack.cpp
   src/controllers/scripting/javascriptplayerproxy.cpp
   src/controllers/scripting/javascriptplayerproxy.h
+)
+target_include_directories(mixxx-lib
+  PUBLIC
+    lib/replaygain
+    lib/qm-dsp
+    lib/reverb
+    src/rendergraph/common
+    src/rendergraph/opengl
+    src/rendergraph/scenegraph
 )
 set(MIXXX_COMMON_PRECOMPILED_HEADER src/util/assert.h)
 set(
