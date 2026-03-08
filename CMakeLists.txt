@@ -2498,8 +2498,94 @@ if(BUILD_TESTING)
     DISCOVERY_MODE PRE_TEST
   )
 
-  if(BUILD_BENCH)
-    # Benchmarking
+# The mixxx executable
+if(QT6)
+  set(QT_VERSION_MAJOR 6)
+  set(QT_COMPONENTS Concurrent Core Gui Network OpenGL PrintSupport Qml Quick Sql Svg Test Widgets Xml)
+  if(NOT APPLE AND NOT WIN32 AND NOT ANDROID)
+    list(APPEND QT_COMPONENTS DBus)
+  endif()
+  find_package(Qt6 COMPONENTS ${QT_COMPONENTS} REQUIRED)
+  foreach(component ${QT_COMPONENTS})
+    target_link_libraries(mixxx-lib PUBLIC Qt6::${component})
+  endforeach()
+  # This is the first package form the environment, if this fails give hints how to install the environment
+  if(NOT Qt6_FOUND)
+    fatal_error_missing_env()
+  endif()
+  # qt_add_executable() is the recommended initial call for qt_finalize_target()
+  # below that takes care of the correct object order in the resulting binary
+  # According to https://doc.qt.io/qt-6/qt-finalize-target.html it is importand for
+  # builds with Qt < 3.21
+  if(ANDROID)
+    target_compile_definitions(
+      mixxx-lib
+      PUBLIC __STDC_CONSTANT_MACROS __STDC_LIMIT_MACROS __STDC_FORMAT_MACROS
+    )
+    set_property(TARGET mixxx-lib PROPERTY ANDROID_ABIS "arm64-v8a")
+    target_compile_definitions(
+      mixxx-lib
+      PUBLIC ANDROID_PACKAGE_NAME="org.mixxx"
+    )
+    qt_add_executable(mixxx src/main.cpp MANUAL_FINALIZATION)
+    set_property(
+      TARGET mixxx
+      PROPERTY
+        QT_ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_SOURCE_DIR}/packaging/android"
+    )
+    set_target_properties(mixxx PROPERTIES QT_ANDROID_ABIS "${ANDROID_ABI}")
+    set_target_properties(mixxx PROPERTIES QT_ANDROID_PACKAGE_NAME "org.mixxx")
+    set_target_properties(
+      mixxx
+      PROPERTIES QT_ANDROID_VERSION_NAME "${MIXXX_VERSION}"
+    )
+    set_target_properties(
+      mixxx
+      PROPERTIES
+        QT_ANDROID_APPLICATION_ARGUMENTS "--log-level debug --developer"
+    )
+    qt_add_android_permission(mixxx
+    NAME android.permission.ACCESS_NETWORK_STATE
+    )
+    qt_add_android_permission(mixxx
+    NAME android.permission.INTERNET
+    )
+    qt_add_android_permission(mixxx
+    NAME android.permission.MODIFY_AUDIO_SETTINGS
+    )
+    qt_add_android_permission(mixxx
+    NAME android.permission.RECORD_AUDIO
+    )
+    qt_add_android_permission(mixxx
+    NAME android.permission.WRITE_EXTERNAL_STORAGE
+    )
+    qt_add_android_permission(mixxx
+    NAME android.permission.MANAGE_EXTERNAL_STORAGE
+    )
+    qt_add_android_permission(mixxx
+    NAME android.permission.WAKE_LOCK
+    )
+    qt_add_android_permission(mixxx
+    NAME android.permission.USB_PERMISSION
+    )
+    set(
+      CMAKE_LINKER
+      "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/bin/ld"
+    )
+    set(
+      CMAKE_C_COMPILER
+      "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/bin/clang"
+    )
+    set(
+      CMAKE_CXX_COMPILER
+      "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/bin/clang++"
+    )
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fPIC")
+    file(GLOB OMP_LIB "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/lib/clang/*/lib/linux/aarch64/libomp.so")
+    if(OMP_LIB)
+      list(GET OMP_LIB 0 OMP_LIB_PATH)
+      set_target_properties(mixxx PROPERTIES QT_ANDROID_EXTRA_LIBS "${OMP_LIB_PATH}")
+    endif()
     add_custom_target(
       mixxx-benchmark
       COMMAND $<TARGET_FILE:mixxx-test> --benchmark
@@ -2564,7 +2650,23 @@ endif()
 if(MIXXX_VERSION_PRERELEASE STREQUAL "")
   set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}")
 else()
-  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}-${MIXXX_VERSION_PRERELEASE}")
+  set(QT_VERSION_MAJOR 5)
+  set(QT_COMPONENTS Concurrent Core Gui Network OpenGL PrintSupport Qml Quick Sql Svg Test Widgets Xml)
+  if(NOT APPLE AND NOT WIN32 AND NOT ANDROID)
+    list(APPEND QT_COMPONENTS DBus)
+  endif()
+  if(NETWORKAUTH)
+    list(APPEND QT_COMPONENTS NetworkAuth)
+  endif()
+  find_package(Qt5 COMPONENTS ${QT_COMPONENTS} REQUIRED)
+  foreach(component ${QT_COMPONENTS})
+    target_link_libraries(mixxx-lib PUBLIC Qt5::${component})
+  endforeach()
+  # This is the first package form the environment, if this fails give hints how to install the environment
+  if(NOT Qt5_FOUND)
+    fatal_error_missing_env()
+  endif()
+  add_executable(mixxx WIN32 src/main.cpp)
 endif()
 
 set(SOURCE_TARGET "mixxx")
