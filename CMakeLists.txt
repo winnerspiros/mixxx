@@ -20,6 +20,7 @@ include(CheckIncludeFileCXX)
 include(ExternalProject)
 include(GNUInstallDirs)
 include(DefaultOption)
+include(CMakeDependentOption)
 include(IsStaticLibrary)
 
 # Verify VCPKG settings
@@ -180,8 +181,7 @@ if(MSVC)
     string(REPLACE "/Zi" "/Z7" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
   elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
     string(
-      REPLACE
-      "/Zi"
+      REPLACE "/Zi"
       "/Z7"
       CMAKE_CXX_FLAGS_RELEASE
       "${CMAKE_CXX_FLAGS_RELEASE}"
@@ -189,15 +189,13 @@ if(MSVC)
     string(REPLACE "/Zi" "/Z7" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
   elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
     string(
-      REPLACE
-      "/Zi"
+      REPLACE "/Zi"
       "/Z7"
       CMAKE_CXX_FLAGS_RELWITHDEBINFO
       "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
     )
     string(
-      REPLACE
-      "/Zi"
+      REPLACE "/Zi"
       "/Z7"
       CMAKE_C_FLAGS_RELWITHDEBINFO
       "${CMAKE_C_FLAGS_RELWITHDEBINFO}"
@@ -229,8 +227,7 @@ if(MSVC)
       add_compile_options(/O2) # this implies /Od2
       # Remove /RTC1 flag set by CMAKE by default (conflicts with /O2)
       string(
-        REPLACE
-        "/RTC1"
+        REPLACE "/RTC1"
         ""
         CMAKE_CXX_FLAGS_DEBUG
         "${CMAKE_CXX_FLAGS_DEBUG}"
@@ -240,15 +237,13 @@ if(MSVC)
       # For some reasons cmake uses /Ob1 in RelWithDebInfo https://gitlab.kitware.com/cmake/cmake/-/issues/20812
       # /O2 is applied by CMake and this implies /Od2
       string(
-        REPLACE
-        "/Ob1"
+        REPLACE "/Ob1"
         ""
         CMAKE_CXX_FLAGS_RELWITHDEBINFO
         "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
       )
       string(
-        REPLACE
-        "/Ob1"
+        REPLACE "/Ob1"
         ""
         CMAKE_C_FLAGS_RELWITHDEBINFO
         "${CMAKE_C_FLAGS_RELWITHDEBINFO}"
@@ -263,8 +258,7 @@ if(MSVC)
       # The CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO can be defined by the user in the GUI or in CMakeSettings.json,
       # therefore we can't rely on the default.
       string(
-        FIND
-        CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO
+        FIND CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO
         "/INCREMENTAL:NO"
         INCREMENTAL_NO_POSITION
       )
@@ -274,8 +268,7 @@ if(MSVC)
           "Overwriting /INCREMENTAL by /INCREMENTAL:NO to allow link time code optimization"
         )
         string(
-          REPLACE
-          "/INCREMENTAL"
+          REPLACE "/INCREMENTAL"
           "/INCREMENTAL:NO"
           CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO
           "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO}"
@@ -331,16 +324,14 @@ if(MSVC)
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
       # Remove optimize flags set by cmake defaults
       string(
-        REPLACE
-        "/O2"
+        REPLACE "/O2"
         ""
         CMAKE_CXX_FLAGS_RELEASE
         "${CMAKE_CXX_FLAGS_RELEASE}"
       )
       string(REPLACE "/O2" "" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
       string(
-        REPLACE
-        "/Ob2"
+        REPLACE "/Ob2"
         ""
         CMAKE_CXX_FLAGS_RELEASE
         "${CMAKE_CXX_FLAGS_RELEASE}"
@@ -351,30 +342,26 @@ if(MSVC)
     elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
       # Remove optimize flags set by cmake defaults
       string(
-        REPLACE
-        "/O2"
+        REPLACE "/O2"
         ""
         CMAKE_CXX_FLAGS_RELWITHDEBINFO
         "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
       )
       string(
-        REPLACE
-        "/O2"
+        REPLACE "/O2"
         ""
         CMAKE_C_FLAGS_RELWITHDEBINFO
         "${CMAKE_C_FLAGS_RELWITHDEBINFO}"
       )
       # For some reasons cmake uses /Ob1 in RelWithDebInfo https://gitlab.kitware.com/cmake/cmake/-/issues/20812
       string(
-        REPLACE
-        "/Ob1"
+        REPLACE "/Ob1"
         ""
         CMAKE_CXX_FLAGS_RELWITHDEBINFO
         "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
       )
       string(
-        REPLACE
-        "/Ob1"
+        REPLACE "/Ob1"
         ""
         CMAKE_C_FLAGS_RELWITHDEBINFO
         "${CMAKE_C_FLAGS_RELWITHDEBINFO}"
@@ -607,8 +594,7 @@ if(NOT MSVC)
     )
     if(LLD_VERSION_STRING)
       string(
-        REGEX MATCH
-        "LLD ([0-9]+\\.[0-9]+\\.[0-9]+)"
+        REGEX MATCH "LLD ([0-9]+\\.[0-9]+\\.[0-9]+)"
         LLD_VERSION_MATCH
         "${LLD_VERSION_STRING}"
       )
@@ -651,15 +637,6 @@ set(
 )
 
 # Mixxx itself
-target_include_directories(mixxx-lib
-  PUBLIC
-    lib/replaygain
-    lib/qm-dsp
-    lib/reverb
-    src/rendergraph/common
-    src/rendergraph/opengl
-    src/rendergraph/scenegraph
-)
 add_library(
   mixxx-lib
   STATIC
@@ -1847,7 +1824,22 @@ endif()
 # The mixxx executable
 if(QT6)
   set(QT_VERSION_MAJOR 6)
-  set(QT_COMPONENTS Concurrent Core Gui Network OpenGL PrintSupport Qml Quick Sql Svg Test Widgets Xml)
+  set(
+    QT_COMPONENTS
+    Concurrent
+    Core
+    Gui
+    Network
+    OpenGL
+    PrintSupport
+    Qml
+    Quick
+    Sql
+    Svg
+    Test
+    Widgets
+    Xml
+  )
   if(NOT APPLE AND NOT WIN32 AND NOT ANDROID)
     list(APPEND QT_COMPONENTS DBus)
   endif()
@@ -1914,10 +1906,16 @@ if(QT6)
     qt_add_android_permission(mixxx
     NAME android.permission.USB_PERMISSION
     )
-                    file(GLOB OMP_LIB "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/lib/clang/*/lib/linux/aarch64/libomp.so")
+    file(
+      GLOB OMP_LIB
+      "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/lib/clang/*/lib/linux/aarch64/libomp.so"
+    )
     if(OMP_LIB)
       list(GET OMP_LIB 0 OMP_LIB_PATH)
-      set_target_properties(mixxx PROPERTIES QT_ANDROID_EXTRA_LIBS "${OMP_LIB_PATH}")
+      set_target_properties(
+        mixxx
+        PROPERTIES QT_ANDROID_EXTRA_LIBS "${OMP_LIB_PATH}"
+      )
     endif()
     add_custom_target(
       copy-resource-android
@@ -1931,14 +1929,29 @@ if(QT6)
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     )
     add_dependencies(mixxx copy-resource-android)
-        find_package(OpenMP REQUIRED COMPONENTS CXX)
+    find_package(OpenMP REQUIRED COMPONENTS CXX)
     target_link_libraries(mixxx-lib PUBLIC OpenMP::OpenMP_CXX)
   else()
     qt_add_executable(mixxx WIN32 src/main.cpp MANUAL_FINALIZATION)
   endif()
 else()
   set(QT_VERSION_MAJOR 5)
-  set(QT_COMPONENTS Concurrent Core Gui Network OpenGL PrintSupport Qml Quick Sql Svg Test Widgets Xml)
+  set(
+    QT_COMPONENTS
+    Concurrent
+    Core
+    Gui
+    Network
+    OpenGL
+    PrintSupport
+    Qml
+    Quick
+    Sql
+    Svg
+    Test
+    Widgets
+    Xml
+  )
   if(NOT APPLE AND NOT WIN32 AND NOT ANDROID)
     list(APPEND QT_COMPONENTS DBus)
   endif()
@@ -2043,33 +2056,33 @@ if(NOT ANDROID)
   )
 endif()
 
-  # Skins
-  install(
-    DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/res/skins"
-    DESTINATION "${MIXXX_INSTALL_DATADIR}"
-  )
+# Skins
+install(
+  DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/res/skins"
+  DESTINATION "${MIXXX_INSTALL_DATADIR}"
+)
 
-  # Controller mappings
-  install(
-    DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/res/controllers"
-    DESTINATION "${MIXXX_INSTALL_DATADIR}"
-  )
+# Controller mappings
+install(
+  DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/res/controllers"
+  DESTINATION "${MIXXX_INSTALL_DATADIR}"
+)
 
-  # Effect presets
-  install(
-    DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/res/effects"
-    DESTINATION "${MIXXX_INSTALL_DATADIR}"
-  )
+# Effect presets
+install(
+  DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/res/effects"
+  DESTINATION "${MIXXX_INSTALL_DATADIR}"
+)
 
-  # Translation files
-  install(
-    DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/res/translations"
-    DESTINATION "${MIXXX_INSTALL_DATADIR}"
-    FILES_MATCHING
-    PATTERN "*.qm"
-  )
-  # else()
-  #   qt_finalize_target(mixxx-lib)
+# Translation files
+install(
+  DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/res/translations"
+  DESTINATION "${MIXXX_INSTALL_DATADIR}"
+  FILES_MATCHING
+  PATTERN "*.qm"
+)
+# else()
+#   qt_finalize_target(mixxx-lib)
 
 # Font files
 #
@@ -2585,7 +2598,8 @@ if(
   )
   message(STATUS "Downloading manual from ${MANUAL_URL}...")
   file(
-    DOWNLOAD "${MANUAL_URL}" "${CMAKE_CURRENT_BINARY_DIR}/res/Mixxx-Manual.pdf"
+    DOWNLOAD "${MANUAL_URL}"
+    "${CMAKE_CURRENT_BINARY_DIR}/res/Mixxx-Manual.pdf"
     SHOW_PROGRESS
     STATUS MANUAL_PDF_DOWNLOAD
     TLS_VERIFY ON
@@ -2604,8 +2618,7 @@ if(
     )
   endif()
   file(
-    RENAME
-    "${CMAKE_CURRENT_BINARY_DIR}/res/Mixxx-Manual.pdf"
+    RENAME "${CMAKE_CURRENT_BINARY_DIR}/res/Mixxx-Manual.pdf"
     "${CMAKE_CURRENT_SOURCE_DIR}/res/Mixxx-Manual.pdf"
   )
 endif()
@@ -2753,8 +2766,7 @@ if(
 
   # Remove the extension from the filename (note that our buildenv names contain two dots)
   string(
-    REGEX REPLACE
-    "\\.[^.]*$"
+    REGEX REPLACE "\\.[^.]*$"
     ""
     BUILDENV_NAME
     "${FILENAME_WITH_EXTENSION}"
@@ -2780,7 +2792,8 @@ if(
         "Downloading file ${BUILDENV_URL} to ${BUILDENV_BASEPATH} ..."
       )
       file(
-        DOWNLOAD ${BUILDENV_URL} "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip"
+        DOWNLOAD ${BUILDENV_URL}
+        "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip"
         SHOW_PROGRESS
         TLS_VERIFY ON
       )
@@ -3017,8 +3030,6 @@ if(NOT CMAKE_CONFIGURATION_TYPES)
   endif()
 endif()
 
-include(CMakeDependentOption)
-
 option(QT6 "Build with Qt6" ON)
 option(NETWORKAUTH "Enable Spotify and YouTube features" OFF)
 cmake_dependent_option(
@@ -3137,9 +3148,7 @@ elseif(APPLE)
   endif()
 endif()
 
-
 # Work around missing version suffixes support https://gitlab.kitware.com/cmake/cmake/-/issues/16716
-
 
 get_target_property(MIXXX_BUILD_FLAGS mixxx-lib COMPILE_OPTIONS)
 
@@ -3304,8 +3313,7 @@ if(ENGINEPRIME)
     # CMake does not pass lists of paths properly to external projects.
     # This is worked around by changing the list separator.
     string(
-      REPLACE
-      ";"
+      REPLACE ";"
       "|"
       PIPE_DELIMITED_CMAKE_PREFIX_PATH
       "${CMAKE_PREFIX_PATH}"
@@ -3468,8 +3476,7 @@ if(KEYFINDER)
     # CMake does not pass lists of paths properly to external projects.
     # This is worked around by changing the list separator.
     string(
-      REPLACE
-      ";"
+      REPLACE ";"
       "|"
       PIPE_DELIMITED_CMAKE_PREFIX_PATH
       "${CMAKE_PREFIX_PATH}"
@@ -3753,20 +3760,20 @@ if(NETWORKAUTH)
   list(APPEND QT_EXTRA_COMPONENTS "NetworkAuth")
 endif()
 if(NETWORKAUTH)
-  target_sources(mixxx-lib PRIVATE
-    src/library/spotify/spotifyfeature.cpp
-    src/library/youtube/youtubefeature.cpp
-    src/library/youtube/youtubeservice.cpp
-    src/sources/spotify/soundsourcespotify.cpp
-    src/sources/youtube/soundsourceyoutube.cpp
+  target_sources(
+    mixxx-lib
+    PRIVATE
+      src/library/spotify/spotifyfeature.cpp
+      src/library/youtube/youtubefeature.cpp
+      src/library/youtube/youtubeservice.cpp
+      src/sources/spotify/soundsourcespotify.cpp
+      src/sources/youtube/soundsourceyoutube.cpp
   )
   target_compile_definitions(mixxx-lib PUBLIC NETWORKAUTH)
 
   FetchContent_Declare(
     librespot-cpp
-    GIT_REPOSITORY https://github.com/librespot-org/librespot-cpp.git
-    GIT_TAG master
-    GIT_SHALLOW TRUE
+    URL https://github.com/iscle/librespot-cpp/archive/refs/heads/master.zip
   )
   FetchContent_MakeAvailable(librespot-cpp)
   target_link_libraries(mixxx-lib PRIVATE librespot-cpp)
@@ -3781,7 +3788,12 @@ if(NETWORKAUTH)
       DOWNLOAD_NO_EXTRACT TRUE
     )
     FetchContent_MakeAvailable(ytdlp)
-    set(YTDLP_EXECUTABLE ${ytdlp_SOURCE_DIR}/yt-dlp CACHE INTERNAL "yt-dlp executable")
+    set(
+      YTDLP_EXECUTABLE
+      ${ytdlp_SOURCE_DIR}/yt-dlp
+      CACHE INTERNAL
+      "yt-dlp executable"
+    )
   endif()
   target_compile_definitions(mixxx-lib PRIVATE YTDLP_PATH="${YTDLP_EXECUTABLE}")
 endif()
@@ -3875,14 +3887,12 @@ if(QT6)
   endif()
   if(QML)
     list(
-      APPEND
-      CPACK_DEBIAN_PACKAGE_DEPENDS
+      APPEND CPACK_DEBIAN_PACKAGE_DEPENDS
       "qml6-module-qt-labs-folderlistmodel"
     )
     list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml6-module-qt-labs-qmlmodels")
     list(
-      APPEND
-      CPACK_DEBIAN_PACKAGE_DEPENDS
+      APPEND CPACK_DEBIAN_PACKAGE_DEPENDS
       "qml6-module-qt5compat-graphicaleffects"
     )
     list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml6-module-qtmultimedia")
@@ -3914,21 +3924,18 @@ set(
   "${CPACK_DEBIAN_PACKAGE_DESCRIPTION}"
 )
 string(
-  PREPEND
-  CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED
+  PREPEND CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED
   "${CPACK_PACKAGE_DESCRIPTION_SUMMARY}"
   "\n"
 )
 string(
-  REPLACE
-  "\n\n"
+  REPLACE "\n\n"
   "\n.\n"
   CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED
   "${CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED}"
 )
 string(
-  REPLACE
-  "\n"
+  REPLACE "\n"
   "\n "
   CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED
   "${CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED}"
