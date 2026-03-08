@@ -3773,8 +3773,7 @@ if(NETWORKAUTH)
 
   FetchContent_Declare(
     librespot-cpp
-    URL
-      https://github.com/librespot-org/librespot-cpp/archive/refs/heads/master.zip
+    URL https://github.com/iscle/librespot-cpp/archive/refs/heads/master.zip
   )
   FetchContent_MakeAvailable(librespot-cpp)
   target_link_libraries(mixxx-lib PRIVATE librespot-cpp)
