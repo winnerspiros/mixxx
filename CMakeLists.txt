@@ -1,5 +1,15 @@
 include(FetchContent)
 cmake_minimum_required(VERSION 3.21)
+
+project(mixxx VERSION 2.7.0 LANGUAGES C CXX)
+
+set(MIXXX_VERSION_PRERELEASE "alpha") # set to "alpha" "beta" or ""
+if(MIXXX_VERSION_PRERELEASE STREQUAL "")
+  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}")
+else()
+  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}-${MIXXX_VERSION_PRERELEASE}")
+endif()
+
 # lint_cmake: -readability/wonkycase
 
 message(STATUS "CMAKE_VERSION: ${CMAKE_VERSION}")
@@ -55,6 +65,7 @@ if(POLICY CMP0135)
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL Android)
+  set(SOURCE_TARGET mixxx)
   if(NOT DEFINED ENV{JAVA_HOME})
     message(FATAL_ERROR "JAVA_HOME is not set. Did you source the setup file?")
   endif()
@@ -159,7 +170,7 @@ if(
       set(_dummy "${BUILDENV_URL}")
     endif()
 
-    if(NOT ${BUILDENV_SHA256} STREQUAL "")
+    if(NOT "${BUILDENV_SHA256}" STREQUAL "")
       message(
         STATUS
         "Verify SHA256 of downloaded file ${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip ..."
@@ -507,7 +518,6 @@ elseif(APPLE)
   endif()
 endif()
 
-project(mixxx VERSION 2.7.0 LANGUAGES C CXX)
 # Work around missing version suffixes support https://gitlab.kitware.com/cmake/cmake/-/issues/16716
 set(MIXXX_VERSION_PRERELEASE "alpha") # set to "alpha" "beta" or ""
 
@@ -2053,7 +2063,15 @@ set_target_properties(
 )
 target_include_directories(
   mixxx-lib
-  PUBLIC src "${CMAKE_CURRENT_BINARY_DIR}/src"
+  PUBLIC
+    src
+    "${CMAKE_CURRENT_BINARY_DIR}/src"
+    lib/replaygain
+    lib/qm-dsp
+    lib/reverb
+    src/rendergraph/common
+    src/rendergraph/opengl
+    src/rendergraph/scenegraph
 )
 if(UNIX AND NOT APPLE)
   target_sources(mixxx-lib PRIVATE src/util/rlimit.cpp)
@@ -2403,24 +2421,13 @@ if(QT6)
     qt_add_android_permission(mixxx
     NAME android.permission.USB_PERMISSION
     )
-    set(
-      CMAKE_LINKER
-      "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/bin/ld"
-    )
-    set(
-      CMAKE_C_COMPILER
-      "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/bin/clang"
-    )
-    set(
-      CMAKE_CXX_COMPILER
-      "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/bin/clang++"
-    )
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fPIC")
+        find_package(OpenMP REQUIRED COMPONENTS CXX)
+    target_link_libraries(mixxx-lib PUBLIC OpenMP::OpenMP_CXX)
+    file(GLOB LIBOMP_PATH "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/lib/clang/*/lib/linux/aarch64/libomp.so")
     set_target_properties(
       mixxx
       PROPERTIES
-        QT_ANDROID_EXTRA_LIBS
-          ${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/lib/clang/18/lib/linux/aarch64/libomp.so
+        QT_ANDROID_EXTRA_LIBS "${LIBOMP_PATH}"
     )
     add_custom_target(
       copy-resource-android
@@ -2434,7 +2441,7 @@ if(QT6)
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     )
     add_dependencies(mixxx copy-resource-android)
-    target_link_libraries(mixxx PUBLIC omp)
+
   else()
     qt_add_executable(mixxx WIN32 src/main.cpp MANUAL_FINALIZATION)
   endif()
@@ -3695,7 +3702,21 @@ endif()
 
 # Protobuf
 add_subdirectory(src/proto)
-target_link_libraries(mixxx-lib PUBLIC mixxx-proto)
+target_link_libraries(
+  mixxx-lib
+  PUBLIC
+    mixxx-proto
+    Qt${QT_VERSION_MAJOR}::Concurrent
+    Qt${QT_VERSION_MAJOR}::Core
+    Qt${QT_VERSION_MAJOR}::Gui
+    Qt${QT_VERSION_MAJOR}::Network
+    Qt${QT_VERSION_MAJOR}::OpenGL
+    Qt${QT_VERSION_MAJOR}::Sql
+    Qt${QT_VERSION_MAJOR}::Svg
+    Qt${QT_VERSION_MAJOR}::Widgets
+    Qt${QT_VERSION_MAJOR}::Xml
+    Qt${QT_VERSION_MAJOR}::Qml
+)
 
 # Rigtorp SPSC Queue
 # https://github.com/rigtorp/SPSCQueue
@@ -3737,8 +3758,7 @@ if(NETWORKAUTH)
 
   FetchContent_Declare(
     librespot-cpp
-    GIT_REPOSITORY https://github.com/librespot-org/librespot-cpp.git
-    GIT_TAG master
+    URL https://github.com/librespot-org/librespot-cpp/archive/refs/heads/master.zip
   )
   FetchContent_MakeAvailable(librespot-cpp)
   target_link_libraries(mixxx-lib PRIVATE librespot-cpp)

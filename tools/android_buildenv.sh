@@ -74,7 +74,7 @@ case "$1" in
             autoconf-archive \
             bison \
             flex \
-            google-android-cmdline-tools-13.0-installer \
+            google-android-cmdline-tools-11.0-installer \
             libasound2-dev \
             libegl1-mesa-dev \
             libghc-resolv-dev \
