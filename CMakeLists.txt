@@ -1295,17 +1295,6 @@ add_library(
   src/controllers/scripting/javascriptplayerproxy.cpp
   src/controllers/scripting/javascriptplayerproxy.h
 )
-target_include_directories(
-  mixxx-lib
-  PUBLIC
-    lib/replaygain
-    lib/qm-dsp
-    lib/reverb
-    src/rendergraph/common
-    src/rendergraph/opengl
-    src/rendergraph/scenegraph
-)
-
 set(MIXXX_COMMON_PRECOMPILED_HEADER src/util/assert.h)
 set(
   MIXXX_LIB_PRECOMPILED_HEADER
