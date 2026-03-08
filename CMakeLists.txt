@@ -20,6 +20,7 @@ include(CheckIncludeFileCXX)
 include(ExternalProject)
 include(GNUInstallDirs)
 include(DefaultOption)
+include(CMakeDependentOption)
 include(IsStaticLibrary)
 
 # Verify VCPKG settings
@@ -3017,7 +3018,6 @@ if(NOT CMAKE_CONFIGURATION_TYPES)
   endif()
 endif()
 
-include(CMakeDependentOption)
 
 option(QT6 "Build with Qt6" ON)
 option(NETWORKAUTH "Enable Spotify and YouTube features" OFF)
