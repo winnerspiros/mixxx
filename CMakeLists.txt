@@ -3937,3 +3937,17 @@ endif()
 if(QT6)
   qt_finalize_target(mixxx)
 endif()
+
+# ReplayGain
+target_include_directories(mixxx-lib SYSTEM PUBLIC lib/replaygain)
+
+# TagLib
+find_package(TagLib 1.11 REQUIRED)
+target_include_directories(mixxx-lib SYSTEM PUBLIC ${TagLib_INCLUDE_DIRS})
+target_link_libraries(mixxx-lib PUBLIC TagLib::TagLib)
+
+# QM-DSP
+target_include_directories(mixxx-lib SYSTEM PUBLIC lib/qm-dsp)
+
+# Reverb
+target_include_directories(mixxx-lib SYSTEM PUBLIC lib/reverb)

@@ -113,7 +113,7 @@ inline QString coloredLinkString(
         const QString& text,
         const QString& baseUrl,
         const QString& extUrl = nullptr) {
-    return QStringLiteral("<a style="color:") + color.name() +
-            QStringLiteral(";" href="") + baseUrl + extUrl +
-            QStringLiteral("">") + text + QStringLiteral("</a>");
+    return QStringLiteral("<a style=\"color:") + color.name() +
+            QStringLiteral(";\" href=\"") + baseUrl + extUrl +
+            QStringLiteral("\">") + text + QStringLiteral("</a>");
 }
