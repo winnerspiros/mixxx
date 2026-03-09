@@ -83,10 +83,7 @@ set(MIXXX_VERSION_PRERELEASE "alpha")
 if(MIXXX_VERSION_PRERELEASE STREQUAL "")
   set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}")
 else()
-  set(
-    MIXXX_VERSION
-    "${CMAKE_PROJECT_VERSION}-${MIXXX_VERSION_PRERELEASE}"
-  )
+  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}-${MIXXX_VERSION_PRERELEASE}")
 endif()
 
 # We use here ENV{MIXXX_VCPKG_ROOT} as a workaround to find the overlay folders
@@ -1575,11 +1572,11 @@ set(
   src/util/xml.h
 )
 if(NOT QML)
-  else()
-  endif()
+else()
+endif()
 if(QOPENGL)
-  else()
-  endif()
+else()
+endif()
 
 set_source_files_properties(
   src/util/moc_included_test.cpp
@@ -1595,7 +1592,7 @@ target_include_directories(
   PUBLIC src "${CMAKE_CURRENT_BINARY_DIR}/src"
 )
 if(UNIX AND NOT APPLE)
-    set(MIXXX_SETTINGS_PATH ".mixxx/")
+  set(MIXXX_SETTINGS_PATH ".mixxx/")
 endif()
 
 if(APPLE)
@@ -1611,30 +1608,27 @@ if(APPLE)
   # Apple's Metal API in the foreseeable future.
   target_compile_definitions(mixxx-lib PUBLIC GL_SILENCE_DEPRECATION)
 
-
   if(IOS)
-
     option(IOS_ITUNES_LIBRARY "Native iOS music library integration" ON)
     if(IOS_ITUNES_LIBRARY)
-            target_link_libraries(mixxx-lib PRIVATE "-weak_framework MediaPlayer")
+      target_link_libraries(mixxx-lib PRIVATE "-weak_framework MediaPlayer")
       target_compile_definitions(mixxx-lib PUBLIC __IOS_ITUNES_LIBRARY__)
     endif()
   else()
-
     option(
       MACOS_ITUNES_LIBRARY
       "Native macOS iTunes/Music.app library integration"
       ON
     )
     if(MACOS_ITUNES_LIBRARY)
-            target_link_libraries(mixxx-lib PRIVATE "-weak_framework iTunesLibrary")
+      target_link_libraries(mixxx-lib PRIVATE "-weak_framework iTunesLibrary")
       target_compile_definitions(mixxx-lib PUBLIC __MACOS_ITUNES_LIBRARY__)
     endif()
   endif()
 
   option(AU_EFFECTS "Audio Unit (AU) effects integration" ON)
   if(AU_EFFECTS)
-        target_link_libraries(
+    target_link_libraries(
       mixxx-lib
       PRIVATE "-weak_framework AudioToolbox" "-weak_framework AVFAudio"
     )
@@ -2019,7 +2013,7 @@ if(APPLE)
     # https://discourse.cmake.org/t/ios-resource-management/758/7
     file(GLOB IOS_RESOURCES res/**)
     list(APPEND IOS_RESOURCES packaging/ios/Assets.xcassets)
-        set_source_files_properties(
+    set_source_files_properties(
       ${IOS_RESOURCES}
       PROPERTIES MACOSX_PACKAGE_LOCATION Resources
     )
@@ -2352,7 +2346,7 @@ if(FFMPEG)
     )
   endif()
 
-    target_compile_definitions(
+  target_compile_definitions(
     mixxx-lib
     PUBLIC
       __FFMPEG__
@@ -2373,8 +2367,8 @@ if(STEM)
   endif()
   target_compile_definitions(mixxx-lib PUBLIC __STEM__)
   list(APPEND MIXXX_LIB_PRECOMPILED_HEADER src/track/steminfo.h)
-    if(QOPENGL)
-      endif()
+  if(QOPENGL)
+  endif()
 endif()
 
 if(BUILD_TESTING)
@@ -2524,10 +2518,10 @@ if(BUILD_TESTING)
   )
 
   if(HID)
-      endif()
+  endif()
 
   if(QML)
-      endif()
+  endif()
 
   set_target_properties(mixxx-test PROPERTIES AUTOMOC ON)
   target_link_libraries(
@@ -2634,7 +2628,7 @@ endif()
 
 set_target_properties(mixxx PROPERTIES AUTORCC ON)
 if(BUILD_TESTING)
-    set_target_properties(mixxx-test PROPERTIES AUTORCC ON)
+  set_target_properties(mixxx-test PROPERTIES AUTORCC ON)
 endif()
 
 if(MIXXX_VERSION_PRERELEASE STREQUAL "")
@@ -2809,14 +2803,14 @@ if(
       set(_dummy "${BUILDENV_URL}")
     endif()
 
-    if(NOT ${BUILDENV_SHA256} STREQUAL "")
+    if(NOT "${BUILDENV_SHA256}" STREQUAL "")
       message(
         STATUS
         "Verify SHA256 of downloaded file ${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip ..."
       )
       file(SHA256 "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip" actual_sha256)
 
-      if(NOT actual_sha256 STREQUAL ${BUILDENV_SHA256})
+      if(NOT actual_sha256 STREQUAL "${BUILDENV_SHA256}")
         message(
           FATAL_ERROR
           "SHA256 checksum mismatch:\nexpected: ${BUILDENV_SHA256}\n     got: ${actual_sha256}"
@@ -3074,14 +3068,13 @@ if(
   )
 endif()
 
-  if(MIXXX_VERSION_PRERELEASE STREQUAL "")
-    set(MIXXX_PRERELEASE 0)
-  else()
-    set(MIXXX_PRERELEASE 1)
-  endif()
+if(MIXXX_VERSION_PRERELEASE STREQUAL "")
+  set(MIXXX_PRERELEASE 0)
+else()
+  set(MIXXX_PRERELEASE 1)
+endif()
 
-  # uses MIXXX_YEAR MIXXX_FILEVERSION MIXXX_PRODUCTVERSION MIXXX_VERSION MIXXX_DEBUG MIXXX_PRERELEASE
-
+# uses MIXXX_YEAR MIXXX_FILEVERSION MIXXX_PRODUCTVERSION MIXXX_VERSION MIXXX_DEBUG MIXXX_PRERELEASE
 
 # Chromaprint
 find_package(Chromaprint)
@@ -3264,7 +3257,7 @@ if(ENGINEPRIME)
   endif()
 
   # Include conditional sources only required with Engine Prime export support.
-    target_compile_definitions(mixxx-lib PUBLIC __ENGINEPRIME__)
+  target_compile_definitions(mixxx-lib PUBLIC __ENGINEPRIME__)
 endif()
 
 # Ebur128
@@ -3405,7 +3398,7 @@ if(KEYFINDER)
     target_link_libraries(mixxx-lib PRIVATE mixxx-keyfinder)
   endif()
 
-    target_compile_definitions(mixxx-lib PUBLIC __KEYFINDER__)
+  target_compile_definitions(mixxx-lib PUBLIC __KEYFINDER__)
 endif()
 
 # FLAC
@@ -3573,7 +3566,7 @@ if(PORTMIDI)
   find_package(PortMidi REQUIRED)
   target_include_directories(mixxx-lib SYSTEM PUBLIC ${PortMidi_INCLUDE_DIRS})
   target_link_libraries(mixxx-lib PRIVATE ${PortMidi_LIBRARIES})
-  endif()
+endif()
 
 # Protobuf
 add_subdirectory(src/proto)
@@ -3608,7 +3601,7 @@ if(NETWORKAUTH)
   list(APPEND QT_EXTRA_COMPONENTS "NetworkAuth")
 endif()
 if(NETWORKAUTH)
-    target_compile_definitions(mixxx-lib PUBLIC NETWORKAUTH)
+  target_compile_definitions(mixxx-lib PUBLIC NETWORKAUTH)
 
   # Ensure spdlog is available for librespot-cpp
   FetchContent_Declare(
@@ -3652,7 +3645,7 @@ if(WAVPACK)
       "WavPack audio file support requires libwv and its development headers."
     )
   endif()
-    target_compile_definitions(mixxx-lib PUBLIC __WV__)
+  target_compile_definitions(mixxx-lib PUBLIC __WV__)
   target_link_libraries(mixxx-lib PRIVATE WavPack::wavpack)
 endif()
 
@@ -3939,4 +3932,8 @@ if(WIN32)
   )
   target_include_directories(mixxx PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
   add_dependencies(mixxx mixxx-gitinfo)
+endif()
+
+if(QT6)
+  qt_finalize_target(mixxx)
 endif()
