@@ -1872,6 +1872,7 @@ if(QT6)
     Test
     Widgets
     Xml
+    Core5Compat
   )
   if(NOT APPLE AND NOT WIN32 AND NOT ANDROID)
     list(APPEND QT_COMPONENTS DBus)
@@ -1984,6 +1985,7 @@ else()
     Test
     Widgets
     Xml
+    Core5Compat
   )
   if(NOT APPLE AND NOT WIN32 AND NOT ANDROID)
     list(APPEND QT_COMPONENTS DBus)
@@ -3608,6 +3610,11 @@ endif()
 if(NETWORKAUTH)
     target_compile_definitions(mixxx-lib PUBLIC NETWORKAUTH)
 
+  # Ensure spdlog is available for librespot-cpp
+  FetchContent_Declare(
+    spdlog
+    URL https://github.com/gabime/spdlog/archive/refs/tags/v1.12.0.zip
+  )
   FetchContent_Declare(
     librespot-cpp
     URL https://github.com/iscle/librespot-cpp/archive/refs/heads/master.zip

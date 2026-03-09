@@ -1,7 +1,11 @@
 #include "controllers/delegates/controldelegate.h"
 
 #include <QLineEdit>
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#include <QtCore5Compat/QRegExp>
+#else
 #include <QRegExp>
+#endif
 #include <QStringList>
 
 #include "controllers/controlpickermenu.h"

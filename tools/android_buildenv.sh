@@ -105,6 +105,8 @@ case "$1" in
         export BUILDENV_SHA256
         export MIXXX_VCPKG_ROOT="${BUILDENV_PATH}"
         export VCPKG_TARGET_TRIPLET="${VCPKG_TARGET_TRIPLET}"
+        export VCPKG_INSTALLED_DIR="${MIXXX_VCPKG_ROOT}/installed"
+        export CMAKE_PREFIX_PATH="${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}"
 
         echo_exported_variables() {
             echo "ANDROID_SDK=${ANDROID_SDK}"
@@ -116,6 +118,8 @@ case "$1" in
             echo "BUILDENV_SHA256=${BUILDENV_SHA256}"
             echo "MIXXX_VCPKG_ROOT=${MIXXX_VCPKG_ROOT}"
             echo "VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}"
+            echo "VCPKG_INSTALLED_DIR=${VCPKG_INSTALLED_DIR}"
+            echo "CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}"
         }
 
         if [ -n "${GITHUB_ENV}" ]; then

@@ -1,7 +1,11 @@
 #include "util/file.h"
 
 #include <QFileDialog>
-#include <QRegExp> // required for 'indexIn(QString &str, int pos)
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#include <QtCore5Compat/QRegExp>
+#else
+#include <QRegExp>
+#endif // required for 'indexIn(QString &str, int pos)
 #include <QRegularExpression>
 
 #include "util/assert.h"

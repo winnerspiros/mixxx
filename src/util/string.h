@@ -4,7 +4,15 @@
 #include <QColor>
 #include <QLocale>
 #include <QString>
+#include <QtGlobal>
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#include <QStringView>
+typedef QStringView QStringRef;
+#else
 #include <QStringRef>
+#endif
+
 #include <cstring>
 #include <cwchar>
 #include <limits>
@@ -105,7 +113,7 @@ inline QString coloredLinkString(
         const QString& text,
         const QString& baseUrl,
         const QString& extUrl = nullptr) {
-    return QStringLiteral("<a style=\"color:") + color.name() +
-            QStringLiteral(";\" href=\"") + baseUrl + extUrl +
-            QStringLiteral("\">") + text + QStringLiteral("</a>");
+    return QStringLiteral("<a style="color:") + color.name() +
+            QStringLiteral(";" href="") + baseUrl + extUrl +
+            QStringLiteral("">") + text + QStringLiteral("</a>");
 }
