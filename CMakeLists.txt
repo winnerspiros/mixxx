@@ -1,7 +1,66 @@
 include(FetchContent)
 cmake_minimum_required(VERSION 3.21)
 
-# --- TOOLCHAIN SETUP ---
+function(fatal_error_missing_env)
+  if(WIN32)
+    if(CMAKE_BUILD_TYPE MATCHES "Debug")
+      message(
+        FATAL_ERROR
+        "Did you download the Mixxx build environment using `${CMAKE_SOURCE_DIR}/tools/windows_buildenv.bat`?"
+      )
+    else()
+      message(
+        FATAL_ERROR
+        "Did you download the Mixxx build environment using `${CMAKE_SOURCE_DIR}/tools/windows_release_buildenv.bat` or `${CMAKE_SOURCE_DIR}/tools/windows_buildenv.bat`(includes Debug)?"
+      )
+    endif()
+  elseif(APPLE AND NOT IOS)
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
+      message(
+        FATAL_ERROR
+        "Did you build the Mixxx build environment as described here: https://github.com/mixxxdj/mixxx/wiki/Compiling-dependencies-for-macOS-arm64?"
+      )
+    elseif(CMAKE_BUILD_TYPE MATCHES "Debug")
+      message(
+        FATAL_ERROR
+        "Did you download the Mixxx build environment using `source ${CMAKE_SOURCE_DIR}/tools/macos_buildenv.sh setup`"
+      )
+    else()
+      message(
+        FATAL_ERROR
+        "Did you download the Mixxx build environment using `source ${CMAKE_SOURCE_DIR}/tools/macos_release_buildenv.sh setup` or `source ${CMAKE_SOURCE_DIR}/tools/macos_buildenv.sh setup` (includes Debug)?"
+      )
+    endif()
+  elseif(UNIX AND NOT APPLE AND NOT ANDROID)
+    # Linux, BSD, Solaris, Minix
+    if(EXISTS "/etc/debian_version") # exists also on Ubuntu and Mint
+      message(
+        FATAL_ERROR
+        "Did you install the required Debian dev packages via `${CMAKE_SOURCE_DIR}/tools/debian_buildenv.sh setup`?"
+      )
+    elseif(EXISTS "/etc/redhat-release") # exists also on Fedora Mageia Madndriva Alma CentOS
+      message(
+        FATAL_ERROR
+        "Did you install the required RPM dev packages via `${CMAKE_SOURCE_DIR}/tools/rpm_buildenv.sh setup`?"
+      )
+    else()
+      message(
+        FATAL_ERROR
+        "Did you install the equivalent dev packages listed in `${CMAKE_SOURCE_DIR}/tools/debian_buildenv.sh setup`?"
+      )
+    endif()
+  elseif(DEFINED VCPKG_TARGET_TRIPLET)
+    message(
+      FATAL_ERROR
+      "You are targeting ${VCPKG_TARGET_TRIPLET}, which does not have a prebuilt environment. Please make sure that -DMIXXX_VCPKG_ROOT points to a vcpkg environment containing installed dependencies for ${VCPKG_TARGET_TRIPLET}!"
+    )
+  else()
+    message(
+      FATAL_ERROR
+      "You are building for an unknown platform and are missing a build environment. Please set -DVCPKG_TARGET_TRIPLET and make sure that -DMIXXX_VCPKG_ROOT points to a vcpkg environment containing installed dependencies for your target platform!"
+    )
+  endif()
+endfunction()
 
 if(DEFINED ENV{MIXXX_VCPKG_ROOT} AND NOT DEFINED MIXXX_VCPKG_ROOT)
   set(MIXXX_VCPKG_ROOT "$ENV{MIXXX_VCPKG_ROOT}")
@@ -20,7 +79,52 @@ endif()
 
 project(mixxx VERSION 2.7.0 LANGUAGES C CXX)
 
-set(MIXXX_VERSION_PRERELEASE "alpha") # set to "alpha" "beta" or ""
+set(MIXXX_VERSION_PRERELEASE "alpha")
+if(MIXXX_VERSION_PRERELEASE STREQUAL "")
+  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}")
+else()
+  set(
+    MIXXX_VERSION
+    "${CMAKE_PROJECT_VERSION}-${MIXXX_VERSION_PRERELEASE}"
+  )
+endif()
+
+# We use here ENV{MIXXX_VCPKG_ROOT} as a workaround to find the overlay folders
+# in manifest mode https://github.com/microsoft/vcpkg/issues/12289.
+# Note: VCPKG_ROOT, the default location for the vcpkg cli tool is later
+# adjusted by CMAKE_TOOLCHAIN_FILE.
+if(DEFINED ENV{MIXXX_VCPKG_ROOT} AND NOT DEFINED MIXXX_VCPKG_ROOT)
+  set(MIXXX_VCPKG_ROOT "$ENV{MIXXX_VCPKG_ROOT}")
+endif()
+
+if(DEFINED MIXXX_VCPKG_ROOT)
+  if(
+    EXISTS "${MIXXX_VCPKG_ROOT}/overlay/ports"
+    OR NOT EXISTS "${MIXXX_VCPKG_ROOT}/ports"
+  )
+    # MIXXX_VCPKG_ROOT points to our vcpkg environment
+    # and we configure the CMAKE_TOOLCHAIN_FILE and overlays accordingly
+    message(STATUS "Using MIXXX_VCPKG_ROOT: ${MIXXX_VCPKG_ROOT}")
+  else()
+    message(
+      STATUS
+      "MIXXX_VCPKG_ROOT not correct (missing ${MIXXX_VCPKG_ROOT}/overlay/ports)"
+    )
+    fatal_error_missing_env()
+  endif()
+
+  if(NOT DEFINED VCPKG_OVERLAY_PORTS)
+    # required for manifest mode
+    set(VCPKG_OVERLAY_PORTS "${MIXXX_VCPKG_ROOT}/overlay/ports")
+    if(APPLE)
+      list(APPEND VCPKG_OVERLAY_PORTS "${MIXXX_VCPKG_ROOT}/overlay/osx")
+    elseif(WIN32)
+      list(APPEND VCPKG_OVERLAY_PORTS "${MIXXX_VCPKG_ROOT}/overlay/windows")
+    endif()
+  endif()
+endif()
+
+# set to "alpha" "beta" or ""
 
 set(CMAKE_PROJECT_HOMEPAGE_URL "https://www.mixxx.org")
 set(
@@ -1471,73 +1575,11 @@ set(
   src/util/xml.h
 )
 if(NOT QML)
-  target_sources(
-    mixxx-lib
-    PRIVATE
-      # The following sources need to be in the QML target in order to get QML_ELEMENT properly interpreted.
-      # However, if we build Mixxx without QML support, these are still required, so it gets appended to the
-      # main target
-      src/control/controlmodel.cpp
-      src/control/controlsortfiltermodel.cpp
-  )
-else()
-  target_sources(
-    mixxx-lib
-    PRIVATE
-      # The following source depends of QML being available but aren't part of the new QML UI
-      src/controllers/rendering/controllerrenderingengine.cpp
-      src/controllers/controllerenginethreadcontrol.cpp
-      src/controllers/controllerscreenpreview.cpp
-  )
-endif()
+  else()
+  endif()
 if(QOPENGL)
-  target_sources(
-    mixxx-lib
-    PRIVATE
-      src/shaders/endoftrackshader.cpp
-      src/shaders/slipmodeshader.cpp
-      src/shaders/patternshader.cpp
-      src/shaders/rgbashader.cpp
-      src/shaders/rgbshader.cpp
-      src/shaders/shader.cpp
-      src/shaders/textureshader.cpp
-      src/shaders/unicolorshader.cpp
-      src/shaders/vinylqualityshader.cpp
-      src/util/opengltexture2d.cpp
-      src/waveform/renderers/allshader/digitsrenderer.cpp
-      src/waveform/renderers/allshader/matrixforwidgetgeometry.cpp
-      src/waveform/renderers/allshader/waveformrenderbackground.cpp
-      src/waveform/renderers/allshader/waveformrenderbeat.cpp
-      src/waveform/renderers/allshader/waveformrenderer.cpp
-      src/waveform/renderers/allshader/waveformrendererendoftrack.cpp
-      src/waveform/renderers/allshader/waveformrendererslipmode.cpp
-      src/waveform/renderers/allshader/waveformrendererfiltered.cpp
-      src/waveform/renderers/allshader/waveformrendererhsv.cpp
-      src/waveform/renderers/allshader/waveformrendererpreroll.cpp
-      src/waveform/renderers/allshader/waveformrendererrgb.cpp
-      src/waveform/renderers/allshader/waveformrenderertextured.cpp
-      src/waveform/renderers/allshader/waveformrenderersignalbase.cpp
-      src/waveform/renderers/allshader/waveformrenderersimple.cpp
-      src/waveform/renderers/allshader/waveformrendermark.cpp
-      src/waveform/renderers/allshader/waveformrendermarkrange.cpp
-      src/waveform/widgets/allshader/waveformwidget.cpp
-      src/widget/openglwindow.cpp
-      src/widget/tooltipqopengl.cpp
-      src/widget/wglwidgetqopengl.cpp
-      src/widget/winitialglwidget.cpp
-      src/widget/wspinnyglsl.cpp
-      src/widget/wvumeterglsl.cpp
-  )
-else()
-  target_sources(
-    mixxx-lib
-    PRIVATE
-      src/waveform/renderers/qtvsynctestrenderer.cpp
-      src/waveform/renderers/qtwaveformrendererfilteredsignal.cpp
-      src/waveform/renderers/qtwaveformrenderersimplesignal.cpp
-      src/widget/wglwidgetqglwidget.cpp
-  )
-endif()
+  else()
+  endif()
 
 set_source_files_properties(
   src/util/moc_included_test.cpp
@@ -1552,222 +1594,8 @@ target_include_directories(
   mixxx-lib
   PUBLIC src "${CMAKE_CURRENT_BINARY_DIR}/src"
 )
-
-#
-# Installation directories
-#
-set(MIXXX_INSTALL_BINDIR ".")
-set(MIXXX_INSTALL_DATADIR ".")
-set(MIXXX_INSTALL_DOCDIR "./doc")
-set(MIXXX_INSTALL_LICENSEDIR "./doc")
-if(APPLE AND MACOS_BUNDLE)
-  set(MIXXX_INSTALL_BINDIR "${CMAKE_INSTALL_BINDIR}")
-  set(
-    MACOS_BUNDLE_NAME
-    Mixxx
-    CACHE STRING
-    "The macOS app bundle and executable name"
-  )
-  set(
-    MACOS_BUNDLE_IDENTIFIER
-    org.mixxx.mixxx
-    CACHE STRING
-    "The macOS app bundle identifier"
-  )
-  set(MIXXX_INSTALL_PREFIX "${MACOS_BUNDLE_NAME}.app")
-  set(MIXXX_INSTALL_DATADIR "${MIXXX_INSTALL_PREFIX}/Contents/Resources")
-  set(MIXXX_INSTALL_DOCDIR "${MIXXX_INSTALL_DATADIR}")
-  set(MIXXX_INSTALL_LICENSEDIR "${MIXXX_INSTALL_DATADIR}/licenses")
-elseif(APPLE AND IOS)
-  set(MIXXX_INSTALL_BINDIR "${CMAKE_INSTALL_BINDIR}")
-  set(
-    IOS_BUNDLE_NAME
-    Mixxx
-    CACHE STRING
-    "The iOS app bundle and executable name"
-  )
-  set(
-    IOS_BUNDLE_IDENTIFIER
-    org.mixxx.mixxx
-    CACHE STRING
-    "The iOS app bundle identifier"
-  )
-elseif(UNIX)
-  set(MIXXX_INSTALL_BINDIR "${CMAKE_INSTALL_BINDIR}")
-  set(MIXXX_INSTALL_DATADIR "${CMAKE_INSTALL_DATADIR}/${CMAKE_PROJECT_NAME}")
-  set(MIXXX_INSTALL_DOCDIR "${CMAKE_INSTALL_DOCDIR}")
-  set(MIXXX_INSTALL_LICENSEDIR "${CMAKE_INSTALL_DOCDIR}")
-endif()
-
-if(WIN32)
-  target_compile_definitions(mixxx-lib PUBLIC __WINDOWS__)
-
-  # Helps prevent duplicate symbols
-  target_compile_definitions(mixxx-lib PUBLIC _ATL_MIN_CRT)
-
-  # Need this on Windows until we have UTF16 support in Mixxx use stl min max
-  # defines
-  # http://connect.microsoft.com/VisualStudio/feedback/details/553420/std-cpp-
-  # max-and-std-cpp-min-not-available-in-visual-c-2010
-  target_compile_definitions(mixxx-lib PUBLIC NOMINMAX UNICODE)
-
-  # shoutidjc/shout.h checks for WIN32 to see if we are on Windows.
-  target_compile_definitions(mixxx-lib PUBLIC WIN32)
-
-  target_link_libraries(mixxx-lib PRIVATE comctl32 shell32)
-
-  if(MSVC)
-    target_link_options(mixxx-lib PUBLIC /entry:mainCRTStartup)
-    # Force MSVS to generate a manifest (MSVC2010)
-    target_link_options(mixxx-lib PUBLIC /manifest)
-  endif()
-elseif(UNIX)
-  if(APPLE)
-    target_compile_definitions(mixxx-lib PUBLIC __APPLE__)
-  elseif(ANDROID)
-    target_compile_definitions(mixxx-lib PUBLIC __ANDROID__)
-  else()
-    target_compile_definitions(mixxx-lib PUBLIC __UNIX__)
-    if(CMAKE_SYSTEM_NAME STREQUAL Linux)
-      target_compile_definitions(mixxx-lib PUBLIC __LINUX__)
-    elseif(CMAKE_SYSTEM_NAME MATCHES "^.*BSD$")
-      target_compile_definitions(mixxx-lib PUBLIC __BSD__)
-    endif()
-  endif()
-endif()
-
-# --- BEGIN RELOCATED BUILD SETUP ---
-function(fatal_error_missing_env)
-  if(WIN32)
-    if(CMAKE_BUILD_TYPE MATCHES "Debug")
-      message(
-        FATAL_ERROR
-        "Did you download the Mixxx build environment using `${CMAKE_SOURCE_DIR}/tools/windows_buildenv.bat`?"
-      )
-    else()
-      message(
-        FATAL_ERROR
-        "Did you download the Mixxx build environment using `${CMAKE_SOURCE_DIR}/tools/windows_release_buildenv.bat` or `${CMAKE_SOURCE_DIR}/tools/windows_buildenv.bat`(includes Debug)?"
-      )
-    endif()
-  elseif(APPLE AND NOT IOS)
-    if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
-      message(
-        FATAL_ERROR
-        "Did you build the Mixxx build environment as described here: https://github.com/mixxxdj/mixxx/wiki/Compiling-dependencies-for-macOS-arm64?"
-      )
-    elseif(CMAKE_BUILD_TYPE MATCHES "Debug")
-      message(
-        FATAL_ERROR
-        "Did you download the Mixxx build environment using `source ${CMAKE_SOURCE_DIR}/tools/macos_buildenv.sh setup`"
-      )
-    else()
-      message(
-        FATAL_ERROR
-        "Did you download the Mixxx build environment using `source ${CMAKE_SOURCE_DIR}/tools/macos_release_buildenv.sh setup` or `source ${CMAKE_SOURCE_DIR}/tools/macos_buildenv.sh setup` (includes Debug)?"
-      )
-    endif()
-  elseif(UNIX AND NOT APPLE AND NOT ANDROID)
-    # Linux, BSD, Solaris, Minix
-    if(EXISTS "/etc/debian_version") # exists also on Ubuntu and Mint
-      message(
-        FATAL_ERROR
-        "Did you install the required Debian dev packages via `${CMAKE_SOURCE_DIR}/tools/debian_buildenv.sh setup`?"
-      )
-    elseif(EXISTS "/etc/redhat-release") # exists also on Fedora Mageia Madndriva Alma CentOS
-      message(
-        FATAL_ERROR
-        "Did you install the required RPM dev packages via `${CMAKE_SOURCE_DIR}/tools/rpm_buildenv.sh setup`?"
-      )
-    else()
-      message(
-        FATAL_ERROR
-        "Did you install the equivalent dev packages listed in `${CMAKE_SOURCE_DIR}/tools/debian_buildenv.sh setup`?"
-      )
-    endif()
-  elseif(DEFINED VCPKG_TARGET_TRIPLET)
-    message(
-      FATAL_ERROR
-      "You are targeting ${VCPKG_TARGET_TRIPLET}, which does not have a prebuilt environment. Please make sure that -DMIXXX_VCPKG_ROOT points to a vcpkg environment containing installed dependencies for ${VCPKG_TARGET_TRIPLET}!"
-    )
-  else()
-    message(
-      FATAL_ERROR
-      "You are building for an unknown platform and are missing a build environment. Please set -DVCPKG_TARGET_TRIPLET and make sure that -DMIXXX_VCPKG_ROOT points to a vcpkg environment containing installed dependencies for your target platform!"
-    )
-  endif()
-endfunction()
-
-# We use here ENV{MIXXX_VCPKG_ROOT} as a workaround to find the overlay folders
-# in manifest mode https://github.com/microsoft/vcpkg/issues/12289.
-# Note: VCPKG_ROOT, the default location for the vcpkg cli tool is later
-# adjusted by CMAKE_TOOLCHAIN_FILE.
-if(DEFINED ENV{MIXXX_VCPKG_ROOT} AND NOT DEFINED MIXXX_VCPKG_ROOT)
-  set(MIXXX_VCPKG_ROOT "$ENV{MIXXX_VCPKG_ROOT}")
-endif()
-
-if(DEFINED MIXXX_VCPKG_ROOT)
-  if(
-    EXISTS "${MIXXX_VCPKG_ROOT}/overlay/ports"
-    OR NOT EXISTS "${MIXXX_VCPKG_ROOT}/ports"
-  )
-    # MIXXX_VCPKG_ROOT points to our vcpkg environment
-    # and we configure the CMAKE_TOOLCHAIN_FILE and overlays accordingly
-    message(STATUS "Using MIXXX_VCPKG_ROOT: ${MIXXX_VCPKG_ROOT}")
-  else()
-    message(
-      STATUS
-      "MIXXX_VCPKG_ROOT not correct (missing ${MIXXX_VCPKG_ROOT}/overlay/ports)"
-    )
-    fatal_error_missing_env()
-  endif()
-
-  if(NOT DEFINED VCPKG_OVERLAY_PORTS)
-    # required for manifest mode
-    set(VCPKG_OVERLAY_PORTS "${MIXXX_VCPKG_ROOT}/overlay/ports")
-    if(APPLE)
-      list(APPEND VCPKG_OVERLAY_PORTS "${MIXXX_VCPKG_ROOT}/overlay/osx")
-    elseif(WIN32)
-      list(APPEND VCPKG_OVERLAY_PORTS "${MIXXX_VCPKG_ROOT}/overlay/windows")
-    endif()
-  endif()
-
-  if(NOT DEFINED VCPKG_OVERLAY_TRIPLETS)
-    # required for manifest mode
-    set(VCPKG_OVERLAY_TRIPLETS "${MIXXX_VCPKG_ROOT}/overlay/triplets")
-  endif()
-
-  if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
-    set(
-      CMAKE_TOOLCHAIN_FILE
-      "${MIXXX_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-      CACHE STRING
-      ""
-    )
-  endif()
-endif()
-
-if(NOT DEFINED VCPKG_TARGET_TRIPLET)
-  if(DEFINED ENV{VCPKG_TARGET_TRIPLET})
-    set(VCPKG_TARGET_TRIPLET "$ENV{VCPKG_TARGET_TRIPLET}")
-  elseif(DEFINED ENV{VCPKG_DEFAULT_TRIPLET})
-    set(VCPKG_TARGET_TRIPLET "$ENV{VCPKG_DEFAULT_TRIPLET}")
-  endif()
-
-if(
-  ((APPLE AND NOT IOS) OR WIN32 OR ANDROID)
-  AND NOT IS_DIRECTORY "${MIXXX_VCPKG_ROOT}"
-)
-  if(NOT DEFINED BUILDENV_BASEPATH)
-    if(DEFINED ENV{BUILDENV_BASEPATH})
-      set(BUILDENV_BASEPATH "$ENV{BUILDENV_BASEPATH}")
-    else()
-      set(BUILDENV_BASEPATH "${CMAKE_SOURCE_DIR}/buildenv")
-    endif()
-
 if(UNIX AND NOT APPLE)
-  target_sources(mixxx-lib PRIVATE src/util/rlimit.cpp)
-  set(MIXXX_SETTINGS_PATH ".mixxx/")
+    set(MIXXX_SETTINGS_PATH ".mixxx/")
 endif()
 
 if(APPLE)
@@ -1783,28 +1611,15 @@ if(APPLE)
   # Apple's Metal API in the foreseeable future.
   target_compile_definitions(mixxx-lib PUBLIC GL_SILENCE_DEPRECATION)
 
-  target_sources(mixxx-lib PRIVATE src/util/appleosversion.mm)
 
   if(IOS)
-    target_sources(
-      mixxx-lib
-      PRIVATE src/soundio/soundmanagerios.mm src/util/screensaverios.mm
-    )
 
     option(IOS_ITUNES_LIBRARY "Native iOS music library integration" ON)
     if(IOS_ITUNES_LIBRARY)
-      target_sources(
-        mixxx-lib
-        PRIVATE
-          src/library/itunes/itunesiosassetexporter.mm
-          src/library/itunes/itunesiosimporter.mm
-          src/library/itunes/itunesiostrackresolver.cpp
-      )
-      target_link_libraries(mixxx-lib PRIVATE "-weak_framework MediaPlayer")
+            target_link_libraries(mixxx-lib PRIVATE "-weak_framework MediaPlayer")
       target_compile_definitions(mixxx-lib PUBLIC __IOS_ITUNES_LIBRARY__)
     endif()
   else()
-    target_sources(mixxx-lib PRIVATE src/util/darkappearance.mm)
 
     option(
       MACOS_ITUNES_LIBRARY
@@ -1812,26 +1627,14 @@ if(APPLE)
       ON
     )
     if(MACOS_ITUNES_LIBRARY)
-      target_sources(
-        mixxx-lib
-        PRIVATE src/library/itunes/itunesmacosimporter.mm
-      )
-      target_link_libraries(mixxx-lib PRIVATE "-weak_framework iTunesLibrary")
+            target_link_libraries(mixxx-lib PRIVATE "-weak_framework iTunesLibrary")
       target_compile_definitions(mixxx-lib PUBLIC __MACOS_ITUNES_LIBRARY__)
     endif()
   endif()
 
   option(AU_EFFECTS "Audio Unit (AU) effects integration" ON)
   if(AU_EFFECTS)
-    target_sources(
-      mixxx-lib
-      PRIVATE
-        src/effects/backends/audiounit/audiounitbackend.mm
-        src/effects/backends/audiounit/audiounitmanager.mm
-        src/effects/backends/audiounit/audiouniteffectprocessor.mm
-        src/effects/backends/audiounit/audiounitmanifest.mm
-    )
-    target_link_libraries(
+        target_link_libraries(
       mixxx-lib
       PRIVATE "-weak_framework AudioToolbox" "-weak_framework AVFAudio"
     )
@@ -1967,39 +1770,89 @@ if(WIN32)
     target_compile_definitions(mixxx-lib PUBLIC _USE_MATH_DEFINES)
   endif()
 endif()
-set(default_build_type "RelWithDebInfo")
-if(EXISTS "${CMAKE_SOURCE_DIR}/.git" AND NOT WIN32 AND NOT ANDROID)
-  # On Windows and Android, Debug builds are linked to unoptimized libs
-  # generating unusable slow Mixxx builds.
-  set(default_build_type "Debug")
+
+#
+# Installation directories
+#
+set(MIXXX_INSTALL_BINDIR ".")
+set(MIXXX_INSTALL_DATADIR ".")
+set(MIXXX_INSTALL_DOCDIR "./doc")
+set(MIXXX_INSTALL_LICENSEDIR "./doc")
+if(APPLE AND MACOS_BUNDLE)
+  set(MIXXX_INSTALL_BINDIR "${CMAKE_INSTALL_BINDIR}")
+  set(
+    MACOS_BUNDLE_NAME
+    Mixxx
+    CACHE STRING
+    "The macOS app bundle and executable name"
+  )
+  set(
+    MACOS_BUNDLE_IDENTIFIER
+    org.mixxx.mixxx
+    CACHE STRING
+    "The macOS app bundle identifier"
+  )
+  set(MIXXX_INSTALL_PREFIX "${MACOS_BUNDLE_NAME}.app")
+  set(MIXXX_INSTALL_DATADIR "${MIXXX_INSTALL_PREFIX}/Contents/Resources")
+  set(MIXXX_INSTALL_DOCDIR "${MIXXX_INSTALL_DATADIR}")
+  set(MIXXX_INSTALL_LICENSEDIR "${MIXXX_INSTALL_DATADIR}/licenses")
+elseif(APPLE AND IOS)
+  set(MIXXX_INSTALL_BINDIR "${CMAKE_INSTALL_BINDIR}")
+  set(
+    IOS_BUNDLE_NAME
+    Mixxx
+    CACHE STRING
+    "The iOS app bundle and executable name"
+  )
+  set(
+    IOS_BUNDLE_IDENTIFIER
+    org.mixxx.mixxx
+    CACHE STRING
+    "The iOS app bundle identifier"
+  )
+elseif(UNIX)
+  set(MIXXX_INSTALL_BINDIR "${CMAKE_INSTALL_BINDIR}")
+  set(MIXXX_INSTALL_DATADIR "${CMAKE_INSTALL_DATADIR}/${CMAKE_PROJECT_NAME}")
+  set(MIXXX_INSTALL_DOCDIR "${CMAKE_INSTALL_DOCDIR}")
+  set(MIXXX_INSTALL_LICENSEDIR "${CMAKE_INSTALL_DOCDIR}")
 endif()
 
-if(NOT CMAKE_CONFIGURATION_TYPES)
-  if(NOT CMAKE_BUILD_TYPE)
-    message(
-      STATUS
-      "Setting CMAKE_BUILD_TYPE to '${default_build_type}' as none was specified."
-    )
-    set(
-      CMAKE_BUILD_TYPE
-      "${default_build_type}"
-      CACHE STRING
-      "Choose the type of build."
-      FORCE
-    )
-    # Set the possible values of build type for cmake-gui
-    set_property(
-      CACHE CMAKE_BUILD_TYPE
-      PROPERTY STRINGS "Debug" "Release" "RelWithDebInfo"
-    )
-  elseif(NOT CMAKE_BUILD_TYPE MATCHES "^(Debug|Release|RelWithDebInfo)$")
-    message(
-      FATAL_ERROR
-      "CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} is not supported, use one of Debug, Release or RelWithDebInfo."
-    )
+if(WIN32)
+  target_compile_definitions(mixxx-lib PUBLIC __WINDOWS__)
+
+  # Helps prevent duplicate symbols
+  target_compile_definitions(mixxx-lib PUBLIC _ATL_MIN_CRT)
+
+  # Need this on Windows until we have UTF16 support in Mixxx use stl min max
+  # defines
+  # http://connect.microsoft.com/VisualStudio/feedback/details/553420/std-cpp-
+  # max-and-std-cpp-min-not-available-in-visual-c-2010
+  target_compile_definitions(mixxx-lib PUBLIC NOMINMAX UNICODE)
+
+  # shoutidjc/shout.h checks for WIN32 to see if we are on Windows.
+  target_compile_definitions(mixxx-lib PUBLIC WIN32)
+
+  target_link_libraries(mixxx-lib PRIVATE comctl32 shell32)
+
+  if(MSVC)
+    target_link_options(mixxx-lib PUBLIC /entry:mainCRTStartup)
+    # Force MSVS to generate a manifest (MSVC2010)
+    target_link_options(mixxx-lib PUBLIC /manifest)
+  endif()
+elseif(UNIX)
+  if(APPLE)
+    target_compile_definitions(mixxx-lib PUBLIC __APPLE__)
+  elseif(ANDROID)
+    target_compile_definitions(mixxx-lib PUBLIC __ANDROID__)
+  else()
+    target_compile_definitions(mixxx-lib PUBLIC __UNIX__)
+    if(CMAKE_SYSTEM_NAME STREQUAL Linux)
+      target_compile_definitions(mixxx-lib PUBLIC __LINUX__)
+    elseif(CMAKE_SYSTEM_NAME MATCHES "^.*BSD$")
+      target_compile_definitions(mixxx-lib PUBLIC __BSD__)
+    endif()
   endif()
 endif()
-# --- END RELOCATED BUILD SETUP ---
 
 # The mixxx executable
 if(QT6)
@@ -2164,8 +2017,7 @@ if(APPLE)
     # https://discourse.cmake.org/t/ios-resource-management/758/7
     file(GLOB IOS_RESOURCES res/**)
     list(APPEND IOS_RESOURCES packaging/ios/Assets.xcassets)
-    target_sources(mixxx PUBLIC ${IOS_RESOURCES})
-    set_source_files_properties(
+        set_source_files_properties(
       ${IOS_RESOURCES}
       PROPERTIES MACOSX_PACKAGE_LOCATION Resources
     )
@@ -2498,8 +2350,7 @@ if(FFMPEG)
     )
   endif()
 
-  target_sources(mixxx-lib PRIVATE src/sources/soundsourceffmpeg.cpp)
-  target_compile_definitions(
+    target_compile_definitions(
     mixxx-lib
     PUBLIC
       __FFMPEG__
@@ -2520,21 +2371,8 @@ if(STEM)
   endif()
   target_compile_definitions(mixxx-lib PUBLIC __STEM__)
   list(APPEND MIXXX_LIB_PRECOMPILED_HEADER src/track/steminfo.h)
-  target_sources(
-    mixxx-lib
-    PRIVATE
-      src/sources/soundsourcestem.cpp
-      src/track/steminfoimporter.cpp
-      src/track/steminfo.cpp
-      src/widget/wtrackstemmenu.cpp
-      src/widget/wstemlabel.cpp
-  )
-  if(QOPENGL)
-    target_sources(
-      mixxx-lib
-      PRIVATE src/waveform/renderers/allshader/waveformrendererstem.cpp
-    )
-  endif()
+    if(QOPENGL)
+      endif()
 endif()
 
 if(BUILD_TESTING)
@@ -2684,21 +2522,10 @@ if(BUILD_TESTING)
   )
 
   if(HID)
-    target_sources(
-      mixxx-test
-      PRIVATE src/test/controller_hid_reportdescriptor_test.cpp
-    )
-  endif()
+      endif()
 
   if(QML)
-    target_sources(
-      mixxx-test
-      PRIVATE
-        src/test/controller_mapping_file_handler_test.cpp
-        src/test/controllerrenderingengine_test.cpp
-        src/test/qmlcontrolproxytest.cpp
-    )
-  endif()
+      endif()
 
   set_target_properties(mixxx-test PROPERTIES AUTOMOC ON)
   target_link_libraries(
@@ -2803,11 +2630,9 @@ if(
   )
 endif()
 
-target_sources(mixxx PRIVATE res/mixxx.qrc)
 set_target_properties(mixxx PROPERTIES AUTORCC ON)
 if(BUILD_TESTING)
-  target_sources(mixxx-test PRIVATE res/mixxx.qrc)
-  set_target_properties(mixxx-test PROPERTIES AUTORCC ON)
+    set_target_properties(mixxx-test PROPERTIES AUTORCC ON)
 endif()
 
 if(MIXXX_VERSION_PRERELEASE STREQUAL "")
@@ -2921,6 +2746,16 @@ if(CMAKE_SYSTEM_NAME STREQUAL Android)
   )
 endif()
 
+if(
+  ((APPLE AND NOT IOS) OR WIN32 OR ANDROID)
+  AND NOT IS_DIRECTORY "${MIXXX_VCPKG_ROOT}"
+)
+  if(NOT DEFINED BUILDENV_BASEPATH)
+    if(DEFINED ENV{BUILDENV_BASEPATH})
+      set(BUILDENV_BASEPATH "$ENV{BUILDENV_BASEPATH}")
+    else()
+      set(BUILDENV_BASEPATH "${CMAKE_SOURCE_DIR}/buildenv")
+    endif()
   endif()
 
   if(NOT DEFINED BUILDENV_URL)
@@ -3031,16 +2866,29 @@ if(WIN32)
     )
   endif()
 endif()
-if(WIN32)
-  # Check if we are running from "Visual Studio 20XX Developer Command Prompt"
-  if(NOT DEFINED ENV{INCLUDE})
-    message(
-      FATAL_ERROR
-      "The INCLUDE environment variable is not defined. Please ensure you are using the correct shell like 'x64 Native Tools Command Prompt for VS 20XX'"
+
+if(DEFINED MIXXX_VCPKG_ROOT)
+  if(NOT DEFINED VCPKG_OVERLAY_TRIPLETS)
+    # required for manifest mode
+    set(VCPKG_OVERLAY_TRIPLETS "${MIXXX_VCPKG_ROOT}/overlay/triplets")
+  endif()
+
+  if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+    set(
+      CMAKE_TOOLCHAIN_FILE
+      "${MIXXX_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+      CACHE STRING
+      ""
     )
   endif()
 endif()
 
+if(NOT DEFINED VCPKG_TARGET_TRIPLET)
+  if(DEFINED ENV{VCPKG_TARGET_TRIPLET})
+    set(VCPKG_TARGET_TRIPLET "$ENV{VCPKG_TARGET_TRIPLET}")
+  elseif(DEFINED ENV{VCPKG_DEFAULT_TRIPLET})
+    set(VCPKG_TARGET_TRIPLET "$ENV{VCPKG_DEFAULT_TRIPLET}")
+  endif()
 endif()
 set(
   X_VCPKG_APPLOCAL_DEPS_INSTALL
@@ -3052,6 +2900,38 @@ set(
 
 # Set a default build type if none was specified
 # See https://blog.kitware.com/cmake-and-the-default-build-type/ for details.
+set(default_build_type "RelWithDebInfo")
+if(EXISTS "${CMAKE_SOURCE_DIR}/.git" AND NOT WIN32 AND NOT ANDROID)
+  # On Windows and Android, Debug builds are linked to unoptimized libs
+  # generating unusable slow Mixxx builds.
+  set(default_build_type "Debug")
+endif()
+
+if(NOT CMAKE_CONFIGURATION_TYPES)
+  if(NOT CMAKE_BUILD_TYPE)
+    message(
+      STATUS
+      "Setting CMAKE_BUILD_TYPE to '${default_build_type}' as none was specified."
+    )
+    set(
+      CMAKE_BUILD_TYPE
+      "${default_build_type}"
+      CACHE STRING
+      "Choose the type of build."
+      FORCE
+    )
+    # Set the possible values of build type for cmake-gui
+    set_property(
+      CACHE CMAKE_BUILD_TYPE
+      PROPERTY STRINGS "Debug" "Release" "RelWithDebInfo"
+    )
+  elseif(NOT CMAKE_BUILD_TYPE MATCHES "^(Debug|Release|RelWithDebInfo)$")
+    message(
+      FATAL_ERROR
+      "CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} is not supported, use one of Debug, Release or RelWithDebInfo."
+    )
+  endif()
+endif()
 
 option(QT6 "Build with Qt6" ON)
 option(NETWORKAUTH "Enable Spotify and YouTube features" OFF)
@@ -3192,38 +3072,6 @@ if(
   )
 endif()
 
-add_custom_target(
-  mixxx-gitinfo
-  # Note: We don't quote the paths in the command since CMake already inserts
-  # escapes (which, if quoted, lead to paths wrongly containing backslashes).
-  # See https://stackoverflow.com/questions/8925396/why-does-cmake-prefixes-spaces-with-backslashes-when-executing-a-command
-  COMMAND
-    ${CMAKE_COMMAND} -DGIT_DESCRIBE=${GIT_DESCRIBE}
-    -DGIT_COMMIT_DATE=${GIT_COMMIT_DATE}
-    -DINPUT_FILE=${CMAKE_CURRENT_SOURCE_DIR}/src/gitinfo.h.in
-    -DOUTPUT_FILE=${CMAKE_CURRENT_BINARY_DIR}/src/gitinfo.h -P
-    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/scripts/gitinfo.cmake
-  COMMENT "Update git version information in gitinfo.h"
-  BYPRODUCTS "${CMAKE_CURRENT_BINARY_DIR}/src/gitinfo.h"
-  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-)
-
-# Windows-only resource file
-if(WIN32)
-  string(TIMESTAMP MIXXX_YEAR "%Y")
-
-  set(
-    MIXXX_FILEVERSION
-    "${CMAKE_PROJECT_VERSION_MAJOR},${CMAKE_PROJECT_VERSION_MINOR},${CMAKE_PROJECT_VERSION_PATCH}"
-  )
-  set(MIXXX_PRODUCTVERSION "${MIXXX_FILEVERSION}")
-
-  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(MIXXX_DEBUG 1)
-  else()
-    set(MIXXX_DEBUG 0)
-  endif()
-
   if(MIXXX_VERSION_PRERELEASE STREQUAL "")
     set(MIXXX_PRERELEASE 0)
   else()
@@ -3231,18 +3079,7 @@ if(WIN32)
   endif()
 
   # uses MIXXX_YEAR MIXXX_FILEVERSION MIXXX_PRODUCTVERSION MIXXX_VERSION MIXXX_DEBUG MIXXX_PRERELEASE
-  configure_file("src/mixxx.rc.include.in" "src/mixxx.rc.include" @ONLY)
-  add_dependencies(mixxx mixxx-gitinfo)
 
-  target_sources(
-    mixxx
-    PRIVATE
-      src/mixxx.rc
-      "${CMAKE_CURRENT_BINARY_DIR}/src/mixxx.rc.include"
-      "${CMAKE_CURRENT_BINARY_DIR}/src/gitinfo.h"
-  )
-  target_include_directories(mixxx PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-endif()
 
 # Chromaprint
 find_package(Chromaprint)
@@ -3425,14 +3262,7 @@ if(ENGINEPRIME)
   endif()
 
   # Include conditional sources only required with Engine Prime export support.
-  target_sources(
-    mixxx-lib
-    PRIVATE
-      src/library/export/dlglibraryexport.cpp
-      src/library/export/engineprimeexportjob.cpp
-      src/library/export/libraryexporter.cpp
-  )
-  target_compile_definitions(mixxx-lib PUBLIC __ENGINEPRIME__)
+    target_compile_definitions(mixxx-lib PUBLIC __ENGINEPRIME__)
 endif()
 
 # Ebur128
@@ -3573,8 +3403,7 @@ if(KEYFINDER)
     target_link_libraries(mixxx-lib PRIVATE mixxx-keyfinder)
   endif()
 
-  target_sources(mixxx-lib PRIVATE src/analyzer/plugins/analyzerkeyfinder.cpp)
-  target_compile_definitions(mixxx-lib PUBLIC __KEYFINDER__)
+    target_compile_definitions(mixxx-lib PUBLIC __KEYFINDER__)
 endif()
 
 # FLAC
@@ -3689,9 +3518,9 @@ else()
     target_link_libraries(mixxx-lib PRIVATE "${GLESv2_LIBRARY}")
     target_compile_definitions(mixxx-lib PUBLIC QT_OPENGL_ES_2)
   else()
-    find_package(WrapOpenGL REQUIRED)
+    find_package(OpenGL REQUIRED)
     if(OPENGL_opengl_LIBRARY)
-      target_link_libraries(mixxx-lib PRIVATE OpenGL::OpenGL)
+      target_link_libraries(mixxx-lib PRIVATE OpenGL::GL)
     else()
       target_link_libraries(mixxx-lib PRIVATE OpenGL::GL)
     endif()
@@ -3742,13 +3571,7 @@ if(PORTMIDI)
   find_package(PortMidi REQUIRED)
   target_include_directories(mixxx-lib SYSTEM PUBLIC ${PortMidi_INCLUDE_DIRS})
   target_link_libraries(mixxx-lib PRIVATE ${PortMidi_LIBRARIES})
-  target_sources(
-    mixxx-lib
-    PRIVATE
-      src/controllers/midi/portmidicontroller.cpp
-      src/controllers/midi/portmidienumerator.cpp
-  )
-endif()
+  endif()
 
 # Protobuf
 add_subdirectory(src/proto)
@@ -3783,16 +3606,7 @@ if(NETWORKAUTH)
   list(APPEND QT_EXTRA_COMPONENTS "NetworkAuth")
 endif()
 if(NETWORKAUTH)
-  target_sources(
-    mixxx-lib
-    PRIVATE
-      src/library/spotify/spotifyfeature.cpp
-      src/library/youtube/youtubefeature.cpp
-      src/library/youtube/youtubeservice.cpp
-      src/sources/spotify/soundsourcespotify.cpp
-      src/sources/youtube/soundsourceyoutube.cpp
-  )
-  target_compile_definitions(mixxx-lib PUBLIC NETWORKAUTH)
+    target_compile_definitions(mixxx-lib PUBLIC NETWORKAUTH)
 
   FetchContent_Declare(
     librespot-cpp
@@ -3831,8 +3645,7 @@ if(WAVPACK)
       "WavPack audio file support requires libwv and its development headers."
     )
   endif()
-  target_sources(mixxx-lib PRIVATE src/sources/soundsourcewv.cpp)
-  target_compile_definitions(mixxx-lib PUBLIC __WV__)
+    target_compile_definitions(mixxx-lib PUBLIC __WV__)
   target_link_libraries(mixxx-lib PRIVATE WavPack::wavpack)
 endif()
 
@@ -4065,4 +3878,58 @@ if(APPLE AND MACOS_BUNDLE)
     @ONLY
   )
   install(SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/BundleInstall.cmake")
+endif()
+
+add_custom_target(
+  mixxx-gitinfo
+  # Note: We don't quote the paths in the command since CMake already inserts
+  # escapes (which, if quoted, lead to paths wrongly containing backslashes).
+  # See https://stackoverflow.com/questions/8925396/why-does-cmake-prefixes-spaces-with-backslashes-when-executing-a-command
+  COMMAND
+    ${CMAKE_COMMAND} -DGIT_DESCRIBE=${GIT_DESCRIBE}
+    -DGIT_COMMIT_DATE=${GIT_COMMIT_DATE}
+    -DINPUT_FILE=${CMAKE_CURRENT_SOURCE_DIR}/src/gitinfo.h.in
+    -DOUTPUT_FILE=${CMAKE_CURRENT_BINARY_DIR}/src/gitinfo.h -P
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/scripts/gitinfo.cmake
+  COMMENT "Update git version information in gitinfo.h"
+  BYPRODUCTS "${CMAKE_CURRENT_BINARY_DIR}/src/gitinfo.h"
+  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+)
+
+# Windows-only resource file
+# Windows-only resource file
+if(WIN32)
+  string(TIMESTAMP MIXXX_YEAR "%Y")
+
+  set(
+    MIXXX_FILEVERSION
+    "${CMAKE_PROJECT_VERSION_MAJOR},${CMAKE_PROJECT_VERSION_MINOR},${CMAKE_PROJECT_VERSION_PATCH}"
+  )
+  set(MIXXX_PRODUCTVERSION "${MIXXX_FILEVERSION}")
+
+  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(MIXXX_DEBUG 1)
+  else()
+    set(MIXXX_DEBUG 0)
+  endif()
+
+  if(MIXXX_VERSION_PRERELEASE STREQUAL "")
+    set(MIXXX_PRERELEASE 0)
+  else()
+    set(MIXXX_PRERELEASE 1)
+  endif()
+
+  configure_file("src/mixxx.rc.include.in" "src/mixxx.rc.include" @ONLY)
+  configure_file("packaging/windows/mixxx.rc.in" "mixxx.rc" @ONLY)
+
+  target_sources(
+    mixxx
+    PRIVATE
+      mixxx.rc
+      src/mixxx.rc
+      "${CMAKE_CURRENT_BINARY_DIR}/src/mixxx.rc.include"
+      "${CMAKE_CURRENT_BINARY_DIR}/src/gitinfo.h"
+  )
+  target_include_directories(mixxx PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+  add_dependencies(mixxx mixxx-gitinfo)
 endif()
