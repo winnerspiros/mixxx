@@ -111,7 +111,6 @@ DlgAbout::DlgAbout()
             << "Morgan Nunan"
             << "FrankwaP"
             << "Markus Kohlhase"
-            << "Daniel Fernandes"
             << "Frank Grimy"
             << "Al Hadebe"
             << "Emilien Colombier"
@@ -159,7 +158,15 @@ DlgAbout::DlgAbout()
             << "Greg-Orca"
             << "Iron-Wolf"
             << "endcredits33"
-            << "cucucat";
+            << "cucucat"
+            << "Swarnadip Kar"
+            << "Kevin Zheng"
+            << "yen3k"
+            << "Pappmann"
+            << "Sriram Varun Kumar"
+            << "Ahmed Salah"
+            << "Dheeraj Arora"
+            << "Pranav Jadhav";
 
     QStringList specialThanks;
     specialThanks
