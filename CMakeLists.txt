@@ -3615,7 +3615,6 @@ if(NETWORKAUTH)
     spdlog
     URL https://github.com/gabime/spdlog/archive/refs/tags/v1.12.0.zip
   )
-  FetchContent_MakeAvailable(spdlog)
   FetchContent_Declare(
     librespot-cpp
     URL https://github.com/iscle/librespot-cpp/archive/refs/heads/master.zip
