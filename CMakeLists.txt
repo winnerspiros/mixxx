@@ -105,23 +105,49 @@ endif()
 
 project(mixxx VERSION 2.7.0 LANGUAGES C CXX)
 
+option(QT6 "Build with Qt6" ON)
+option(NETWORKAUTH "Enable Spotify and YouTube features" OFF)
+cmake_dependent_option(
+  QML
+  "Build with QML"
+  ON
+  "QT6"
+  OFF
+)
+
+
 message(STATUS "MIXXX_VCPKG_ROOT: ${MIXXX_VCPKG_ROOT}")
 message(STATUS "VCPKG_TARGET_TRIPLET: ${VCPKG_TARGET_TRIPLET}")
 message(STATUS "CMAKE_TOOLCHAIN_FILE: ${CMAKE_TOOLCHAIN_FILE}")
+
 if(DEFINED MIXXX_VCPKG_ROOT AND DEFINED VCPKG_TARGET_TRIPLET)
-  set(VCPKG_INSTALLED_PATH "${MIXXX_VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}")
-  file(TO_CMAKE_PATH "${VCPKG_INSTALLED_PATH}" VCPKG_INSTALLED_PATH)
-  if(IS_DIRECTORY "${VCPKG_INSTALLED_PATH}")
+  set(TRIPLET_VARIANTS "${VCPKG_TARGET_TRIPLET}")
+  string(REPLACE "-release" "" TRIPLET_BASE "${VCPKG_TARGET_TRIPLET}")
+  string(REPLACE "-debug" "" TRIPLET_BASE "${TRIPLET_BASE}")
+  list(APPEND TRIPLET_VARIANTS "${TRIPLET_BASE}")
+  list(REMOVE_DUPLICATES TRIPLET_VARIANTS)
+
+  set(VCPKG_INSTALLED_PATH_FOUND FALSE)
+  foreach(variant ${TRIPLET_VARIANTS})
+    set(VCPKG_INSTALLED_PATH_TMP "${MIXXX_VCPKG_ROOT}/installed/${variant}")
+    file(TO_CMAKE_PATH "${VCPKG_INSTALLED_PATH_TMP}" VCPKG_INSTALLED_PATH_TMP)
+    if(IS_DIRECTORY "${VCPKG_INSTALLED_PATH_TMP}")
+      set(VCPKG_INSTALLED_PATH "${VCPKG_INSTALLED_PATH_TMP}")
+      set(VCPKG_INSTALLED_PATH_FOUND TRUE)
+      message(STATUS "Found vcpkg installed path: ${VCPKG_INSTALLED_PATH}")
+      break()
+    endif()
+  endforeach()
+
+  if(VCPKG_INSTALLED_PATH_FOUND)
     set(CMAKE_PREFIX_PATH "${VCPKG_INSTALLED_PATH}" "${VCPKG_INSTALLED_PATH}/share" ${CMAKE_PREFIX_PATH})
-    # Force CMAKE_PREFIX_PATH into cache to ensure it's used by find_package
     set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH}" CACHE STRING "Prefix paths for package discovery" FORCE)
-    message(STATUS "Updated CMAKE_PREFIX_PATH with: ${VCPKG_INSTALLED_PATH}")
   else()
-    message(WARNING "VCPKG_INSTALLED_PATH not found: ${VCPKG_INSTALLED_PATH}")
+    message(WARNING "VCPKG_INSTALLED_PATH not found for variants: ${TRIPLET_VARIANTS}")
   endif()
 endif()
-message(STATUS "Final CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")
 
+message(STATUS "Final CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")
 
 set(MIXXX_VERSION_PRERELEASE "alpha")
 if(MIXXX_VERSION_PRERELEASE STREQUAL "")
@@ -2803,7 +2829,7 @@ if(
     if(NOT EXISTS "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip")
       message(
         STATUS
-        "Downloading file "${BUILDENV_URL}" to "${BUILDENV_BASEPATH}" ..."
+        "Downloading file " ${BUILDENV_URL} " to " ${BUILDENV_BASEPATH} " ..."
       )
       file(
         DOWNLOAD "${BUILDENV_URL}"
@@ -2819,23 +2845,23 @@ if(
     if(NOT "${BUILDENV_SHA256}" STREQUAL "")
       message(
         STATUS
-        "Verify SHA256 of downloaded file "${BUILDENV_BASEPATH}/${BUILDENV_NAME}".zip ..."
+        "Verify SHA256 of downloaded file " ${BUILDENV_BASEPATH}/${BUILDENV_NAME} ".zip ..."
       )
       file(SHA256 "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip" actual_sha256)
 
       if(NOT actual_sha256 STREQUAL "${BUILDENV_SHA256}")
         message(
           FATAL_ERROR
-          "SHA256 checksum mismatch:\nexpected: "${BUILDENV_SHA256}"\n     got: ${actual_sha256}"
+          "SHA256 checksum mismatch:\nexpected: ${BUILDENV_SHA256}\n     got: ${actual_sha256}"
         )
       else()
-        message(STATUS "SHA256 "${BUILDENV_SHA256}" is correct!")
+        message(STATUS "SHA256 " ${BUILDENV_SHA256} " is correct!")
       endif()
     endif()
 
     message(
       STATUS
-      "Unpacking file "${BUILDENV_BASEPATH}/${BUILDENV_NAME}".zip ..."
+      "Unpacking file " ${BUILDENV_BASEPATH}/${BUILDENV_NAME} ".zip ..."
     )
     execute_process(
       COMMAND ${CMAKE_COMMAND} -E tar xzf "${BUILDENV_NAME}.zip"
@@ -2941,16 +2967,6 @@ if(NOT CMAKE_CONFIGURATION_TYPES)
     )
   endif()
 endif()
-
-option(QT6 "Build with Qt6" ON)
-option(NETWORKAUTH "Enable Spotify and YouTube features" OFF)
-cmake_dependent_option(
-  QML
-  "Build with QML"
-  ON
-  "QT6"
-  OFF
-)
 
 if(QT6)
   set(QOPENGL ON CACHE INTERNAL "Forced ON because QT6=ON")

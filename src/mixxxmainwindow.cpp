@@ -1,3 +1,4 @@
+#include <QStringBuilder>
 #include "mixxxmainwindow.h"
 
 #include <QCheckBox>
@@ -674,7 +675,7 @@ QDialog::DialogCode MixxxMainWindow::soundDeviceBusyDlg(bool* retryClicked) {
     QString title(tr("Sound Device Busy"));
     QString text(
             QStringLiteral("<html> <p>") %
-                    tr("Mixxx was unable to open all the configured sound devices.") +
+                    tr("Mixxx was unable to open all the configured sound devices.") %
             QStringLiteral("</p> <p>") %
                     m_pCoreServices->getSoundManager()->getErrorDeviceName() %
                     " is used by another application or not plugged in."
@@ -701,7 +702,7 @@ QDialog::DialogCode MixxxMainWindow::soundDeviceErrorMsgDlg(
     QString title(tr("Sound Device Error"));
     QString text(QStringLiteral("<html> <p>") %
                     tr("Mixxx was unable to open all the configured sound "
-                       "devices.") +
+                       "devices.") %
             QStringLiteral("</p> <p>") %
                     m_pCoreServices->getSoundManager()
                             ->getLastErrorMessage(status)
