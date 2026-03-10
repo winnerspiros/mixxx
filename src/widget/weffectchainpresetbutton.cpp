@@ -1,5 +1,6 @@
 #include "widget/weffectchainpresetbutton.h"
 
+#include <QStringBuilder>
 #include <QWidgetAction>
 
 #include "effects/effectparameter.h"
@@ -64,8 +65,8 @@ void WEffectChainPresetButton::populateMenu() {
     for (const auto& pChainPreset : m_pChainPresetManager->getPresetsSorted()) {
         QString title = pChainPreset->name();
         if (title == m_pChain->presetName()) {
-            title = QChar(0x2713) + // CHECK MARK
-                    QChar(' ') + title;
+            title = QString(QChar(0x2713)) + // CHECK MARK
+                    QString(QChar(' ')) + title;
             presetIsReadOnly = pChainPreset->isReadOnly();
         }
         QString tooltip =

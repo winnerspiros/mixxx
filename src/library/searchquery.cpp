@@ -1,5 +1,6 @@
 #include "library/searchquery.h"
 
+#include <QStringBuilder>
 #include <QLocale>
 #include <QRegularExpression>
 
@@ -166,7 +167,7 @@ QString NotNode::toSql() const {
         // The component term needs to be wrapped into parentheses,
         // but the whole expression does not. The composite node is
         // always responsible for proper wrapping into parentheses!
-        return "NOT (" % sql % ")";
+        return QStringLiteral("NOT (") % sql % QStringLiteral(")");
     }
 }
 
@@ -218,7 +219,7 @@ QString TextFilterNode::toSql() const {
     switch (m_matchMode) {
     case StringMatch::Contains:
         escapedArgument = escaper.escapeString(
-                kSqlLikeMatchAll + argument + kSqlLikeMatchAll);
+                QString(kSqlLikeMatchAll) + argument + QString(kSqlLikeMatchAll));
         break;
     case StringMatch::Equals:
         escapedArgument = escaper.escapeString(argument);
@@ -768,7 +769,7 @@ QString BpmFilterNode::toSql() const {
         // 'BeatGrid-[version]' means we have constant BPM
         // 'BeatMap-[version]' means (likely) variable BPM
         const QString beatGridEscaped = escaper.escapeString(
-                kSqlLikeMatchAll + "BeatGrid" + kSqlLikeMatchAll);
+                QString(kSqlLikeMatchAll) + QStringLiteral("BeatGrid") + QString(kSqlLikeMatchAll));
         return QStringLiteral("%1 LIKE %2")
                 .arg(LIBRARYTABLE_BEATS_VERSION, beatGridEscaped);
     }

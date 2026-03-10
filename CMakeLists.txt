@@ -1866,6 +1866,9 @@ if(QT6)
     Test
     Widgets
     Xml
+    SvgWidgets
+    Multimedia
+    MultimediaWidgets
     Core5Compat
   )
   if(NOT APPLE AND NOT WIN32 AND NOT ANDROID)
@@ -1979,6 +1982,9 @@ else()
     Test
     Widgets
     Xml
+    SvgWidgets
+    Multimedia
+    MultimediaWidgets
     Core5Compat
   )
   if(NOT APPLE AND NOT WIN32 AND NOT ANDROID)
@@ -3612,7 +3618,7 @@ if(NETWORKAUTH)
     librespot-cpp
     URL https://github.com/iscle/librespot-cpp/archive/refs/heads/master.zip
   )
-  FetchContent_MakeAvailable(librespot-cpp)
+  FetchContent_MakeAvailable(spdlog librespot-cpp)
   target_link_libraries(mixxx-lib PRIVATE librespot-cpp)
   target_link_libraries(mixxx-lib PRIVATE Qt${QT_VERSION_MAJOR}::NetworkAuth)
 
@@ -3951,3 +3957,8 @@ target_include_directories(mixxx-lib SYSTEM PUBLIC lib/qm-dsp)
 
 # Reverb
 target_include_directories(mixxx-lib SYSTEM PUBLIC lib/reverb)
+
+# Internal components
+target_include_directories(mixxx-lib PUBLIC src/rendergraph/common)
+target_include_directories(mixxx-lib PUBLIC src/rendergraph/opengl)
+target_include_directories(mixxx-lib PUBLIC src/rendergraph/scenegraph)
