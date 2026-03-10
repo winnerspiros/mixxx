@@ -53,3 +53,5 @@ void YouTubeFeature::searchAndActivate(const QString& query) {
 TreeItemModel* YouTubeFeature::sidebarModel() const {
     return m_pSidebarModel;
 }
+
+#include "moc_youtubefeature.cpp"

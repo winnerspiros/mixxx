@@ -47,3 +47,5 @@ void YouTubeService::fetchSponsorSegments(const QString& videoId) {
 }
 
 } // namespace mixxx
+
+#include "moc_youtubeservice.cpp"

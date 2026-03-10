@@ -71,3 +71,5 @@ QVariant QmlBeatsModel::get(int row) const {
 
 } // namespace qml
 } // namespace mixxx
+
+#include "moc_qmlbeatsmodel.cpp"

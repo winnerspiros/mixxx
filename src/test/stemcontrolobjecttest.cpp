@@ -7,7 +7,7 @@
 #include "effects/backends/effectmanifest.h"
 #include "effects/effectsmanager.h"
 #include "test/signalpathtest.h"
-#include "util/memory.h"
+
 
 class StemControlFixture : public SignalPathTest {
   public:

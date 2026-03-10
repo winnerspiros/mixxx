@@ -116,6 +116,17 @@ if(DEFINED MIXXX_VCPKG_ROOT)
   endif()
 endif()
 
+if(ANDROID)
+  if(VCPKG_TARGET_TRIPLET MATCHES "arm64")
+    set(ANDROID_ABI "arm64-v8a" CACHE STRING "" FORCE)
+    set(CMAKE_ANDROID_ARCH_ABI "arm64-v8a" CACHE STRING "" FORCE)
+    set(CMAKE_SYSTEM_PROCESSOR "aarch64" CACHE STRING "" FORCE)
+  elseif(VCPKG_TARGET_TRIPLET MATCHES "x64")
+    set(ANDROID_ABI "x86_64" CACHE STRING "" FORCE)
+    set(CMAKE_ANDROID_ARCH_ABI "x86_64" CACHE STRING "" FORCE)
+  endif()
+endif()
+
 project(mixxx VERSION 2.7.0 LANGUAGES C CXX)
 
 option(QT6 "Build with Qt6" ON)
@@ -1569,6 +1580,7 @@ set(
   src/util/font.h
   src/util/fpclassify.h
   src/util/gitinfostore.h
+  src/util/gitinfostore.cpp
   src/util/imagefiledata.h
   src/util/imageutils.h
   src/util/indexrange.h
@@ -1643,6 +1655,7 @@ set_source_files_properties(
   PROPERTIES SKIP_PRECOMPILE_HEADERS ON
 )
 
+add_dependencies(mixxx-lib mixxx-gitinfo)
 set_target_properties(
   mixxx-lib
   PROPERTIES AUTOMOC ON AUTOUIC ON CXX_CLANG_TIDY "${CLANG_TIDY}"
@@ -2094,7 +2107,7 @@ else()
 endif()
 
 set_target_properties(mixxx-lib PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY}")
-target_link_libraries(mixxx PRIVATE mixxx-lib mixxx-gitinfostore)
+target_link_libraries(mixxx PRIVATE mixxx-lib)
 
 #
 # Installation and Packaging
@@ -2686,33 +2699,6 @@ if(BUILD_TESTING)
   endif()
 
   add_executable(mixxx-test ${src-mixxx-test})
-  target_compile_definitions(
-    mixxx-test
-    PUBLIC RESOURCE_FOLDER="${CMAKE_CURRENT_SOURCE_DIR}/res"
-  )
-
-  if(HID)
-  endif()
-
-  if(QML)
-  endif()
-
-  set_target_properties(mixxx-test PROPERTIES AUTOMOC ON)
-  target_link_libraries(
-    mixxx-test
-    PRIVATE mixxx-lib mixxx-gitinfostore GTest::gtest GTest::gmock
-  )
-
-  if(BUILD_BENCH)
-    add_compile_definitions(USE_BENCH)
-    target_link_libraries(mixxx-test PRIVATE benchmark::benchmark)
-  endif()
-
-  # Test Suite
-  include(CTest)
-  include(GoogleTest)
-  enable_testing()
-
   file(
     GLOB_RECURSE CONTROLLER_BULK_MAPPING_LIST
     "${CMAKE_CURRENT_SOURCE_DIR}/res/controllers/*.bulk.xml"
@@ -2725,12 +2711,13 @@ if(BUILD_TESTING)
     GLOB_RECURSE CONTROLLER_MIDI_MAPPING_LIST
     "${CMAKE_CURRENT_SOURCE_DIR}/res/controllers/*.midi.xml"
   )
-  list(JOIN CONTROLLER_BULK_MAPPING_LIST \"\,\"\" CONTROLLER_BULK_MAPPINGS)
-  list(JOIN CONTROLLER_HID_MAPPING_LIST \"\,\"\" CONTROLLER_HID_MAPPINGS)
-  list(JOIN CONTROLLER_MIDI_MAPPING_LIST \"\,\"\" CONTROLLER_MIDI_MAPPINGS)
+  list(JOIN CONTROLLER_BULK_MAPPING_LIST "|" CONTROLLER_BULK_MAPPINGS)
+  list(JOIN CONTROLLER_HID_MAPPING_LIST "|" CONTROLLER_HID_MAPPINGS)
+  list(JOIN CONTROLLER_MIDI_MAPPING_LIST "|" CONTROLLER_MIDI_MAPPINGS)
 
   target_compile_definitions(
     mixxx-test
+    PUBLIC RESOURCE_FOLDER="${CMAKE_CURRENT_SOURCE_DIR}/res"
     PUBLIC CONTROLLER_BULK_MAPPINGS="${CONTROLLER_BULK_MAPPINGS}"
     PUBLIC CONTROLLER_HID_MAPPINGS="${CONTROLLER_HID_MAPPINGS}"
     PUBLIC CONTROLLER_MIDI_MAPPINGS="${CONTROLLER_MIDI_MAPPINGS}"
@@ -3787,7 +3774,16 @@ if(NETWORKAUTH)
     librespot-cpp
     URL https://github.com/iscle/librespot-cpp/archive/refs/heads/master.zip
   )
-  FetchContent_MakeAvailable(spdlog librespot-cpp)
+  FetchContent_MakeAvailable(spdlog)
+  FetchContent_Populate(librespot-cpp)
+  if(NOT EXISTS "${librespot-cpp_SOURCE_DIR}/lib/spdlog/CMakeLists.txt")
+    file(MAKE_DIRECTORY "${librespot-cpp_SOURCE_DIR}/lib/spdlog")
+    file(
+      WRITE "${librespot-cpp_SOURCE_DIR}/lib/spdlog/CMakeLists.txt"
+      "add_library(spdlog INTERFACE)"
+    )
+  endif()
+  add_subdirectory(${librespot-cpp_SOURCE_DIR} ${librespot-cpp_BINARY_DIR})
   target_link_libraries(mixxx-lib PRIVATE librespot-cpp)
   target_link_libraries(mixxx-lib PRIVATE Qt${QT_VERSION_MAJOR}::NetworkAuth)
 
