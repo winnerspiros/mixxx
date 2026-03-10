@@ -1,5 +1,6 @@
 include(FetchContent)
 cmake_minimum_required(VERSION 3.21)
+include(CMakeDependentOption)
 
 function(fatal_error_missing_env)
   if(WIN32)
@@ -76,10 +77,16 @@ endif()
 
 if(DEFINED MIXXX_VCPKG_ROOT)
   file(TO_CMAKE_PATH "${MIXXX_VCPKG_ROOT}" MIXXX_VCPKG_ROOT)
-  if(EXISTS "${MIXXX_VCPKG_ROOT}/overlay/ports" OR NOT EXISTS "${MIXXX_VCPKG_ROOT}/ports")
+  if(
+    EXISTS "${MIXXX_VCPKG_ROOT}/overlay/ports"
+    OR NOT EXISTS "${MIXXX_VCPKG_ROOT}/ports"
+  )
     message(STATUS "Using MIXXX_VCPKG_ROOT: ${MIXXX_VCPKG_ROOT}")
   else()
-    message(STATUS "MIXXX_VCPKG_ROOT not correct (missing ${MIXXX_VCPKG_ROOT}/overlay/ports)")
+    message(
+      STATUS
+      "MIXXX_VCPKG_ROOT not correct (missing ${MIXXX_VCPKG_ROOT}/overlay/ports)"
+    )
     fatal_error_missing_env()
   endif()
 
@@ -98,7 +105,13 @@ if(DEFINED MIXXX_VCPKG_ROOT)
 
   if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
     if(EXISTS "${MIXXX_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
-      set(CMAKE_TOOLCHAIN_FILE "${MIXXX_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE STRING "" FORCE)
+      set(
+        CMAKE_TOOLCHAIN_FILE
+        "${MIXXX_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+        CACHE STRING
+        ""
+        FORCE
+      )
     endif()
   endif()
 endif()
@@ -114,7 +127,6 @@ cmake_dependent_option(
   "QT6"
   OFF
 )
-
 
 message(STATUS "MIXXX_VCPKG_ROOT: ${MIXXX_VCPKG_ROOT}")
 message(STATUS "VCPKG_TARGET_TRIPLET: ${VCPKG_TARGET_TRIPLET}")
@@ -140,10 +152,24 @@ if(DEFINED MIXXX_VCPKG_ROOT AND DEFINED VCPKG_TARGET_TRIPLET)
   endforeach()
 
   if(VCPKG_INSTALLED_PATH_FOUND)
-    set(CMAKE_PREFIX_PATH "${VCPKG_INSTALLED_PATH}" "${VCPKG_INSTALLED_PATH}/share" ${CMAKE_PREFIX_PATH})
-    set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH}" CACHE STRING "Prefix paths for package discovery" FORCE)
+    set(
+      CMAKE_PREFIX_PATH
+      "${VCPKG_INSTALLED_PATH}"
+      "${VCPKG_INSTALLED_PATH}/share"
+      ${CMAKE_PREFIX_PATH}
+    )
+    set(
+      CMAKE_PREFIX_PATH
+      "${CMAKE_PREFIX_PATH}"
+      CACHE STRING
+      "Prefix paths for package discovery"
+      FORCE
+    )
   else()
-    message(WARNING "VCPKG_INSTALLED_PATH not found for variants: ${TRIPLET_VARIANTS}")
+    message(
+      WARNING
+      "VCPKG_INSTALLED_PATH not found for variants: ${TRIPLET_VARIANTS}"
+    )
   endif()
 endif()
 
@@ -173,7 +199,6 @@ include(CheckIncludeFileCXX)
 include(ExternalProject)
 include(GNUInstallDirs)
 include(DefaultOption)
-include(CMakeDependentOption)
 include(IsStaticLibrary)
 
 # Verify VCPKG settings
@@ -389,8 +414,18 @@ if(MSVC)
     elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
       # For some reasons cmake uses /Ob1 in RelWithDebInfo https://gitlab.kitware.com/cmake/cmake/-/issues/20812
       # /O2 is applied by CMake and this implies /Od2
-      string(REPLACE "/Ob1" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
-      string(REPLACE "/Ob1" "" CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
+      string(
+        REPLACE "/Ob1"
+        ""
+        CMAKE_CXX_FLAGS_RELWITHDEBINFO
+        "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
+      )
+      string(
+        REPLACE "/Ob1"
+        ""
+        CMAKE_C_FLAGS_RELWITHDEBINFO
+        "${CMAKE_C_FLAGS_RELWITHDEBINFO}"
+      )
 
       # Reduce the size of the binary in RelWithDebInfo builds
       # Do not use /OPT:ICF because it has no effect.
@@ -473,7 +508,12 @@ if(MSVC)
         "${CMAKE_CXX_FLAGS_RELEASE}"
       )
       string(REPLACE "/O2" "" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
-      string(REPLACE "/Ob2" "" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
+      string(
+        REPLACE "/Ob2"
+        ""
+        CMAKE_CXX_FLAGS_RELEASE
+        "${CMAKE_CXX_FLAGS_RELEASE}"
+      )
       string(REPLACE "/Ob2" "" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
       add_compile_options(/Od) # this implies /Ob0
       add_compile_options(/RTC1)
@@ -492,8 +532,18 @@ if(MSVC)
         "${CMAKE_C_FLAGS_RELWITHDEBINFO}"
       )
       # For some reasons cmake uses /Ob1 in RelWithDebInfo https://gitlab.kitware.com/cmake/cmake/-/issues/20812
-      string(REPLACE "/Ob1" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
-      string(REPLACE "/Ob1" "" CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
+      string(
+        REPLACE "/Ob1"
+        ""
+        CMAKE_CXX_FLAGS_RELWITHDEBINFO
+        "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
+      )
+      string(
+        REPLACE "/Ob1"
+        ""
+        CMAKE_C_FLAGS_RELWITHDEBINFO
+        "${CMAKE_C_FLAGS_RELWITHDEBINFO}"
+      )
       add_compile_options(/Od) # this implies /Ob0
       add_compile_options(/RTC1)
     endif()
@@ -1884,16 +1934,25 @@ if(QT6)
   if(NOT APPLE AND NOT WIN32 AND NOT ANDROID)
     list(APPEND QT_COMPONENTS DBus)
   endif()
-    find_package(Qt6 COMPONENTS ${QT_COMPONENTS})
+  find_package(Qt6 COMPONENTS ${QT_COMPONENTS})
   if(NOT Qt6_FOUND AND MIXXX_VCPKG_ROOT)
-    message(STATUS "Qt6 NOT found. Searching manually in ${MIXXX_VCPKG_ROOT}...")
+    message(
+      STATUS
+      "Qt6 NOT found. Searching manually in ${MIXXX_VCPKG_ROOT}..."
+    )
     # Specifically look in the triplet share directory first
-    set(QT6_SEARCH_PATH "${MIXXX_VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/share/qt6")
+    set(
+      QT6_SEARCH_PATH
+      "${MIXXX_VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/share/qt6"
+    )
     if(EXISTS "${QT6_SEARCH_PATH}/Qt6Config.cmake")
       set(Qt6_DIR "${QT6_SEARCH_PATH}" CACHE PATH "Path to Qt6 directory" FORCE)
       message(STATUS "Found Qt6 in search path: ${Qt6_DIR}")
     else()
-      file(GLOB_RECURSE FOUND_QT6_CONFIG "${MIXXX_VCPKG_ROOT}/*/Qt6Config.cmake")
+      file(
+        GLOB_RECURSE FOUND_QT6_CONFIG
+        "${MIXXX_VCPKG_ROOT}/*/Qt6Config.cmake"
+      )
       if(FOUND_QT6_CONFIG)
         list(GET FOUND_QT6_CONFIG 0 FIRST_QT6_CONFIG)
         get_filename_component(QT6_DIR_TMP "${FIRST_QT6_CONFIG}" DIRECTORY)
@@ -2249,21 +2308,100 @@ if(UNIX AND NOT APPLE)
         DESTINATION "${MIXXX_UDEVDIR}/rules.d"
       )
       install(
-        CODE
-          ""
-      message(STATUS \"Important Note: Installation of udev rules\n\"
-          \"The udev rule file for USB HID and Bulk controller permissions have been\n\"
-          \"installed to:\n\"
-          \"    ${MIXXX_UDEVDIR}/rules.d.\n\"
-          \"If you are installing Mixxx from source for your own use, copy\n\"
-          \"mixxx-usb-uaccess.rules to /etc/udev/rules.d/ and run:\n\"
-          \"    udevadm control --reload-rules && udevadm trigger\n\"
-          \"as root to load the rules.\n\"
-          \"If you are building a package for a distribution, the correct directory for\n\"
-          \"system rules is either /lib/udev/rules.d (e.g. Debian, Fedora) or\n\"
-          \"/usr/lib/udev/rules.d (e.g. Arch Linux) with an appropriate priority prefix.\n\"
-          \"Adjust your package script accordingly and set -DINSTALL_USER_UDEV_RULES=OFF\")
-      ""
+        CODE ""
+        message
+        (
+          STATUS
+          \"Important
+          Note:
+          Installation
+          of
+          udev
+          rules\n\"
+          \"The
+          udev
+          rule
+          file
+          for
+          USB
+          HID
+          and
+          Bulk
+          controller
+          permissions
+          have
+          been\n\"
+          \"installed
+          to:\n\"
+          \"
+          ${MIXXX_UDEVDIR}/rules.d.\n\"
+          \"If
+          you
+          are
+          installing
+          Mixxx
+          from
+          source
+          for
+          your
+          own
+          use,
+          copy\n\"
+          \"mixxx-usb-uaccess.rules
+          to
+          /etc/udev/rules.d/
+          and
+          run:\n\"
+          \"
+          udevadm
+          control
+          --reload-rules
+          &&
+          udevadm
+          trigger\n\"
+          \"as
+          root
+          to
+          load
+          the
+          rules.\n\"
+          \"If
+          you
+          are
+          building
+          a
+          package
+          for
+          a
+          distribution,
+          the
+          correct
+          directory
+          for\n\"
+          \"system
+          rules
+          is
+          either
+          /lib/udev/rules.d
+          (e.g. Debian, Fedora)
+          or\n\"
+          \"/usr/lib/udev/rules.d
+          (e.g. Arch Linux)
+          with
+          an
+          appropriate
+          priority
+          prefix.\n\"
+          \"Adjust
+          your
+          package
+          script
+          accordingly
+          and
+          set
+          -DINSTALL_USER_UDEV_RULES=OFF\"
+        )
+        ""
       )
     else()
       install(
@@ -2829,7 +2967,11 @@ if(
     if(NOT EXISTS "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip")
       message(
         STATUS
-        "Downloading file " ${BUILDENV_URL} " to " ${BUILDENV_BASEPATH} " ..."
+        "Downloading file "
+        ${BUILDENV_URL}
+        " to "
+        ${BUILDENV_BASEPATH}
+        " ..."
       )
       file(
         DOWNLOAD "${BUILDENV_URL}"
@@ -2845,7 +2987,9 @@ if(
     if(NOT "${BUILDENV_SHA256}" STREQUAL "")
       message(
         STATUS
-        "Verify SHA256 of downloaded file " ${BUILDENV_BASEPATH}/${BUILDENV_NAME} ".zip ..."
+        "Verify SHA256 of downloaded file "
+        ${BUILDENV_BASEPATH}/${BUILDENV_NAME}
+        ".zip ..."
       )
       file(SHA256 "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip" actual_sha256)
 
@@ -2861,7 +3005,9 @@ if(
 
     message(
       STATUS
-      "Unpacking file " ${BUILDENV_BASEPATH}/${BUILDENV_NAME} ".zip ..."
+      "Unpacking file "
+      ${BUILDENV_BASEPATH}/${BUILDENV_NAME}
+      ".zip ..."
     )
     execute_process(
       COMMAND ${CMAKE_COMMAND} -E tar xzf "${BUILDENV_NAME}.zip"
