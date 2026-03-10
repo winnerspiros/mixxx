@@ -8,7 +8,6 @@
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 #include <QStringView>
-typedef QStringView QStringRef;
 #else
 #include <QStringRef>
 #endif
@@ -33,9 +32,15 @@ class StringCollator {
         return m_collator.compare(s1, s2);
     }
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    int compare(QStringView s1, QStringView s2) const {
+        return m_collator.compare(s1, s2);
+    }
+#else
     int compare(const QStringRef& s1, const QStringRef& s2) const {
         return m_collator.compare(s1, s2);
     }
+#endif
 
   private:
     QCollator m_collator;
