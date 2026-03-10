@@ -75,6 +75,7 @@ if(DEFINED ENV{MIXXX_VCPKG_ROOT} AND NOT DEFINED MIXXX_VCPKG_ROOT)
 endif()
 
 if(DEFINED MIXXX_VCPKG_ROOT)
+  file(TO_CMAKE_PATH "${MIXXX_VCPKG_ROOT}" MIXXX_VCPKG_ROOT)
   if(EXISTS "${MIXXX_VCPKG_ROOT}/overlay/ports" OR NOT EXISTS "${MIXXX_VCPKG_ROOT}/ports")
     message(STATUS "Using MIXXX_VCPKG_ROOT: ${MIXXX_VCPKG_ROOT}")
   else()
@@ -100,22 +101,36 @@ if(DEFINED MIXXX_VCPKG_ROOT)
       set(CMAKE_TOOLCHAIN_FILE "${MIXXX_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE STRING "" FORCE)
     endif()
   endif()
-
-  if(DEFINED VCPKG_TARGET_TRIPLET)
-    set(CMAKE_PREFIX_PATH "${MIXXX_VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}" ${CMAKE_PREFIX_PATH})
-  endif()
 endif()
 
 project(mixxx VERSION 2.7.0 LANGUAGES C CXX)
 
+message(STATUS "MIXXX_VCPKG_ROOT: ${MIXXX_VCPKG_ROOT}")
+message(STATUS "VCPKG_TARGET_TRIPLET: ${VCPKG_TARGET_TRIPLET}")
+message(STATUS "CMAKE_TOOLCHAIN_FILE: ${CMAKE_TOOLCHAIN_FILE}")
+if(DEFINED MIXXX_VCPKG_ROOT AND DEFINED VCPKG_TARGET_TRIPLET)
+  set(VCPKG_INSTALLED_PATH "${MIXXX_VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}")
+  file(TO_CMAKE_PATH "${VCPKG_INSTALLED_PATH}" VCPKG_INSTALLED_PATH)
+  if(IS_DIRECTORY "${VCPKG_INSTALLED_PATH}")
+    set(CMAKE_PREFIX_PATH "${VCPKG_INSTALLED_PATH}" "${VCPKG_INSTALLED_PATH}/share" ${CMAKE_PREFIX_PATH})
+    # Force CMAKE_PREFIX_PATH into cache to ensure it's used by find_package
+    set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH}" CACHE STRING "Prefix paths for package discovery" FORCE)
+    message(STATUS "Updated CMAKE_PREFIX_PATH with: ${VCPKG_INSTALLED_PATH}")
+  else()
+    message(WARNING "VCPKG_INSTALLED_PATH not found: ${VCPKG_INSTALLED_PATH}")
+  endif()
+endif()
+message(STATUS "Final CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")
+
+
 set(MIXXX_VERSION_PRERELEASE "alpha")
-if(MIXXX_VERSION_PRERELEASE STREQUAL "")
+if(MIXXX_VERSION_PRERELEASE STREQUAL ")
   set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}")
 else()
   set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}-${MIXXX_VERSION_PRERELEASE}")
 endif()
 
-# set to "alpha" "beta" or ""
+# set to "alpha" "beta" or "
 
 set(CMAKE_PROJECT_HOMEPAGE_URL "https://www.mixxx.org")
 set(
@@ -331,32 +346,32 @@ if(MSVC)
 
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
       # Optimize Debug Builds as well, to have "normal" behavior of Mixxx during development
-      string(REPLACE "/Od" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
-      string(REPLACE "/Od" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS}")
-      string(REPLACE "/Ob0" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
-      string(REPLACE "/Ob0" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS}")
+      string(REPLACE "/Od" " CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+      string(REPLACE "/Od" " CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS}")
+      string(REPLACE "/Ob0" " CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+      string(REPLACE "/Ob0" " CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS}")
 
       add_compile_options(/O2) # this implies /Od2
       # Remove /RTC1 flag set by CMAKE by default (conflicts with /O2)
       string(
         REPLACE "/RTC1"
-        ""
+        "
         CMAKE_CXX_FLAGS_DEBUG
         "${CMAKE_CXX_FLAGS_DEBUG}"
       )
-      string(REPLACE "/RTC1" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
+      string(REPLACE "/RTC1" " CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
     elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
       # For some reasons cmake uses /Ob1 in RelWithDebInfo https://gitlab.kitware.com/cmake/cmake/-/issues/20812
       # /O2 is applied by CMake and this implies /Od2
       string(
         REPLACE "/Ob1"
-        ""
+        "
         CMAKE_CXX_FLAGS_RELWITHDEBINFO
         "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
       )
       string(
         REPLACE "/Ob1"
-        ""
+        "
         CMAKE_C_FLAGS_RELWITHDEBINFO
         "${CMAKE_C_FLAGS_RELWITHDEBINFO}"
       )
@@ -437,44 +452,44 @@ if(MSVC)
       # Remove optimize flags set by cmake defaults
       string(
         REPLACE "/O2"
-        ""
+        "
         CMAKE_CXX_FLAGS_RELEASE
         "${CMAKE_CXX_FLAGS_RELEASE}"
       )
-      string(REPLACE "/O2" "" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
+      string(REPLACE "/O2" " CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
       string(
         REPLACE "/Ob2"
-        ""
+        "
         CMAKE_CXX_FLAGS_RELEASE
         "${CMAKE_CXX_FLAGS_RELEASE}"
       )
-      string(REPLACE "/Ob2" "" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
+      string(REPLACE "/Ob2" " CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
       add_compile_options(/Od) # this implies /Ob0
       add_compile_options(/RTC1)
     elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
       # Remove optimize flags set by cmake defaults
       string(
         REPLACE "/O2"
-        ""
+        "
         CMAKE_CXX_FLAGS_RELWITHDEBINFO
         "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
       )
       string(
         REPLACE "/O2"
-        ""
+        "
         CMAKE_C_FLAGS_RELWITHDEBINFO
         "${CMAKE_C_FLAGS_RELWITHDEBINFO}"
       )
       # For some reasons cmake uses /Ob1 in RelWithDebInfo https://gitlab.kitware.com/cmake/cmake/-/issues/20812
       string(
         REPLACE "/Ob1"
-        ""
+        "
         CMAKE_CXX_FLAGS_RELWITHDEBINFO
         "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
       )
       string(
         REPLACE "/Ob1"
-        ""
+        "
         CMAKE_C_FLAGS_RELWITHDEBINFO
         "${CMAKE_C_FLAGS_RELWITHDEBINFO}"
       )
@@ -574,7 +589,7 @@ set(CMAKE_VISIBILITY_INLINES_HIDDEN TRUE)
 
 if(WIN32)
   # Add support for lib prefix on Windows
-  set(CMAKE_FIND_LIBRARY_PREFIXES "" "lib")
+  set(CMAKE_FIND_LIBRARY_PREFIXES " "lib")
 endif()
 
 if(MSVC)
@@ -743,7 +758,7 @@ endif()
 
 set(
   CLANG_TIDY
-  ""
+  "
   CACHE STRING
   "CMAKE_CXX_CLANG_TIDY equivalent that only applies to mixxx sources, not bundled dependencies"
 )
@@ -1868,7 +1883,27 @@ if(QT6)
   if(NOT APPLE AND NOT WIN32 AND NOT ANDROID)
     list(APPEND QT_COMPONENTS DBus)
   endif()
-  find_package(Qt6 COMPONENTS ${QT_COMPONENTS} REQUIRED)
+    find_package(Qt6 COMPONENTS ${QT_COMPONENTS})
+  if(NOT Qt6_FOUND AND MIXXX_VCPKG_ROOT)
+    message(STATUS "Qt6 NOT found. Searching manually in ${MIXXX_VCPKG_ROOT}...")
+    # Specifically look in the triplet share directory first
+    set(QT6_SEARCH_PATH "${MIXXX_VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/share/qt6")
+    if(EXISTS "${QT6_SEARCH_PATH}/Qt6Config.cmake")
+      set(Qt6_DIR "${QT6_SEARCH_PATH}" CACHE PATH "Path to Qt6 directory" FORCE)
+      message(STATUS "Found Qt6 in search path: ${Qt6_DIR}")
+    else()
+      file(GLOB_RECURSE FOUND_QT6_CONFIG "${MIXXX_VCPKG_ROOT}/*/Qt6Config.cmake")
+      if(FOUND_QT6_CONFIG)
+        list(GET FOUND_QT6_CONFIG 0 FIRST_QT6_CONFIG)
+        get_filename_component(QT6_DIR_TMP "${FIRST_QT6_CONFIG}" DIRECTORY)
+        set(Qt6_DIR "${QT6_DIR_TMP}" CACHE PATH "Path to Qt6 directory" FORCE)
+        message(STATUS "Auto-detected Qt6_DIR from GLOB: ${Qt6_DIR}")
+      endif()
+    endif()
+    if(Qt6_DIR)
+      find_package(Qt6 COMPONENTS ${QT_COMPONENTS} REQUIRED)
+    endif()
+  endif()
   foreach(component ${QT_COMPONENTS})
     target_link_libraries(mixxx-lib PUBLIC Qt6::${component})
   endforeach()
@@ -2551,9 +2586,9 @@ if(BUILD_TESTING)
     GLOB_RECURSE CONTROLLER_MIDI_MAPPING_LIST
     "${CMAKE_CURRENT_SOURCE_DIR}/res/controllers/*.midi.xml"
   )
-  list(JOIN CONTROLLER_BULK_MAPPING_LIST "\",\"" CONTROLLER_BULK_MAPPINGS)
-  list(JOIN CONTROLLER_HID_MAPPING_LIST "\",\"" CONTROLLER_HID_MAPPINGS)
-  list(JOIN CONTROLLER_MIDI_MAPPING_LIST "\",\"" CONTROLLER_MIDI_MAPPINGS)
+  list(JOIN CONTROLLER_BULK_MAPPING_LIST "\",\" CONTROLLER_BULK_MAPPINGS)
+  list(JOIN CONTROLLER_HID_MAPPING_LIST "\",\" CONTROLLER_HID_MAPPINGS)
+  list(JOIN CONTROLLER_MIDI_MAPPING_LIST "\",\" CONTROLLER_MIDI_MAPPINGS)
 
   target_compile_definitions(
     mixxx-test
@@ -2631,7 +2666,7 @@ if(BUILD_TESTING)
   set_target_properties(mixxx-test PROPERTIES AUTORCC ON)
 endif()
 
-if(MIXXX_VERSION_PRERELEASE STREQUAL "")
+if(MIXXX_VERSION_PRERELEASE STREQUAL ")
   set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}")
 else()
   set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}-${MIXXX_VERSION_PRERELEASE}")
@@ -2771,7 +2806,7 @@ if(
   # Remove the extension from the filename (note that our buildenv names contain two dots)
   string(
     REGEX REPLACE "\\.[^.]*$"
-    ""
+    "
     BUILDENV_NAME
     "${FILENAME_WITH_EXTENSION}"
   )
@@ -2779,8 +2814,8 @@ if(
   message(STATUS "BUILDENV_NAME is: ${BUILDENV_NAME}")
 
   if(
-    NOT EXISTS "${BUILDENV_BASEPATH}/${BUILDENV_NAME}"
-    OR NOT IS_DIRECTORY "${BUILDENV_BASEPATH}/${BUILDENV_NAME}"
+    NOT EXISTS "${BUILDENV_BASEPATH}"/${BUILDENV_NAME}"
+    OR NOT IS_DIRECTORY "${BUILDENV_BASEPATH}"/${BUILDENV_NAME}"
   )
     if(NOT DEFINED BUILDENV_SHA256)
       if(DEFINED ENV{BUILDENV_SHA256})
@@ -2790,14 +2825,14 @@ if(
       endif()
     endif()
 
-    if(NOT EXISTS "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip")
+    if(NOT EXISTS "${BUILDENV_BASEPATH}"/${BUILDENV_NAME}.zip")
       message(
         STATUS
-        "Downloading file ${BUILDENV_URL} to ${BUILDENV_BASEPATH} ..."
+        "Downloading file "${BUILDENV_URL}" to "${BUILDENV_BASEPATH}" ..."
       )
       file(
-        DOWNLOAD ${BUILDENV_URL}
-        "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip"
+        DOWNLOAD "${BUILDENV_URL}"
+        "${BUILDENV_BASEPATH}"/${BUILDENV_NAME}.zip"
         SHOW_PROGRESS
         TLS_VERIFY ON
       )
@@ -2806,30 +2841,30 @@ if(
       set(_dummy "${BUILDENV_URL}")
     endif()
 
-    if(NOT "${BUILDENV_SHA256}" STREQUAL "")
+    if(NOT "${BUILDENV_SHA256}" STREQUAL ")
       message(
         STATUS
-        "Verify SHA256 of downloaded file ${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip ..."
+        "Verify SHA256 of downloaded file "${BUILDENV_BASEPATH}"/${BUILDENV_NAME}.zip ..."
       )
-      file(SHA256 "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip" actual_sha256)
+      file(SHA256 "${BUILDENV_BASEPATH}"/${BUILDENV_NAME}.zip" actual_sha256)
 
       if(NOT actual_sha256 STREQUAL "${BUILDENV_SHA256}")
         message(
           FATAL_ERROR
-          "SHA256 checksum mismatch:\nexpected: ${BUILDENV_SHA256}\n     got: ${actual_sha256}"
+          "SHA256 checksum mismatch:\nexpected: "${BUILDENV_SHA256}"\n     got: ${actual_sha256}"
         )
       else()
-        message(STATUS "SHA256 ${BUILDENV_SHA256} is correct!")
+        message(STATUS "SHA256 "${BUILDENV_SHA256}" is correct!")
       endif()
     endif()
 
     message(
       STATUS
-      "Unpacking file ${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip ..."
+      "Unpacking file "${BUILDENV_BASEPATH}"/${BUILDENV_NAME}.zip ..."
     )
     execute_process(
       COMMAND ${CMAKE_COMMAND} -E tar xzf "${BUILDENV_NAME}.zip"
-      WORKING_DIRECTORY ${BUILDENV_BASEPATH}
+      WORKING_DIRECTORY "${BUILDENV_BASEPATH}"
     )
   else()
     # Reference to suppress intentionally unused variable warnings
@@ -2837,7 +2872,7 @@ if(
   endif()
 else()
   # Reference to suppress intentionally unused variable warnings
-  set(_dummy "${BUILDENV_URL} ${BUILDENV_BASEPATH} ${BUILDENV_SHA256}")
+  set(_dummy "${BUILDENV_URL}" "${BUILDENV_BASEPATH}" "${BUILDENV_SHA256}")
 endif()
 
 # Use this function to throw an error because the build environment is not set
@@ -2877,7 +2912,7 @@ if(DEFINED MIXXX_VCPKG_ROOT)
       CMAKE_TOOLCHAIN_FILE
       "${MIXXX_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
       CACHE STRING
-      ""
+      "
     )
   endif()
 endif()
@@ -2971,7 +3006,7 @@ if(VCPKG_TARGET_TRIPLET MATCHES "^wasm(32|64)-emscripten")
       VCPKG_CHAINLOAD_TOOLCHAIN_FILE
       "$ENV{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
       CACHE STRING
-      ""
+      "
     )
   endif()
   # Enabling this causes Qt's FindWrapRt C++ compile check to fail as it tries
@@ -3071,7 +3106,7 @@ if(
   )
 endif()
 
-if(MIXXX_VERSION_PRERELEASE STREQUAL "")
+if(MIXXX_VERSION_PRERELEASE STREQUAL ")
   set(MIXXX_PRERELEASE 0)
 else()
   set(MIXXX_PRERELEASE 1)
@@ -3599,7 +3634,7 @@ set(
   Widgets
   Xml
 )
-set(QT_EXTRA_COMPONENTS "")
+set(QT_EXTRA_COMPONENTS ")
 if(NETWORKAUTH)
   list(APPEND QT_EXTRA_COMPONENTS "NetworkAuth")
 endif()
@@ -3715,7 +3750,7 @@ endif()
 set(CPACK_DEBIAN_PACKAGE_SUGGESTS "pdf-viewer, pulseaudio-utils")
 set(CPACK_DEBIAN_PACKAGE_REPLACES "mixxx-data")
 
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS ")
 list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "fonts-open-sans")
 list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "fonts-ubuntu")
 if(QT6)
@@ -3916,7 +3951,7 @@ if(WIN32)
     set(MIXXX_DEBUG 0)
   endif()
 
-  if(MIXXX_VERSION_PRERELEASE STREQUAL "")
+  if(MIXXX_VERSION_PRERELEASE STREQUAL ")
     set(MIXXX_PRERELEASE 0)
   else()
     set(MIXXX_PRERELEASE 1)
