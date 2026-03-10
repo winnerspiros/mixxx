@@ -376,6 +376,6 @@ void EngineDeck::slotPassthroughChangeRequest(double v) {
 // static
 QString EngineDeck::getGroupForStem(QStringView deckGroup, int stemIdx) {
     DEBUG_ASSERT(deckGroup.endsWith(QChar(']')) && stemIdx < 4);
-    return QString(deckGroup.chopped(1)) + QStringLiteral("_Stem") + QString(QChar('1' + stemIdx)) + QString(QChar(']'));
+    return deckGroup.chopped(1).toString() + QStringLiteral("_Stem") + QString(QChar('1' + stemIdx)) + QString(QChar(']'));
 }
 #endif

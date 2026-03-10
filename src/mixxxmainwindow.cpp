@@ -125,6 +125,7 @@ MixxxMainWindow::MixxxMainWindow(std::shared_ptr<mixxx::CoreServices> pCoreServi
                 Qt::AA_DontUseNativeMenuBar,
                 CmdlineArgs::Instance().getStartInFullscreen() || fullscreenPref);
     }
+#endif // __LINUX__
 
     connect(m_pCoreServices.get(),
             &mixxx::CoreServices::libraryScanSummary,
@@ -672,9 +673,9 @@ QDialog::DialogCode MixxxMainWindow::soundDeviceErrorDlg(
 QDialog::DialogCode MixxxMainWindow::soundDeviceBusyDlg(bool* retryClicked) {
     QString title(tr("Sound Device Busy"));
     QString text(
-            "<html> <p>" %
+            QStringLiteral("<html> <p>") %
                     tr("Mixxx was unable to open all the configured sound devices.") +
-            "</p> <p>" %
+            QStringLiteral("</p> <p>") %
                     m_pCoreServices->getSoundManager()->getErrorDeviceName() %
                     " is used by another application or not plugged in."
                     "</p><ul>"
@@ -698,10 +699,10 @@ QDialog::DialogCode MixxxMainWindow::soundDeviceBusyDlg(bool* retryClicked) {
 QDialog::DialogCode MixxxMainWindow::soundDeviceErrorMsgDlg(
         SoundDeviceStatus status, bool* retryClicked) {
     QString title(tr("Sound Device Error"));
-    QString text("<html> <p>" %
+    QString text(QStringLiteral("<html> <p>") %
                     tr("Mixxx was unable to open all the configured sound "
                        "devices.") +
-            "</p> <p>" %
+            QStringLiteral("</p> <p>") %
                     m_pCoreServices->getSoundManager()
                             ->getLastErrorMessage(status)
                             .replace("\n", "<br/>") %
