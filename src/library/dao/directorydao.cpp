@@ -1,5 +1,6 @@
 #include "library/dao/directorydao.h"
 
+#include <QStringBuilder>
 #include <QDir>
 
 #include "library/queryutil.h"

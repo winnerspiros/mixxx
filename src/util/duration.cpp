@@ -1,5 +1,6 @@
 #include "util/duration.h"
 
+#include <QStringBuilder>
 #include <QTime>
 #include <QtGlobal>
 #include <cmath>
@@ -123,7 +124,7 @@ QString DurationBase::formatKiloSeconds(double dSeconds, Precision precision) {
                     QString(kDecimalSeparator),
                     QString::number(seconds).rightJustified(3, QLatin1Char('0')));
     if (Precision::SECONDS != precision) {
-            durationString += kKiloGroupSeparator % QString::number(subs, 'f', 3).right(3);
+            durationString += QString(kKiloGroupSeparator) % QString::number(subs, 'f', 3).right(3);
     }
 
     // The format string gives us milliseconds but we want

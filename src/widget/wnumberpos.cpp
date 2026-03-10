@@ -1,5 +1,6 @@
 #include "widget/wnumberpos.h"
 
+#include <QStringBuilder>
 #include <QMouseEvent>
 
 #include "control/controlproxy.h"
@@ -81,17 +82,17 @@ void WNumberPos::slotSetTimeElapsed(double dTimeElapsed) {
         if (dTimeElapsed >= 0.0) {
             setText(timeFormat(dTimeElapsed, precision));
         } else {
-            setText(QLatin1String("-") % timeFormat(-dTimeElapsed, precision));
+            setText(QString("-") % timeFormat(-dTimeElapsed, precision));
         }
     } else if (m_displayMode == TrackTime::DisplayMode::REMAINING) {
-        setText(QLatin1String("-") % timeFormat(dTimeRemaining, precision));
+        setText(QString("-") % timeFormat(dTimeRemaining, precision));
     } else if (m_displayMode == TrackTime::DisplayMode::ELAPSED_AND_REMAINING) {
         if (dTimeElapsed >= 0.0) {
             setText(timeFormat(dTimeElapsed, precision)
-                    % QLatin1String("  -") % timeFormat(dTimeRemaining, precision));
+                    % QString("  -") % timeFormat(dTimeRemaining, precision));
         } else {
-            setText(QLatin1String("-") % timeFormat(-dTimeElapsed, precision)
-                    % QLatin1String("  -") % timeFormat(dTimeRemaining, precision));
+            setText(QString("-") % timeFormat(-dTimeElapsed, precision)
+                    % QString("  -") % timeFormat(dTimeRemaining, precision));
         }
     }
     m_dOldTimeElapsed = dTimeElapsed;
