@@ -62,56 +62,28 @@ function(fatal_error_missing_env)
   endif()
 endfunction()
 
-if(DEFINED ENV{MIXXX_VCPKG_ROOT} AND NOT DEFINED MIXXX_VCPKG_ROOT)
-  set(MIXXX_VCPKG_ROOT "$ENV{MIXXX_VCPKG_ROOT}")
-endif()
-
-if(DEFINED MIXXX_VCPKG_ROOT AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
-  if(EXISTS "${MIXXX_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
-    set(
-      CMAKE_TOOLCHAIN_FILE
-      "${MIXXX_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-      CACHE STRING
-      ""
-    )
+if(NOT DEFINED VCPKG_TARGET_TRIPLET)
+  if(DEFINED ENV{VCPKG_TARGET_TRIPLET})
+    set(VCPKG_TARGET_TRIPLET "$ENV{VCPKG_TARGET_TRIPLET}")
+  elseif(DEFINED ENV{VCPKG_DEFAULT_TRIPLET})
+    set(VCPKG_TARGET_TRIPLET "$ENV{VCPKG_DEFAULT_TRIPLET}")
   endif()
 endif()
 
-project(mixxx VERSION 2.7.0 LANGUAGES C CXX)
-
-set(MIXXX_VERSION_PRERELEASE "alpha")
-if(MIXXX_VERSION_PRERELEASE STREQUAL "")
-  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}")
-else()
-  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}-${MIXXX_VERSION_PRERELEASE}")
-endif()
-
-# We use here ENV{MIXXX_VCPKG_ROOT} as a workaround to find the overlay folders
-# in manifest mode https://github.com/microsoft/vcpkg/issues/12289.
-# Note: VCPKG_ROOT, the default location for the vcpkg cli tool is later
-# adjusted by CMAKE_TOOLCHAIN_FILE.
 if(DEFINED ENV{MIXXX_VCPKG_ROOT} AND NOT DEFINED MIXXX_VCPKG_ROOT)
   set(MIXXX_VCPKG_ROOT "$ENV{MIXXX_VCPKG_ROOT}")
 endif()
 
 if(DEFINED MIXXX_VCPKG_ROOT)
-  if(
-    EXISTS "${MIXXX_VCPKG_ROOT}/overlay/ports"
-    OR NOT EXISTS "${MIXXX_VCPKG_ROOT}/ports"
-  )
-    # MIXXX_VCPKG_ROOT points to our vcpkg environment
-    # and we configure the CMAKE_TOOLCHAIN_FILE and overlays accordingly
+  file(TO_CMAKE_PATH "${MIXXX_VCPKG_ROOT}" MIXXX_VCPKG_ROOT)
+  if(EXISTS "${MIXXX_VCPKG_ROOT}/overlay/ports" OR NOT EXISTS "${MIXXX_VCPKG_ROOT}/ports")
     message(STATUS "Using MIXXX_VCPKG_ROOT: ${MIXXX_VCPKG_ROOT}")
   else()
-    message(
-      STATUS
-      "MIXXX_VCPKG_ROOT not correct (missing ${MIXXX_VCPKG_ROOT}/overlay/ports)"
-    )
+    message(STATUS "MIXXX_VCPKG_ROOT not correct (missing ${MIXXX_VCPKG_ROOT}/overlay/ports)")
     fatal_error_missing_env()
   endif()
 
   if(NOT DEFINED VCPKG_OVERLAY_PORTS)
-    # required for manifest mode
     set(VCPKG_OVERLAY_PORTS "${MIXXX_VCPKG_ROOT}/overlay/ports")
     if(APPLE)
       list(APPEND VCPKG_OVERLAY_PORTS "${MIXXX_VCPKG_ROOT}/overlay/osx")
@@ -119,6 +91,69 @@ if(DEFINED MIXXX_VCPKG_ROOT)
       list(APPEND VCPKG_OVERLAY_PORTS "${MIXXX_VCPKG_ROOT}/overlay/windows")
     endif()
   endif()
+
+  if(NOT DEFINED VCPKG_OVERLAY_TRIPLETS)
+    set(VCPKG_OVERLAY_TRIPLETS "${MIXXX_VCPKG_ROOT}/overlay/triplets")
+  endif()
+
+  if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+    if(EXISTS "${MIXXX_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
+      set(CMAKE_TOOLCHAIN_FILE "${MIXXX_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE STRING "" FORCE)
+    endif()
+  endif()
+endif()
+
+project(mixxx VERSION 2.7.0 LANGUAGES C CXX)
+
+option(QT6 "Build with Qt6" ON)
+option(NETWORKAUTH "Enable Spotify and YouTube features" OFF)
+cmake_dependent_option(
+  QML
+  "Build with QML"
+  ON
+  "QT6"
+  OFF
+)
+
+
+message(STATUS "MIXXX_VCPKG_ROOT: ${MIXXX_VCPKG_ROOT}")
+message(STATUS "VCPKG_TARGET_TRIPLET: ${VCPKG_TARGET_TRIPLET}")
+message(STATUS "CMAKE_TOOLCHAIN_FILE: ${CMAKE_TOOLCHAIN_FILE}")
+
+if(DEFINED MIXXX_VCPKG_ROOT AND DEFINED VCPKG_TARGET_TRIPLET)
+  set(TRIPLET_VARIANTS "${VCPKG_TARGET_TRIPLET}")
+  string(REPLACE "-release" "" TRIPLET_BASE "${VCPKG_TARGET_TRIPLET}")
+  string(REPLACE "-debug" "" TRIPLET_BASE "${TRIPLET_BASE}")
+  list(APPEND TRIPLET_VARIANTS "${TRIPLET_BASE}")
+  list(REMOVE_DUPLICATES TRIPLET_VARIANTS)
+
+  set(VCPKG_INSTALLED_PATH_FOUND FALSE)
+  foreach(variant ${TRIPLET_VARIANTS})
+    set(VCPKG_INSTALLED_PATH_TMP "${MIXXX_VCPKG_ROOT}/installed/${variant}")
+    file(TO_CMAKE_PATH "${VCPKG_INSTALLED_PATH_TMP}" VCPKG_INSTALLED_PATH_TMP)
+    if(IS_DIRECTORY "${VCPKG_INSTALLED_PATH_TMP}")
+      set(VCPKG_INSTALLED_PATH "${VCPKG_INSTALLED_PATH_TMP}")
+      set(VCPKG_INSTALLED_PATH_FOUND TRUE)
+      message(STATUS "Found vcpkg installed path: ${VCPKG_INSTALLED_PATH}")
+      break()
+    endif()
+  endforeach()
+
+  if(VCPKG_INSTALLED_PATH_FOUND)
+    set(CMAKE_PREFIX_PATH "${VCPKG_INSTALLED_PATH}" "${VCPKG_INSTALLED_PATH}/share" ${CMAKE_PREFIX_PATH})
+    set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH}" CACHE STRING "Prefix paths for package discovery" FORCE)
+  else()
+    message(WARNING "VCPKG_INSTALLED_PATH not found for variants: ${TRIPLET_VARIANTS}")
+  endif()
+endif()
+
+message(STATUS "Final CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")
+
+set(MIXXX_VERSION_PRERELEASE "alpha")
+if(MIXXX_VERSION_PRERELEASE STREQUAL "")
+  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}")
+else()
+  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}-${MIXXX_VERSION_PRERELEASE}")
 endif()
 
 # set to "alpha" "beta" or ""
@@ -354,18 +389,8 @@ if(MSVC)
     elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
       # For some reasons cmake uses /Ob1 in RelWithDebInfo https://gitlab.kitware.com/cmake/cmake/-/issues/20812
       # /O2 is applied by CMake and this implies /Od2
-      string(
-        REPLACE "/Ob1"
-        ""
-        CMAKE_CXX_FLAGS_RELWITHDEBINFO
-        "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
-      )
-      string(
-        REPLACE "/Ob1"
-        ""
-        CMAKE_C_FLAGS_RELWITHDEBINFO
-        "${CMAKE_C_FLAGS_RELWITHDEBINFO}"
-      )
+      string(REPLACE "/Ob1" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+      string(REPLACE "/Ob1" "" CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
 
       # Reduce the size of the binary in RelWithDebInfo builds
       # Do not use /OPT:ICF because it has no effect.
@@ -448,12 +473,7 @@ if(MSVC)
         "${CMAKE_CXX_FLAGS_RELEASE}"
       )
       string(REPLACE "/O2" "" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
-      string(
-        REPLACE "/Ob2"
-        ""
-        CMAKE_CXX_FLAGS_RELEASE
-        "${CMAKE_CXX_FLAGS_RELEASE}"
-      )
+      string(REPLACE "/Ob2" "" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
       string(REPLACE "/Ob2" "" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
       add_compile_options(/Od) # this implies /Ob0
       add_compile_options(/RTC1)
@@ -472,18 +492,8 @@ if(MSVC)
         "${CMAKE_C_FLAGS_RELWITHDEBINFO}"
       )
       # For some reasons cmake uses /Ob1 in RelWithDebInfo https://gitlab.kitware.com/cmake/cmake/-/issues/20812
-      string(
-        REPLACE "/Ob1"
-        ""
-        CMAKE_CXX_FLAGS_RELWITHDEBINFO
-        "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
-      )
-      string(
-        REPLACE "/Ob1"
-        ""
-        CMAKE_C_FLAGS_RELWITHDEBINFO
-        "${CMAKE_C_FLAGS_RELWITHDEBINFO}"
-      )
+      string(REPLACE "/Ob1" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+      string(REPLACE "/Ob1" "" CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
       add_compile_options(/Od) # this implies /Ob0
       add_compile_options(/RTC1)
     endif()
@@ -1874,7 +1884,27 @@ if(QT6)
   if(NOT APPLE AND NOT WIN32 AND NOT ANDROID)
     list(APPEND QT_COMPONENTS DBus)
   endif()
-  find_package(Qt6 COMPONENTS ${QT_COMPONENTS} REQUIRED)
+    find_package(Qt6 COMPONENTS ${QT_COMPONENTS})
+  if(NOT Qt6_FOUND AND MIXXX_VCPKG_ROOT)
+    message(STATUS "Qt6 NOT found. Searching manually in ${MIXXX_VCPKG_ROOT}...")
+    # Specifically look in the triplet share directory first
+    set(QT6_SEARCH_PATH "${MIXXX_VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/share/qt6")
+    if(EXISTS "${QT6_SEARCH_PATH}/Qt6Config.cmake")
+      set(Qt6_DIR "${QT6_SEARCH_PATH}" CACHE PATH "Path to Qt6 directory" FORCE)
+      message(STATUS "Found Qt6 in search path: ${Qt6_DIR}")
+    else()
+      file(GLOB_RECURSE FOUND_QT6_CONFIG "${MIXXX_VCPKG_ROOT}/*/Qt6Config.cmake")
+      if(FOUND_QT6_CONFIG)
+        list(GET FOUND_QT6_CONFIG 0 FIRST_QT6_CONFIG)
+        get_filename_component(QT6_DIR_TMP "${FIRST_QT6_CONFIG}" DIRECTORY)
+        set(Qt6_DIR "${QT6_DIR_TMP}" CACHE PATH "Path to Qt6 directory" FORCE)
+        message(STATUS "Auto-detected Qt6_DIR from GLOB: ${Qt6_DIR}")
+      endif()
+    endif()
+    if(Qt6_DIR)
+      find_package(Qt6 COMPONENTS ${QT_COMPONENTS} REQUIRED)
+    endif()
+  endif()
   foreach(component ${QT_COMPONENTS})
     target_link_libraries(mixxx-lib PUBLIC Qt6::${component})
   endforeach()
@@ -2220,7 +2250,7 @@ if(UNIX AND NOT APPLE)
       )
       install(
         CODE
-          "
+          ""
       message(STATUS \"Important Note: Installation of udev rules\n\"
           \"The udev rule file for USB HID and Bulk controller permissions have been\n\"
           \"installed to:\n\"
@@ -2233,7 +2263,7 @@ if(UNIX AND NOT APPLE)
           \"system rules is either /lib/udev/rules.d (e.g. Debian, Fedora) or\n\"
           \"/usr/lib/udev/rules.d (e.g. Arch Linux) with an appropriate priority prefix.\n\"
           \"Adjust your package script accordingly and set -DINSTALL_USER_UDEV_RULES=OFF\")
-      "
+      ""
       )
     else()
       install(
@@ -2557,9 +2587,9 @@ if(BUILD_TESTING)
     GLOB_RECURSE CONTROLLER_MIDI_MAPPING_LIST
     "${CMAKE_CURRENT_SOURCE_DIR}/res/controllers/*.midi.xml"
   )
-  list(JOIN CONTROLLER_BULK_MAPPING_LIST "\",\"" CONTROLLER_BULK_MAPPINGS)
-  list(JOIN CONTROLLER_HID_MAPPING_LIST "\",\"" CONTROLLER_HID_MAPPINGS)
-  list(JOIN CONTROLLER_MIDI_MAPPING_LIST "\",\"" CONTROLLER_MIDI_MAPPINGS)
+  list(JOIN CONTROLLER_BULK_MAPPING_LIST \"\,\"\" CONTROLLER_BULK_MAPPINGS)
+  list(JOIN CONTROLLER_HID_MAPPING_LIST \"\,\"\" CONTROLLER_HID_MAPPINGS)
+  list(JOIN CONTROLLER_MIDI_MAPPING_LIST \"\,\"\" CONTROLLER_MIDI_MAPPINGS)
 
   target_compile_definitions(
     mixxx-test
@@ -2726,6 +2756,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL Android)
     set(ANDROID_SDK_ROOT "$ENV{ANDROID_SDK}")
   endif()
   set(ANDROID_ABI arm64-v8a)
+  if(ANDROID_ABI STREQUAL "arm64-v8a" AND NOT CMAKE_SYSTEM_PROCESSOR)
+    set(CMAKE_SYSTEM_PROCESSOR aarch64)
+  endif()
   set(ANDROID_NDK_HOST_SYSTEM_NAME linux-x86_64)
   set(CMAKE_SYSTEM_VERSION 35) # API level
   set(ANDROID_PLATFORM "android-${CMAKE_SYSTEM_VERSION}")
@@ -2796,10 +2829,10 @@ if(
     if(NOT EXISTS "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip")
       message(
         STATUS
-        "Downloading file ${BUILDENV_URL} to ${BUILDENV_BASEPATH} ..."
+        "Downloading file " ${BUILDENV_URL} " to " ${BUILDENV_BASEPATH} " ..."
       )
       file(
-        DOWNLOAD ${BUILDENV_URL}
+        DOWNLOAD "${BUILDENV_URL}"
         "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip"
         SHOW_PROGRESS
         TLS_VERIFY ON
@@ -2812,7 +2845,7 @@ if(
     if(NOT "${BUILDENV_SHA256}" STREQUAL "")
       message(
         STATUS
-        "Verify SHA256 of downloaded file ${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip ..."
+        "Verify SHA256 of downloaded file " ${BUILDENV_BASEPATH}/${BUILDENV_NAME} ".zip ..."
       )
       file(SHA256 "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip" actual_sha256)
 
@@ -2822,17 +2855,17 @@ if(
           "SHA256 checksum mismatch:\nexpected: ${BUILDENV_SHA256}\n     got: ${actual_sha256}"
         )
       else()
-        message(STATUS "SHA256 ${BUILDENV_SHA256} is correct!")
+        message(STATUS "SHA256 " ${BUILDENV_SHA256} " is correct!")
       endif()
     endif()
 
     message(
       STATUS
-      "Unpacking file ${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip ..."
+      "Unpacking file " ${BUILDENV_BASEPATH}/${BUILDENV_NAME} ".zip ..."
     )
     execute_process(
       COMMAND ${CMAKE_COMMAND} -E tar xzf "${BUILDENV_NAME}.zip"
-      WORKING_DIRECTORY ${BUILDENV_BASEPATH}
+      WORKING_DIRECTORY "${BUILDENV_BASEPATH}"
     )
   else()
     # Reference to suppress intentionally unused variable warnings
@@ -2840,7 +2873,7 @@ if(
   endif()
 else()
   # Reference to suppress intentionally unused variable warnings
-  set(_dummy "${BUILDENV_URL} ${BUILDENV_BASEPATH} ${BUILDENV_SHA256}")
+  set(_dummy "${BUILDENV_URL}" "${BUILDENV_BASEPATH}" "${BUILDENV_SHA256}")
 endif()
 
 # Use this function to throw an error because the build environment is not set
@@ -2934,16 +2967,6 @@ if(NOT CMAKE_CONFIGURATION_TYPES)
     )
   endif()
 endif()
-
-option(QT6 "Build with Qt6" ON)
-option(NETWORKAUTH "Enable Spotify and YouTube features" OFF)
-cmake_dependent_option(
-  QML
-  "Build with QML"
-  ON
-  "QT6"
-  OFF
-)
 
 if(QT6)
   set(QOPENGL ON CACHE INTERNAL "Forced ON because QT6=ON")
@@ -3231,7 +3254,7 @@ if(ENGINEPRIME)
 
     if(NOT CMAKE_GENERATOR STREQUAL "Ninja")
       # Required for 'CMakeFiles/mixxx-lib_autogen_timestamp_deps'
-      # This tells 'make" that the libdjinterop is required for the djinterop library
+      # This tells 'make' that the libdjinterop is required for the djinterop library
       # BUILD_BYPRODUCTS work for Ninja only, while this workaround does not work for Ninja on macOS
       add_custom_command(
         OUTPUT "${DJINTEROP_INSTALL_DIR}/${DJINTEROP_LIBRARY}"
@@ -3378,7 +3401,7 @@ if(KEYFINDER)
 
     if(NOT CMAKE_GENERATOR STREQUAL "Ninja")
       # Required for 'CMakeFiles/mixxx-lib_autogen_timestamp_deps'
-      # This tells 'make" that the libkeyfinder is required for the mixxx-keyfinder library
+      # This tells 'make' that the libkeyfinder is required for the mixxx-keyfinder library
       # BUILD_BYPRODUCTS work for Ninja only, while this workaround does not work for Ninja on macOS
       add_custom_command(
         OUTPUT "${KeyFinder_INSTALL_DIR}/${KeyFinder_LIBRARY}"
