@@ -81,9 +81,6 @@ if(NOT DEFINED MIXXX_VCPKG_ROOT AND NOT DEFINED ENV{MIXXX_VCPKG_ROOT})
   else()
     set(BUILDENV_BASEPATH "${CMAKE_SOURCE_DIR}/buildenv")
   endif()
-  if(DEFINED ENV{BUILDENV_NAME})
-    set(MIXXX_VCPKG_ROOT "${BUILDENV_BASEPATH}/$ENV{BUILDENV_NAME}")
-  endif()
 endif()
 
 if(
@@ -189,18 +186,6 @@ else()
   set(_dummy "${BUILDENV_URL}" "${BUILDENV_BASEPATH}" "${BUILDENV_SHA256}")
 endif()
 
-if(NOT DEFINED MIXXX_VCPKG_ROOT AND NOT DEFINED ENV{MIXXX_VCPKG_ROOT})
-  if(DEFINED ENV{BUILDENV_BASEPATH})
-    set(BUILDENV_BASEPATH "$ENV{BUILDENV_BASEPATH}")
-  else()
-    set(BUILDENV_BASEPATH "${CMAKE_SOURCE_DIR}/buildenv")
-  endif()
-  if(DEFINED ENV{BUILDENV_NAME})
-    set(MIXXX_VCPKG_ROOT "${BUILDENV_BASEPATH}/$ENV{BUILDENV_NAME}")
-  endif()
-endif()
-
-
 if(DEFINED MIXXX_VCPKG_ROOT)
   file(TO_CMAKE_PATH "${MIXXX_VCPKG_ROOT}" MIXXX_VCPKG_ROOT)
   if(
@@ -242,7 +227,6 @@ if(DEFINED MIXXX_VCPKG_ROOT)
   endif()
 endif()
 
-
 project(mixxx VERSION 2.7.0 LANGUAGES C CXX)
 
 option(QT6 "Build with Qt6" ON)
@@ -254,9 +238,6 @@ cmake_dependent_option(
   "QT6"
   OFF
 )
-
-
-
 
 if(ANDROID)
   if(VCPKG_TARGET_TRIPLET MATCHES "arm64")
@@ -3035,7 +3016,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL Android)
     "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/sysroot/usr/lib/aarch64-linux-android/${CMAKE_SYSTEM_VERSION}/;${CMAKE_LIBRARY_PATH}"
   )
 endif()
-
 
 # Use this function to throw an error because the build environment is not set
 # up correctly.
