@@ -1,4 +1,3 @@
-
 #include "waveform/widgets/allshader/waveformwidget.h"
 
 #include <QApplication>
@@ -18,7 +17,6 @@
 #include "waveform/renderers/allshader/waveformrendermark.h"
 #include "waveform/renderers/allshader/waveformrendermarkrange.h"
 #include "waveform/waveformwidgetfactory.h"
-#include "waveform/widgets/allshader/moc_waveformwidget.cpp"
 
 namespace allshader {
 

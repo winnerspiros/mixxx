@@ -2,6 +2,67 @@ include(FetchContent)
 cmake_minimum_required(VERSION 3.21)
 include(CMakeDependentOption)
 
+function(fatal_error_missing_env)
+  if(WIN32)
+    if(CMAKE_BUILD_TYPE MATCHES "Debug")
+      message(
+        FATAL_ERROR
+        "Did you download the Mixxx build environment using `${CMAKE_SOURCE_DIR}/tools/windows_buildenv.bat`?"
+      )
+    else()
+      message(
+        FATAL_ERROR
+        "Did you download the Mixxx build environment using `${CMAKE_SOURCE_DIR}/tools/windows_release_buildenv.bat` or `${CMAKE_SOURCE_DIR}/tools/windows_buildenv.bat`(includes Debug)?"
+      )
+    endif()
+  elseif(APPLE AND NOT IOS)
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
+      message(
+        FATAL_ERROR
+        "Did you build the Mixxx build environment as described here: https://github.com/mixxxdj/mixxx/wiki/Compiling-dependencies-for-macOS-arm64?"
+      )
+    elseif(CMAKE_BUILD_TYPE MATCHES "Debug")
+      message(
+        FATAL_ERROR
+        "Did you download the Mixxx build environment using `source ${CMAKE_SOURCE_DIR}/tools/macos_buildenv.sh setup`"
+      )
+    else()
+      message(
+        FATAL_ERROR
+        "Did you download the Mixxx build environment using `source ${CMAKE_SOURCE_DIR}/tools/macos_release_buildenv.sh setup` or `source ${CMAKE_SOURCE_DIR}/tools/macos_buildenv.sh setup` (includes Debug)?"
+      )
+    endif()
+  elseif(UNIX AND NOT APPLE AND NOT ANDROID)
+    # Linux, BSD, Solaris, Minix
+    if(EXISTS "/etc/debian_version") # exists also on Ubuntu and Mint
+      message(
+        FATAL_ERROR
+        "Did you install the required Debian dev packages via `${CMAKE_SOURCE_DIR}/tools/debian_buildenv.sh setup`?"
+      )
+    elseif(EXISTS "/etc/redhat-release") # exists also on Fedora Mageia Madndriva Alma CentOS
+      message(
+        FATAL_ERROR
+        "Did you install the required RPM dev packages via `${CMAKE_SOURCE_DIR}/tools/rpm_buildenv.sh setup`?"
+      )
+    else()
+      message(
+        FATAL_ERROR
+        "Did you install the equivalent dev packages listed in `${CMAKE_SOURCE_DIR}/tools/debian_buildenv.sh setup`?"
+      )
+    endif()
+  elseif(DEFINED VCPKG_TARGET_TRIPLET)
+    message(
+      FATAL_ERROR
+      "You are targeting ${VCPKG_TARGET_TRIPLET}, which does not have a prebuilt environment. Please make sure that -DMIXXX_VCPKG_ROOT points to a vcpkg environment containing installed dependencies for ${VCPKG_TARGET_TRIPLET}!"
+    )
+  else()
+    message(
+      FATAL_ERROR
+      "You are building for an unknown platform and are missing a build environment. Please set -DVCPKG_TARGET_TRIPLET and make sure that -DMIXXX_VCPKG_ROOT points to a vcpkg environment containing installed dependencies for your target platform!"
+    )
+  endif()
+endfunction()
+
 if(NOT DEFINED VCPKG_TARGET_TRIPLET)
   if(DEFINED ENV{VCPKG_TARGET_TRIPLET})
     set(VCPKG_TARGET_TRIPLET "$ENV{VCPKG_TARGET_TRIPLET}")
@@ -9,11 +70,6 @@ if(NOT DEFINED VCPKG_TARGET_TRIPLET)
     set(VCPKG_TARGET_TRIPLET "$ENV{VCPKG_DEFAULT_TRIPLET}")
   endif()
 endif()
-
-if(DEFINED ENV{VCPKG_INSTALLED_DIR} AND NOT DEFINED VCPKG_INSTALLED_DIR)
-  set(VCPKG_INSTALLED_DIR "$ENV{VCPKG_INSTALLED_DIR}")
-endif()
-
 
 if(DEFINED ENV{MIXXX_VCPKG_ROOT} AND NOT DEFINED MIXXX_VCPKG_ROOT)
   set(MIXXX_VCPKG_ROOT "$ENV{MIXXX_VCPKG_ROOT}")
@@ -139,7 +195,6 @@ if(NOT DEFINED MIXXX_VCPKG_ROOT AND NOT DEFINED ENV{MIXXX_VCPKG_ROOT})
 endif()
 
 if(DEFINED MIXXX_VCPKG_ROOT)
-  string(STRIP "${MIXXX_VCPKG_ROOT}" MIXXX_VCPKG_ROOT)
   file(TO_CMAKE_PATH "${MIXXX_VCPKG_ROOT}" MIXXX_VCPKG_ROOT)
   if(
     EXISTS "${MIXXX_VCPKG_ROOT}/overlay/ports"
@@ -185,86 +240,55 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Android")
     set(ANDROID_ABI "arm64-v8a" CACHE STRING "" FORCE)
     set(CMAKE_ANDROID_ARCH_ABI "arm64-v8a" CACHE STRING "" FORCE)
     set(CMAKE_SYSTEM_PROCESSOR "aarch64" CACHE STRING "" FORCE)
+    set(QT_ANDROID_ABIS "arm64-v8a" CACHE STRING "" FORCE)
   elseif(VCPKG_TARGET_TRIPLET MATCHES "x64")
     set(ANDROID_ABI "x86_64" CACHE STRING "" FORCE)
     set(CMAKE_ANDROID_ARCH_ABI "x86_64" CACHE STRING "" FORCE)
   endif()
 endif()
 
-function(fatal_error_missing_env)
-  if(WIN32)
-    if(CMAKE_BUILD_TYPE MATCHES "Debug")
-      message(
-        FATAL_ERROR
-        "Did you download the Mixxx build environment using `${CMAKE_SOURCE_DIR}/tools/windows_buildenv.bat`?"
-      )
-    else()
-      message(
-        FATAL_ERROR
-        "Did you download the Mixxx build environment using `${CMAKE_SOURCE_DIR}/tools/windows_release_buildenv.bat` or `${CMAKE_SOURCE_DIR}/tools/windows_buildenv.bat`(includes Debug)?"
-      )
-    endif()
-  elseif(APPLE AND NOT IOS)
-    if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
-      message(
-        FATAL_ERROR
-        "Did you build the Mixxx build environment as described here: https://github.com/mixxxdj/mixxx/wiki/Compiling-dependencies-for-macOS-arm64?"
-      )
-    elseif(CMAKE_BUILD_TYPE MATCHES "Debug")
-      message(
-        FATAL_ERROR
-        "Did you download the Mixxx build environment using `source ${CMAKE_SOURCE_DIR}/tools/macos_buildenv.sh setup`"
-      )
-    else()
-      message(
-        FATAL_ERROR
-        "Did you download the Mixxx build environment using `source ${CMAKE_SOURCE_DIR}/tools/macos_release_buildenv.sh setup` or `source ${CMAKE_SOURCE_DIR}/tools/macos_buildenv.sh setup` (includes Debug)?"
-      )
-    endif()
-  elseif(UNIX AND NOT APPLE AND NOT ANDROID)
-    # Linux, BSD, Solaris, Minix
-    if(EXISTS "/etc/debian_version") # exists also on Ubuntu and Mint
-      message(
-        FATAL_ERROR
-        "Did you install the required Debian dev packages via `${CMAKE_SOURCE_DIR}/tools/debian_buildenv.sh setup`?"
-      )
-    elseif(EXISTS "/etc/redhat-release") # exists also on Fedora Mageia Madndriva Alma CentOS
-      message(
-        FATAL_ERROR
-        "Did you install the required RPM dev packages via `${CMAKE_SOURCE_DIR}/tools/rpm_buildenv.sh setup`?"
-      )
-    else()
-      message(
-        FATAL_ERROR
-        "Did you install the equivalent dev packages listed in `${CMAKE_SOURCE_DIR}/tools/debian_buildenv.sh setup`?"
-      )
-    endif()
-  elseif(DEFINED VCPKG_TARGET_TRIPLET)
-    message(
-      FATAL_ERROR
-      "You are targeting ${VCPKG_TARGET_TRIPLET}, which does not have a prebuilt environment. Please make sure that -DMIXXX_VCPKG_ROOT points to a vcpkg environment containing installed dependencies for ${VCPKG_TARGET_TRIPLET}!"
-    )
-  else()
-    message(
-      FATAL_ERROR
-      "You are building for an unknown platform and are missing a build environment. Please set -DVCPKG_TARGET_TRIPLET and make sure that -DMIXXX_VCPKG_ROOT points to a vcpkg environment containing installed dependencies for your target platform!"
-    )
-  endif()
-endfunction()
-
 message(STATUS "Early CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
 message(STATUS "Early CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 project(mixxx VERSION 2.7.0 LANGUAGES C CXX)
+# Versioning
+set(MIXXX_VERSION_PRERELEASE "alpha")
+if(MIXXX_VERSION_PRERELEASE STREQUAL "")
+  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}")
+else()
+  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}-${MIXXX_VERSION_PRERELEASE}")
+endif()
 
-option(QT6 "Build with Qt6" ON)
-option(NETWORKAUTH "Enable Spotify and YouTube features" OFF)
+# Options
+
+
+if(QT6)
+  set(QT_VERSION_MAJOR 6)
+else()
+  set(QT_VERSION_MAJOR 5)
+endif()
+
+include(CMakeDependentOption)
 cmake_dependent_option(
-  QML
-  "Build with QML"
+  QOPENGL
+  "Use QOpenGLWindow based widget instead of QGLWidget"
   ON
   "QT6"
-  OFF
+  ON
 )
+
+
+if(QOPENGL)
+  add_compile_definitions(MIXXX_USE_QOPENGL)
+endif()
+
+if(QML)
+  add_compile_definitions(MIXXX_USE_QML)
+endif()
+
+
+
+
+
 
 
 message(STATUS "MIXXX_VCPKG_ROOT: ${MIXXX_VCPKG_ROOT}")
@@ -314,12 +338,7 @@ endif()
 
 message(STATUS "Final CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")
 
-set(MIXXX_VERSION_PRERELEASE "alpha")
-if(MIXXX_VERSION_PRERELEASE STREQUAL "")
-  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}")
-else()
-  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}-${MIXXX_VERSION_PRERELEASE}")
-endif()
+
 
 # set to "alpha" "beta" or ""
 
@@ -341,13 +360,13 @@ include(DefaultOption)
 include(IsStaticLibrary)
 
 # Verify VCPKG settings
-if(DEFINED _VCPKG_INSTALLED_DIR AND NOT _VCPKG_INSTALLED_DIR STREQUAL "")
+if(DEFINED _VCPKG_INSTALLED_DIR)
   if(NOT EXISTS "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}")
     # Fail early if this part of CMAKE_PREFIX_PATH does not exist
     # else the library lookups below will fail with misleading error messages
     message(
       STATUS
-      "VCPKG_TARGET_TRIPLET dir not found: ${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}"
+      "VCPKG_TARGET_TRIPLET dir not found: ${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET} "
       "Make sure the VCPKG build environment is installed and contains the build for the selected triplet."
     )
     fatal_error_missing_env()
@@ -1634,12 +1653,12 @@ add_library(
   src/util/versionstore.cpp
   src/waveform/widgets/allshader/waveformwidget.cpp
   src/widget/tooltipqopengl.cpp
-  src/widget/wglwidgetqglwidget.cpp
-  src/widget/wglwidgetqopengl.cpp
   src/widget/wspinnyglsl.cpp
   src/widget/wstemlabel.cpp
   src/widget/wtrackstemmenu.cpp
   src/widget/wvumeterglsl.cpp
+  $<$<NOT:$<BOOL:${QOPENGL}>>:src/widget/wglwidgetqglwidget.cpp>
+  $<$<BOOL:${QOPENGL}>:src/widget/wglwidgetqopengl.cpp>
 )
 set(MIXXX_COMMON_PRECOMPILED_HEADER src/util/assert.h)
 set(
@@ -2085,7 +2104,6 @@ if(QT6)
     PrintSupport
     Qml
     Quick
-    QuickControls2
     Sql
     Svg
     Test
@@ -2231,7 +2249,6 @@ else()
     PrintSupport
     Qml
     Quick
-    QuickControls2
     Sql
     Svg
     Test
@@ -3078,19 +3095,11 @@ if(NOT CMAKE_CONFIGURATION_TYPES)
   endif()
 endif()
 
-if(QT6)
-  set(QOPENGL ON CACHE INTERNAL "Forced ON because QT6=ON")
-else()
-  option(QOPENGL "Use QOpenGLWindow based widget instead of QGLWidget" ON)
-endif()
 
-if(QOPENGL)
-  add_compile_definitions(MIXXX_USE_QOPENGL)
-endif()
 
-if(QML)
-  add_compile_definitions(MIXXX_USE_QML)
-endif()
+
+
+
 
 if(VCPKG_TARGET_TRIPLET MATCHES "^wasm(32|64)-emscripten")
   message(STATUS "Targeting Emscripten (${VCPKG_TARGET_TRIPLET})")
@@ -3760,8 +3769,15 @@ if(NETWORKAUTH)
       "add_library(mixxx-spdlog INTERFACE)"
     )
   endif()
-  add_subdirectory(${librespot-cpp_SOURCE_DIR} ${librespot-cpp_BINARY_DIR})
-  target_link_libraries(mixxx-lib PUBLIC librespot-cpp)
+  # Patch librespot-cpp to avoid linkage issues and target name conflicts
+    file(READ "${librespot-cpp_SOURCE_DIR}/CMakeLists.txt" LIBRESPOT_CMAKELIST)
+    string(REPLACE "project(librespot_cpp)" "project(librespot_cpp_internal)" LIBRESPOT_CMAKELIST "${LIBRESPOT_CMAKELIST}")
+    string(REPLACE "add_executable(librespot_cpp" "add_library(librespot-cpp STATIC" LIBRESPOT_CMAKELIST "${LIBRESPOT_CMAKELIST}")
+    string(REPLACE "target_link_libraries(${CMAKE_PROJECT_NAME}" "target_link_libraries(librespot-cpp PRIVATE" LIBRESPOT_CMAKELIST "${LIBRESPOT_CMAKELIST}")
+    string(REPLACE "avahi-client avahi-common" "" LIBRESPOT_CMAKELIST "${LIBRESPOT_CMAKELIST}")
+    file(WRITE "${librespot-cpp_SOURCE_DIR}/CMakeLists.txt" "${LIBRESPOT_CMAKELIST}")
+    add_subdirectory(${librespot-cpp_SOURCE_DIR} ${librespot-cpp_BINARY_DIR})
+  target_link_libraries(mixxx-lib PRIVATE librespot-cpp)
   target_link_libraries(mixxx-lib PRIVATE Qt${QT_VERSION_MAJOR}::NetworkAuth)
 
   find_program(YTDLP_EXECUTABLE NAMES yt-dlp)
