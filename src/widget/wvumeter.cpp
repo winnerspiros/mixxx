@@ -113,3 +113,5 @@ void WVuMeter::draw() {
         }
     }
 }
+
+#include "moc_wvumeter.cpp"
