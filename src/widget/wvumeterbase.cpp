@@ -210,3 +210,5 @@ void WVuMeterBase::swap() {
     m_bSwapNeeded = false;
 }
 
+
+#include "moc_wvumeterbase.cpp"

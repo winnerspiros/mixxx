@@ -235,11 +235,7 @@ if(DEFINED MIXXX_VCPKG_ROOT)
   endif()
 endif()
 
-message(STATUS "Early CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
-message(STATUS "Early CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
-project(mixxx VERSION 2.7.0 LANGUAGES C CXX)
-
-if(ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
+if(CMAKE_SYSTEM_NAME STREQUAL "Android")
   if(VCPKG_TARGET_TRIPLET MATCHES "arm64")
     set(ANDROID_ABI "arm64-v8a" CACHE STRING "" FORCE)
     set(CMAKE_ANDROID_ARCH_ABI "arm64-v8a" CACHE STRING "" FORCE)
@@ -250,6 +246,10 @@ if(ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
   endif()
 endif()
 
+message(STATUS "Early CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
+message(STATUS "Early CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
+project(mixxx VERSION 2.7.0 LANGUAGES C CXX)
+
 option(QT6 "Build with Qt6" ON)
 option(NETWORKAUTH "Enable Spotify and YouTube features" OFF)
 cmake_dependent_option(
@@ -259,6 +259,7 @@ cmake_dependent_option(
   "QT6"
   OFF
 )
+
 
 message(STATUS "MIXXX_VCPKG_ROOT: ${MIXXX_VCPKG_ROOT}")
 message(STATUS "VCPKG_TARGET_TRIPLET: ${VCPKG_TARGET_TRIPLET}")
@@ -2575,6 +2576,7 @@ endif()
 # Tests
 #
 
+include(GoogleTest)
 find_package(GTest CONFIG)
 default_option(BUILD_TESTING "Build with Unittests" "GTest_FOUND")
 if(BUILD_TESTING)
