@@ -237,3 +237,5 @@ WaveformWidgetVars WaveformWidget::vars() {
 }
 
 } // namespace allshader
+
+#include "moc_waveformwidget.cpp"

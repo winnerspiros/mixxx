@@ -41,3 +41,5 @@ void SpotifyFeature::searchAndActivate(const QString& query) {
 TreeItemModel* SpotifyFeature::sidebarModel() const {
     return m_pSidebarModel;
 }
+
+#include "moc_spotifyfeature.cpp"
