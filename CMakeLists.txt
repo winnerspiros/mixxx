@@ -84,7 +84,7 @@ if(NOT DEFINED MIXXX_VCPKG_ROOT AND NOT DEFINED ENV{MIXXX_VCPKG_ROOT})
 endif()
 
 if(
-  ((APPLE AND NOT IOS) OR WIN32 OR ANDROID)
+  ((APPLE AND NOT IOS) OR WIN32 OR ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
   AND NOT IS_DIRECTORY "${MIXXX_VCPKG_ROOT}"
 )
   if(NOT DEFINED BUILDENV_BASEPATH)
@@ -186,6 +186,14 @@ else()
   set(_dummy "${BUILDENV_URL}" "${BUILDENV_BASEPATH}" "${BUILDENV_SHA256}")
 endif()
 
+if(NOT DEFINED MIXXX_VCPKG_ROOT AND NOT DEFINED ENV{MIXXX_VCPKG_ROOT})
+  if(DEFINED BUILDENV_BASEPATH AND DEFINED BUILDENV_NAME)
+    if(IS_DIRECTORY "${BUILDENV_BASEPATH}/${BUILDENV_NAME}")
+      set(MIXXX_VCPKG_ROOT "${BUILDENV_BASEPATH}/${BUILDENV_NAME}")
+    endif()
+  endif()
+endif()
+
 if(DEFINED MIXXX_VCPKG_ROOT)
   file(TO_CMAKE_PATH "${MIXXX_VCPKG_ROOT}" MIXXX_VCPKG_ROOT)
   if(
@@ -214,7 +222,7 @@ if(DEFINED MIXXX_VCPKG_ROOT)
     set(VCPKG_OVERLAY_TRIPLETS "${MIXXX_VCPKG_ROOT}/overlay/triplets")
   endif()
 
-  if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+  if(NOT CMAKE_TOOLCHAIN_FILE)
     if(EXISTS "${MIXXX_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
       set(
         CMAKE_TOOLCHAIN_FILE
@@ -227,7 +235,20 @@ if(DEFINED MIXXX_VCPKG_ROOT)
   endif()
 endif()
 
+message(STATUS "Early CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
+message(STATUS "Early CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 project(mixxx VERSION 2.7.0 LANGUAGES C CXX)
+
+if(ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
+  if(VCPKG_TARGET_TRIPLET MATCHES "arm64")
+    set(ANDROID_ABI "arm64-v8a" CACHE STRING "" FORCE)
+    set(CMAKE_ANDROID_ARCH_ABI "arm64-v8a" CACHE STRING "" FORCE)
+    set(CMAKE_SYSTEM_PROCESSOR "aarch64" CACHE STRING "" FORCE)
+  elseif(VCPKG_TARGET_TRIPLET MATCHES "x64")
+    set(ANDROID_ABI "x86_64" CACHE STRING "" FORCE)
+    set(CMAKE_ANDROID_ARCH_ABI "x86_64" CACHE STRING "" FORCE)
+  endif()
+endif()
 
 option(QT6 "Build with Qt6" ON)
 option(NETWORKAUTH "Enable Spotify and YouTube features" OFF)
@@ -238,17 +259,6 @@ cmake_dependent_option(
   "QT6"
   OFF
 )
-
-if(ANDROID)
-  if(VCPKG_TARGET_TRIPLET MATCHES "arm64")
-    set(ANDROID_ABI "arm64-v8a" CACHE STRING "" FORCE)
-    set(CMAKE_ANDROID_ARCH_ABI "arm64-v8a" CACHE STRING "" FORCE)
-    set(CMAKE_SYSTEM_PROCESSOR "aarch64" CACHE STRING "" FORCE)
-  elseif(VCPKG_TARGET_TRIPLET MATCHES "x64")
-    set(ANDROID_ABI "x86_64" CACHE STRING "" FORCE)
-    set(CMAKE_ANDROID_ARCH_ABI "x86_64" CACHE STRING "" FORCE)
-  endif()
-endif()
 
 message(STATUS "MIXXX_VCPKG_ROOT: ${MIXXX_VCPKG_ROOT}")
 message(STATUS "VCPKG_TARGET_TRIPLET: ${VCPKG_TARGET_TRIPLET}")
@@ -1754,12 +1764,6 @@ set(
   src/util/workerthreadscheduler.h
   src/util/xml.h
 )
-if(NOT QML)
-else()
-endif()
-if(QOPENGL)
-else()
-endif()
 
 set_source_files_properties(
   src/util/moc_included_test.cpp
@@ -2020,7 +2024,7 @@ if(WIN32)
 elseif(UNIX)
   if(APPLE)
     target_compile_definitions(mixxx-lib PUBLIC __APPLE__)
-  elseif(ANDROID)
+  elseif(ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
     target_compile_definitions(mixxx-lib PUBLIC __ANDROID__)
   else()
     target_compile_definitions(mixxx-lib PUBLIC __UNIX__)
@@ -2099,7 +2103,7 @@ if(QT6)
   # below that takes care of the correct object order in the resulting binary
   # According to https://doc.qt.io/qt-6/qt-finalize-target.html it is importand for
   # builds with Qt < 3.21
-  if(ANDROID)
+  if(ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
     target_compile_definitions(
       mixxx-lib
       PUBLIC __STDC_CONSTANT_MACROS __STDC_LIMIT_MACROS __STDC_FORMAT_MACROS
@@ -2665,8 +2669,6 @@ if(STEM)
   endif()
   target_compile_definitions(mixxx-lib PUBLIC __STEM__)
   list(APPEND MIXXX_LIB_PRECOMPILED_HEADER src/track/steminfo.h)
-  if(QOPENGL)
-  endif()
 endif()
 
 if(BUILD_TESTING)
@@ -2903,11 +2905,6 @@ if(BUILD_TESTING)
   set_target_properties(mixxx-test PROPERTIES AUTORCC ON)
 endif()
 
-if(MIXXX_VERSION_PRERELEASE STREQUAL "")
-  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}")
-else()
-  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}-${MIXXX_VERSION_PRERELEASE}")
-endif()
 
 set(SOURCE_TARGET "mixxx")
 if(QT6)
@@ -2970,52 +2967,6 @@ if(POLICY CMP0135)
   cmake_policy(SET CMP0135 NEW)
 endif()
 
-if(CMAKE_SYSTEM_NAME STREQUAL Android)
-  if(NOT DEFINED ENV{JAVA_HOME})
-    message(FATAL_ERROR "JAVA_HOME is not set. Did you source the setup file?")
-  endif()
-  if((NOT CMAKE_ANDROID_NDK) AND DEFINED ENV{ANDROID_NDK_HOME})
-    set(CMAKE_ANDROID_NDK "$ENV{ANDROID_NDK_HOME}")
-  endif()
-  set(ANDROID ON)
-  if(DEFINED ENV{QT_ANDROID_KEYSTORE_PATH})
-    set(QT_ANDROID_SIGN_APK ON)
-  endif()
-
-  set(QT_ANDROID_APP_PATH "$<TARGET_FILE:${SOURCE_TARGET}>")
-  set(
-    QT_ANDROID_APP_PACKAGE_SOURCE_ROOT
-    "${CMAKE_SOURCE_DIR}/packaging/android"
-  )
-
-  if((NOT ANDROID_SDK_ROOT) AND DEFINED ENV{ANDROID_SDK})
-    set(ANDROID_SDK_ROOT "$ENV{ANDROID_SDK}")
-  endif()
-  set(ANDROID_ABI arm64-v8a)
-  if(ANDROID_ABI STREQUAL "arm64-v8a" AND NOT CMAKE_SYSTEM_PROCESSOR)
-    set(CMAKE_SYSTEM_PROCESSOR aarch64)
-  endif()
-  set(ANDROID_NDK_HOST_SYSTEM_NAME linux-x86_64)
-  set(CMAKE_SYSTEM_VERSION 35) # API level
-  set(ANDROID_PLATFORM "android-${CMAKE_SYSTEM_VERSION}")
-  set(ANDROID_API_VERSION "android-${CMAKE_SYSTEM_VERSION}")
-  set(CMAKE_ANDROID_ARCH_ABI "${ANDROID_ABI}") # or x86_64, armeabi-v7a, etc.
-  set(CMAKE_ANDROID_NDK_TOOLCHAIN_VERSION clang)
-  set(CMAKE_ANDROID_STL_TYPE c++_shared)
-  set(
-    CMAKE_SYSROOT
-    "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/sysroot"
-  )
-  include_directories(
-    BEFORE
-    SYSTEM
-    "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/sysroot/usr/include/"
-  )
-  set(
-    CMAKE_LIBRARY_PATH
-    "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/sysroot/usr/lib/aarch64-linux-android/${CMAKE_SYSTEM_VERSION}/;${CMAKE_LIBRARY_PATH}"
-  )
-endif()
 
 # Use this function to throw an error because the build environment is not set
 # up correctly.
@@ -3043,29 +2994,6 @@ if(WIN32)
   endif()
 endif()
 
-if(DEFINED MIXXX_VCPKG_ROOT)
-  if(NOT DEFINED VCPKG_OVERLAY_TRIPLETS)
-    # required for manifest mode
-    set(VCPKG_OVERLAY_TRIPLETS "${MIXXX_VCPKG_ROOT}/overlay/triplets")
-  endif()
-
-  if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
-    set(
-      CMAKE_TOOLCHAIN_FILE
-      "${MIXXX_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-      CACHE STRING
-      ""
-    )
-  endif()
-endif()
-
-if(NOT DEFINED VCPKG_TARGET_TRIPLET)
-  if(DEFINED ENV{VCPKG_TARGET_TRIPLET})
-    set(VCPKG_TARGET_TRIPLET "$ENV{VCPKG_TARGET_TRIPLET}")
-  elseif(DEFINED ENV{VCPKG_DEFAULT_TRIPLET})
-    set(VCPKG_TARGET_TRIPLET "$ENV{VCPKG_DEFAULT_TRIPLET}")
-  endif()
-endif()
 set(
   X_VCPKG_APPLOCAL_DEPS_INSTALL
   ON
@@ -3678,7 +3606,7 @@ else()
       mixxx-lib
       PUBLIC -sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2 -sFULL_ES2=1
     )
-  elseif(ANDROID)
+  elseif(ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
     find_library(GLESv2_LIBRARY GLESv2)
     target_link_libraries(mixxx-lib PRIVATE "${GLESv2_LIBRARY}")
     target_compile_definitions(mixxx-lib PUBLIC QT_OPENGL_ES_2)
@@ -3714,7 +3642,7 @@ target_link_libraries(
 find_package(PortAudio REQUIRED)
 target_link_libraries(mixxx-lib PUBLIC PortAudio::PortAudio)
 
-if(ANDROID)
+if(ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
   target_link_libraries(mixxx-lib PUBLIC OpenSLES android)
   target_compile_definitions(mixxx-lib PUBLIC PA_USE_OBOE)
 endif()
