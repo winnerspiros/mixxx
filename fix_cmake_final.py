@@ -1,51 +1,96 @@
 import re
+import sys
 
-with open("CMakeLists.txt", "r") as f:
+def extract_and_remove(content, start_marker, end_marker_regex):
+    start_idx = content.find(start_marker)
+    if start_idx == -1:
+        return content, None
+
+    # search for end marker after start
+    match = re.search(end_marker_regex, content[start_idx:], re.DOTALL)
+    if not match:
+        return content, None
+
+    end_idx = start_idx + match.end()
+    block = content[start_idx:end_idx]
+    new_content = content[:start_idx] + content[end_idx:]
+    return new_content, block
+
+with open('CMakeLists.txt', 'r') as f:
     content = f.read()
 
-# Fix the whitespace warnings in buildenv logic
-content = re.sub(r'"Downloading file "\${BUILDENV_URL}" to "\${BUILDENV_BASEPATH}" \.\.\."',
-                 r'"Downloading file " ${BUILDENV_URL} " to " ${BUILDENV_BASEPATH} " ..."', content)
-content = re.sub(r'"Verify SHA256 of downloaded file "\${BUILDENV_BASEPATH}/\${BUILDENV_NAME}"\.zip \.\.\."',
-                 r'"Verify SHA256 of downloaded file " ${BUILDENV_BASEPATH}/${BUILDENV_NAME} ".zip ..."', content)
-content = re.sub(r'"SHA256 "\${BUILDENV_SHA256}" is correct!"',
-                 r'"SHA256 " ${BUILDENV_SHA256} " is correct!"', content)
-content = re.sub(r'"Unpacking file "\${BUILDENV_BASEPATH}/\${BUILDENV_NAME}"\.zip \.\.\."',
-                 r'"Unpacking file " ${BUILDENV_BASEPATH}/${BUILDENV_NAME} ".zip ..."', content)
-content = re.sub(r'expected: "\${BUILDENV_SHA256}"',
-                 r'expected: ${BUILDENV_SHA256}', content)
+# 1. Extract download block from end
+# It starts with if( followed by ((APPLE AND NOT IOS) OR WIN32 OR ANDROID)
+# and ends with endif() else() ... endif()
+dl_start_marker = 'if(\n  ((APPLE AND NOT IOS) OR WIN32 OR ANDROID)'
+dl_end_regex = r'endif\(\)\nelse\(\)\n  # Reference to suppress intentionally unused variable warnings\n  set\(_dummy "\${BUILDENV_URL}" "\${BUILDENV_BASEPATH}" "\${BUILDENV_SHA256}"\)\nendif\(\)\n'
+content, dl_block = extract_and_remove(content, dl_start_marker, dl_end_regex)
 
-# Fix librespot-cpp / spdlog issue
-# librespot-cpp expects spdlog in lib/spdlog.
-# We should probably use FetchContent to put spdlog there or just provide it as a target.
-# Looking at the trace, it fails at build/_deps/librespot-cpp-src/CMakeLists.txt:60 (add_subdirectory)
-# because lib/spdlog is empty.
+if not dl_block:
+    print("Failed to extract download block")
+    # try looser
+    dl_start_marker = 'if(\n  ((APPLE AND NOT IOS) OR WIN32 OR ANDROID)'
+    dl_end_regex = r'endif\(\)\nelse\(\)\n.*?endif\(\)\n'
+    content, dl_block = extract_and_remove(content, dl_start_marker, dl_end_regex)
 
-# I will replace the FetchContent logic for librespot-cpp to not try to build its internal spdlog if possible,
-# or better, just fetch spdlog and tell librespot-cpp where it is.
-# Actually, if I declare spdlog first with FetchContent, FetchContent_MakeAvailable(spdlog)
-# will create the spdlog target. Then I need to make sure librespot-cpp uses it.
+if not dl_block:
+    print("CRITICAL: Could not find download block")
+    sys.exit(1)
 
-# Let's check how librespot-cpp's CMakeLists.txt looks (I'll guess based on common patterns)
-# If it has add_subdirectory(lib/spdlog), I can try to comment it out if the target already exists.
+# 2. Extract android architecture block
+# It starts with if(ANDROID) and contains arm64-v8a
+and_start_marker = 'if(ANDROID)\n  if(VCPKG_TARGET_TRIPLET MATCHES "arm64")'
+and_end_regex = r'endif\(\)\nendif\(\)\n'
+content, and_block = extract_and_remove(content, and_start_marker, and_end_regex)
 
-# Fix the keyword signature error for "mixxx" target.
-# The error says Qt6CoreMacros.cmake:549 (target_link_libraries) used it.
-# Usually Qt macros use keyword signatures if the target was created with one, or if they are told to.
-# If I use PRIVATE in my first call to target_link_libraries(mixxx ...), then all subsequent calls must use it.
-# The trace shows:
-# 1903: qt_add_executable(mixxx src/main.cpp MANUAL_FINALIZATION)
-# ...
-# 2012: target_link_libraries(mixxx PRIVATE mixxx-lib mixxx-gitinfostore)
+if not and_block:
+    print("CRITICAL: Could not find android architecture block")
+    sys.exit(1)
 
-# Wait, if I'm on Android:
-# 1903: qt_add_executable(mixxx src/main.cpp MANUAL_FINALIZATION)
-# ... it might call target_link_libraries internally without keywords.
-# Let's try to change line 2012 to be plain if it's the problem, OR make sure everything is consistent.
-# Actually, the recommended way is to ALWAYS use keywords.
+# 3. Find insertion point for download block
+# after the initial MIXXX_VCPKG_ROOT from ENV
+env_pull_marker = 'if(DEFINED ENV{MIXXX_VCPKG_ROOT} AND NOT DEFINED MIXXX_VCPKG_ROOT)\n  set(MIXXX_VCPKG_ROOT "$ENV{MIXXX_VCPKG_ROOT}")\nendif()\n'
+insertion_point = content.find(env_pull_marker)
+if insertion_point == -1:
+    print("CRITICAL: Could not find env pull block")
+    sys.exit(1)
 
-# Let's look at line 1861-1881 (Qt6 discovery)
-# It seems my GLOB search might be finding multiple things or the path is wrong.
+insertion_point += len(env_pull_marker)
 
-with open("CMakeLists.txt", "w") as f:
+env_fix = '''
+if(NOT DEFINED MIXXX_VCPKG_ROOT AND NOT DEFINED ENV{MIXXX_VCPKG_ROOT})
+  if(DEFINED ENV{BUILDENV_BASEPATH})
+    set(BUILDENV_BASEPATH "$ENV{BUILDENV_BASEPATH}")
+  else()
+    set(BUILDENV_BASEPATH "${CMAKE_SOURCE_DIR}/buildenv")
+  endif()
+  if(DEFINED ENV{BUILDENV_NAME})
+    set(MIXXX_VCPKG_ROOT "${BUILDENV_BASEPATH}/$ENV{BUILDENV_NAME}")
+  endif()
+endif()
+'''
+
+content = content[:insertion_point] + env_fix + '\n' + dl_block + content[insertion_point:]
+
+# 4. Find insertion point for android block after project()
+project_match = re.search(r'project\(mixxx VERSION .*?\)\n', content)
+if not project_match:
+    print("CRITICAL: Could not find project block")
+    sys.exit(1)
+
+# Find the end of the option block following project
+search_start = project_match.end()
+# It usually ends before the message(STATUS "MIXXX_VCPKG_ROOT...") or similar
+# Let's look for the first message(STATUS "MIXXX_VCPKG_ROOT...")
+vcpkg_msg_marker = 'message(STATUS "MIXXX_VCPKG_ROOT: ${MIXXX_VCPKG_ROOT}")'
+insertion_point_and = content.find(vcpkg_msg_marker)
+
+if insertion_point_and == -1:
+    insertion_point_and = search_start
+
+content = content[:insertion_point_and] + '\n' + and_block + '\n' + content[insertion_point_and:]
+
+with open('CMakeLists.txt', 'w') as f:
     f.write(content)
+
+print("Successfully updated CMakeLists.txt")
