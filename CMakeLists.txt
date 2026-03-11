@@ -1473,7 +1473,6 @@ add_library(
   src/util/time.cpp
   src/util/timer.cpp
   src/util/valuetransformer.cpp
-  src/util/versionstore.cpp
   src/util/widgethelper.cpp
   src/util/workerthread.cpp
   src/util/workerthreadscheduler.cpp
@@ -1605,6 +1604,36 @@ add_library(
   src/widget/wwidgetstack.cpp
   src/controllers/scripting/javascriptplayerproxy.cpp
   src/controllers/scripting/javascriptplayerproxy.h
+  lib/qm-dsp/base/Pitch.cpp
+  lib/qm-dsp/dsp/keydetection/GetKeyMode.cpp
+  lib/qm-dsp/dsp/onsets/DetectionFunction.cpp
+  lib/qm-dsp/dsp/tempotracking/TempoTrackV2.cpp
+  lib/qm-dsp/maths/MathUtilities.cpp
+  src/analyzer/plugins/analyzerkeyfinder.cpp
+  src/control/controlsortfiltermodel.cpp
+  src/controllers/controllerenginethreadcontrol.cpp
+  src/controllers/controllerscreenpreview.cpp
+  src/controllers/midi/portmidienumerator.cpp
+  src/controllers/rendering/controllerrenderingengine.cpp
+  src/library/export/libraryexporter.cpp
+  src/qml/asyncimageprovider.cpp
+  src/qml/qmlapplication.cpp
+  src/qml/qmlmixxxcontrollerscreen.cpp
+  src/sources/soundsourceffmpeg.cpp
+  src/sources/soundsourcewv.cpp
+  src/track/steminfo.cpp
+  src/track/steminfoimporter.cpp
+  src/util/gitinfostore.cpp
+  src/util/rlimit.cpp
+  src/util/versionstore.cpp
+  src/waveform/widgets/allshader/waveformwidget.cpp
+  src/widget/tooltipqopengl.cpp
+  src/widget/wglwidgetqglwidget.cpp
+  src/widget/wglwidgetqopengl.cpp
+  src/widget/wspinnyglsl.cpp
+  src/widget/wstemlabel.cpp
+  src/widget/wtrackstemmenu.cpp
+  src/widget/wvumeterglsl.cpp
 )
 set(MIXXX_COMMON_PRECOMPILED_HEADER src/util/assert.h)
 set(
@@ -2814,6 +2843,8 @@ if(BUILD_TESTING)
   endif()
 
   add_executable(mixxx-test ${src-mixxx-test})
+  target_include_directories(mixxx-test PRIVATE src "${CMAKE_CURRENT_BINARY_DIR}/src")
+  target_link_libraries(mixxx-test PRIVATE mixxx-lib)
   file(
     GLOB_RECURSE CONTROLLER_BULK_MAPPING_LIST
     "${CMAKE_CURRENT_SOURCE_DIR}/res/controllers/*.bulk.xml"
@@ -4029,7 +4060,7 @@ if(WIN32)
   endif()
 
   configure_file("src/mixxx.rc.include.in" "src/mixxx.rc.include" @ONLY)
-  configure_file("packaging/windows/mixxx.rc.in" "mixxx.rc" @ONLY)
+  configure_file("src/mixxx.rc" "mixxx.rc" @ONLY)
 
   target_sources(
     mixxx
