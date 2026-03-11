@@ -1,7 +1,7 @@
 #include "qmlapplication.h"
 
 #include <QQmlEngineExtensionPlugin>
-#include <QQuickStyle>
+#include <QtQuickControls2/QQuickStyle>
 #include <QQuickWindow>
 #include <QTextDocument>
 

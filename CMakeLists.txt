@@ -2085,6 +2085,7 @@ if(QT6)
     PrintSupport
     Qml
     Quick
+    QuickControls2
     Sql
     Svg
     Test
@@ -2230,6 +2231,7 @@ else()
     PrintSupport
     Qml
     Quick
+    QuickControls2
     Sql
     Svg
     Test
@@ -3755,11 +3757,11 @@ if(NETWORKAUTH)
     file(MAKE_DIRECTORY "${librespot-cpp_SOURCE_DIR}/lib/spdlog")
     file(
       WRITE "${librespot-cpp_SOURCE_DIR}/lib/spdlog/CMakeLists.txt"
-      "add_library(spdlog INTERFACE)"
+      "add_library(mixxx-spdlog INTERFACE)"
     )
   endif()
   add_subdirectory(${librespot-cpp_SOURCE_DIR} ${librespot-cpp_BINARY_DIR})
-  target_link_libraries(mixxx-lib PRIVATE librespot-cpp)
+  target_link_libraries(mixxx-lib PUBLIC librespot-cpp)
   target_link_libraries(mixxx-lib PRIVATE Qt${QT_VERSION_MAJOR}::NetworkAuth)
 
   find_program(YTDLP_EXECUTABLE NAMES yt-dlp)
