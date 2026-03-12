@@ -71,6 +71,9 @@ if(NOT DEFINED VCPKG_TARGET_TRIPLET)
   endif()
 endif()
 
+if(DEFINED MIXXX_VCPKG_ROOT)
+  string(STRIP "" MIXXX_VCPKG_ROOT)
+endif()
 if(DEFINED ENV{MIXXX_VCPKG_ROOT} AND NOT DEFINED MIXXX_VCPKG_ROOT)
   set(MIXXX_VCPKG_ROOT "$ENV{MIXXX_VCPKG_ROOT}")
 endif()
@@ -235,6 +238,11 @@ if(DEFINED MIXXX_VCPKG_ROOT)
   endif()
 endif()
 
+
+
+message(STATUS "Early CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
+message(STATUS "Early CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
+project(mixxx VERSION 2.7.0 LANGUAGES C CXX)
 if(CMAKE_SYSTEM_NAME STREQUAL "Android")
   if(VCPKG_TARGET_TRIPLET MATCHES "arm64")
     set(ANDROID_ABI "arm64-v8a" CACHE STRING "" FORCE)
@@ -245,50 +253,17 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Android")
     set(ANDROID_ABI "x86_64" CACHE STRING "" FORCE)
     set(CMAKE_ANDROID_ARCH_ABI "x86_64" CACHE STRING "" FORCE)
   endif()
+
 endif()
-
-message(STATUS "Early CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
-message(STATUS "Early CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
-project(mixxx VERSION 2.7.0 LANGUAGES C CXX)
-# Versioning
-set(MIXXX_VERSION_PRERELEASE "alpha")
-if(MIXXX_VERSION_PRERELEASE STREQUAL "")
-  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}")
-else()
-  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}-${MIXXX_VERSION_PRERELEASE}")
-endif()
-
-# Options
-
-
-if(QT6)
-  set(QT_VERSION_MAJOR 6)
-else()
-  set(QT_VERSION_MAJOR 5)
-endif()
-
-include(CMakeDependentOption)
+option(QT6 "Build with Qt6" ON)
+option(NETWORKAUTH "Enable Spotify and YouTube features" OFF)
 cmake_dependent_option(
-  QOPENGL
-  "Use QOpenGLWindow based widget instead of QGLWidget"
+  QML
+  "Build with QML"
   ON
   "QT6"
-  ON
+  OFF
 )
-
-
-if(QOPENGL)
-  add_compile_definitions(MIXXX_USE_QOPENGL)
-endif()
-
-if(QML)
-  add_compile_definitions(MIXXX_USE_QML)
-endif()
-
-
-
-
-
 
 
 message(STATUS "MIXXX_VCPKG_ROOT: ${MIXXX_VCPKG_ROOT}")
@@ -338,7 +313,12 @@ endif()
 
 message(STATUS "Final CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")
 
-
+set(MIXXX_VERSION_PRERELEASE "alpha")
+if(MIXXX_VERSION_PRERELEASE STREQUAL "")
+  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}")
+else()
+  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}-${MIXXX_VERSION_PRERELEASE}")
+endif()
 
 # set to "alpha" "beta" or ""
 
@@ -1653,12 +1633,12 @@ add_library(
   src/util/versionstore.cpp
   src/waveform/widgets/allshader/waveformwidget.cpp
   src/widget/tooltipqopengl.cpp
+  src/widget/wglwidgetqglwidget.cpp
+  src/widget/wglwidgetqopengl.cpp
   src/widget/wspinnyglsl.cpp
   src/widget/wstemlabel.cpp
   src/widget/wtrackstemmenu.cpp
   src/widget/wvumeterglsl.cpp
-  $<$<NOT:$<BOOL:${QOPENGL}>>:src/widget/wglwidgetqglwidget.cpp>
-  $<$<BOOL:${QOPENGL}>:src/widget/wglwidgetqopengl.cpp>
 )
 set(MIXXX_COMMON_PRECOMPILED_HEADER src/util/assert.h)
 set(
@@ -2114,6 +2094,12 @@ if(QT6)
     MultimediaWidgets
     Core5Compat
   )
+  if(QT6 AND (ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android")))
+    list(APPEND QT_COMPONENTS QmlIntegration)
+    list(REMOVE_ITEM QT_COMPONENTS PrintSupport MultimediaWidgets)
+  elseif(QT6 AND WIN32 AND CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+    list(APPEND QT_COMPONENTS QmlIntegration)
+  endif()
   if(NOT APPLE AND NOT WIN32 AND NOT ANDROID)
     list(APPEND QT_COMPONENTS DBus)
   endif()
@@ -3095,11 +3081,19 @@ if(NOT CMAKE_CONFIGURATION_TYPES)
   endif()
 endif()
 
+if(QT6)
+  set(QOPENGL ON CACHE INTERNAL "Forced ON because QT6=ON")
+else()
+  option(QOPENGL "Use QOpenGLWindow based widget instead of QGLWidget" ON)
+endif()
 
+if(QOPENGL)
+  add_compile_definitions(MIXXX_USE_QOPENGL)
+endif()
 
-
-
-
+if(QML)
+  add_compile_definitions(MIXXX_USE_QML)
+endif()
 
 if(VCPKG_TARGET_TRIPLET MATCHES "^wasm(32|64)-emscripten")
   message(STATUS "Targeting Emscripten (${VCPKG_TARGET_TRIPLET})")
@@ -3766,17 +3760,10 @@ if(NETWORKAUTH)
     file(MAKE_DIRECTORY "${librespot-cpp_SOURCE_DIR}/lib/spdlog")
     file(
       WRITE "${librespot-cpp_SOURCE_DIR}/lib/spdlog/CMakeLists.txt"
-      "add_library(mixxx-spdlog INTERFACE)"
+      "add_library(spdlog INTERFACE)"
     )
   endif()
-  # Patch librespot-cpp to avoid linkage issues and target name conflicts
-    file(READ "${librespot-cpp_SOURCE_DIR}/CMakeLists.txt" LIBRESPOT_CMAKELIST)
-    string(REPLACE "project(librespot_cpp)" "project(librespot_cpp_internal)" LIBRESPOT_CMAKELIST "${LIBRESPOT_CMAKELIST}")
-    string(REPLACE "add_executable(librespot_cpp" "add_library(librespot-cpp STATIC" LIBRESPOT_CMAKELIST "${LIBRESPOT_CMAKELIST}")
-    string(REPLACE "target_link_libraries(${CMAKE_PROJECT_NAME}" "target_link_libraries(librespot-cpp PRIVATE" LIBRESPOT_CMAKELIST "${LIBRESPOT_CMAKELIST}")
-    string(REPLACE "avahi-client avahi-common" "" LIBRESPOT_CMAKELIST "${LIBRESPOT_CMAKELIST}")
-    file(WRITE "${librespot-cpp_SOURCE_DIR}/CMakeLists.txt" "${LIBRESPOT_CMAKELIST}")
-    add_subdirectory(${librespot-cpp_SOURCE_DIR} ${librespot-cpp_BINARY_DIR})
+  add_subdirectory(${librespot-cpp_SOURCE_DIR} ${librespot-cpp_BINARY_DIR})
   target_link_libraries(mixxx-lib PRIVATE librespot-cpp)
   target_link_libraries(mixxx-lib PRIVATE Qt${QT_VERSION_MAJOR}::NetworkAuth)
 
