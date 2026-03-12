@@ -78,8 +78,6 @@ QmlApplication::QmlApplication(
                    "'--allow-dangerous-data-corruption-risk'.")
                         .arg(configVersion));
 
-        QPushButton* continueButton =
-                msgBox.addButton(tr("Ok"), QMessageBox::ActionRole);
         msgBox.exec();
         m_pCoreServices.reset();
         exit(-1);

@@ -1635,12 +1635,16 @@ add_library(
   src/util/versionstore.cpp
   src/waveform/widgets/allshader/waveformwidget.cpp
   src/widget/tooltipqopengl.cpp
-  $<$<NOT:$<BOOL:${QOPENGL}>>:src/widget/wglwidgetqglwidget.cpp>
-  $<$<BOOL:${QOPENGL}>:src/widget/wglwidgetqopengl.cpp>
   src/widget/wspinnyglsl.cpp
   src/widget/wstemlabel.cpp
   src/widget/wtrackstemmenu.cpp
   src/widget/wvumeterglsl.cpp
+)
+target_sources(
+  mixxx-lib
+  PRIVATE
+  $<$<NOT:$<BOOL:${QOPENGL}>>:src/widget/wglwidgetqglwidget.cpp>
+  $<$<BOOL:${QOPENGL}>:src/widget/wglwidgetqopengl.cpp>
 )
 set(MIXXX_COMMON_PRECOMPILED_HEADER src/util/assert.h)
 set(
@@ -3745,6 +3749,7 @@ set(QT_EXTRA_COMPONENTS "")
 if(NETWORKAUTH)
   list(APPEND QT_EXTRA_COMPONENTS "NetworkAuth")
 endif()
+
 if(NETWORKAUTH)
   target_compile_definitions(mixxx-lib PUBLIC NETWORKAUTH)
 
@@ -3753,35 +3758,26 @@ if(NETWORKAUTH)
     spdlog
     URL https://github.com/gabime/spdlog/archive/refs/tags/v1.12.0.zip
   )
+  FetchContent_MakeAvailable(spdlog)
+
   FetchContent_Declare(
     librespot-cpp
     URL https://github.com/iscle/librespot-cpp/archive/refs/heads/master.zip
   )
-  FetchContent_MakeAvailable(spdlog)
   FetchContent_Populate(librespot-cpp)
+
   # Patch librespot-cpp to avoid target name conflict and use PRIVATE linking
   file(READ "${librespot-cpp_SOURCE_DIR}/CMakeLists.txt" LIBRESPOT_CMAKE)
-  string(
-    REPLACE "add_library(${CMAKE_PROJECT_NAME}"
-    "add_library(librespot-cpp-lib STATIC"
-    LIBRESPOT_CMAKE
-    "${LIBRESPOT_CMAKE}"
-  )
-  string(
-    REPLACE "target_link_libraries(${CMAKE_PROJECT_NAME}"
-    "target_link_libraries(librespot-cpp-lib"
-    LIBRESPOT_CMAKE
-    "${LIBRESPOT_CMAKE}"
-  )
+  string(REPLACE "project(\${CMAKE_PROJECT_NAME}" "project(librespot-cpp" LIBRESPOT_CMAKE "${LIBRESPOT_CMAKE}")
+  string(REPLACE "add_library(\${CMAKE_PROJECT_NAME}" "add_library(librespot-cpp-lib STATIC" LIBRESPOT_CMAKE "${LIBRESPOT_CMAKE}")
+  string(REPLACE "target_link_libraries(\${CMAKE_PROJECT_NAME}" "target_link_libraries(librespot-cpp-lib PRIVATE" LIBRESPOT_CMAKE "${LIBRESPOT_CMAKE}")
+
+  if(TARGET spdlog)
+    string(REPLACE "add_subdirectory(lib/spdlog)" "# add_subdirectory(lib/spdlog)" LIBRESPOT_CMAKE "${LIBRESPOT_CMAKE}")
+  endif()
+
   file(WRITE "${librespot-cpp_SOURCE_DIR}/CMakeLists.txt" "${LIBRESPOT_CMAKE}")
 
-  if(NOT EXISTS "${librespot-cpp_SOURCE_DIR}/lib/spdlog/CMakeLists.txt")
-    file(MAKE_DIRECTORY "${librespot-cpp_SOURCE_DIR}/lib/spdlog")
-    file(
-      WRITE "${librespot-cpp_SOURCE_DIR}/lib/spdlog/CMakeLists.txt"
-      "add_library(spdlog INTERFACE)"
-    )
-  endif()
   add_subdirectory(${librespot-cpp_SOURCE_DIR} ${librespot-cpp_BINARY_DIR})
   target_link_libraries(mixxx-lib PRIVATE librespot-cpp-lib)
   target_link_libraries(mixxx-lib PRIVATE Qt${QT_VERSION_MAJOR}::NetworkAuth)
@@ -3804,7 +3800,6 @@ if(NETWORKAUTH)
   endif()
   target_compile_definitions(mixxx-lib PRIVATE YTDLP_PATH="${YTDLP_EXECUTABLE}")
 endif()
-
 # WavPack audio file support
 find_package(wavpack)
 default_option(WAVPACK "WavPack audio file support" "wavpack_FOUND")
