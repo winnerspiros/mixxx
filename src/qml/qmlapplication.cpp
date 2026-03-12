@@ -78,8 +78,6 @@ QmlApplication::QmlApplication(
                    "'--allow-dangerous-data-corruption-risk'.")
                         .arg(configVersion));
 
-        QPushButton* continueButton =
-                msgBox.addButton(tr("Ok"), QMessageBox::ActionRole);
         msgBox.exec();
         m_pCoreServices.reset();
         exit(-1);
@@ -187,7 +185,7 @@ void QmlApplication::loadQml(const QString& path) {
     m_pAppEngine->addImportPath(QStringLiteral(":/mixxx.org/imports"));
 
     // No memory leak here, the QQmlEngine takes ownership of the provider
-    QQuickAsyncImageProvider* pImageProvider = new AsyncImageProvider(
+    [[maybe_unused]] QQuickAsyncImageProvider* pImageProvider = new AsyncImageProvider(
             m_pCoreServices->getTrackCollectionManager());
     m_pAppEngine->addImageProvider(AsyncImageProvider::kProviderName, pImageProvider);
 
