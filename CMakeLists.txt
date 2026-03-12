@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 include(FetchContent)
 
+include(CMakeDependentOption)
 option(QT6 "Build with Qt6" ON)
 option(NETWORKAUTH "Enable Spotify and YouTube features" OFF)
 cmake_dependent_option(
@@ -20,7 +21,6 @@ else()
   set(QT_VERSION_MAJOR 5)
 
 endif()
-include(CMakeDependentOption)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Android")
   if(VCPKG_TARGET_TRIPLET MATCHES "arm64")
