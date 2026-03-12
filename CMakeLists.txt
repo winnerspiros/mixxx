@@ -72,7 +72,7 @@ if(NOT DEFINED VCPKG_TARGET_TRIPLET)
 endif()
 
 if(DEFINED MIXXX_VCPKG_ROOT)
-  string(STRIP "" MIXXX_VCPKG_ROOT)
+  string(STRIP "${MIXXX_VCPKG_ROOT}" MIXXX_VCPKG_ROOT)
 endif()
 if(DEFINED ENV{MIXXX_VCPKG_ROOT} AND NOT DEFINED MIXXX_VCPKG_ROOT)
   set(MIXXX_VCPKG_ROOT "$ENV{MIXXX_VCPKG_ROOT}")
@@ -87,7 +87,12 @@ if(NOT DEFINED MIXXX_VCPKG_ROOT AND NOT DEFINED ENV{MIXXX_VCPKG_ROOT})
 endif()
 
 if(
-  ((APPLE AND NOT IOS) OR WIN32 OR ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
+  (
+    (APPLE AND NOT IOS)
+    OR WIN32
+    OR ANDROID
+    OR (CMAKE_SYSTEM_NAME STREQUAL "Android")
+  )
   AND NOT IS_DIRECTORY "${MIXXX_VCPKG_ROOT}"
 )
   if(NOT DEFINED BUILDENV_BASEPATH)
@@ -238,11 +243,8 @@ if(DEFINED MIXXX_VCPKG_ROOT)
   endif()
 endif()
 
-
-
 message(STATUS "Early CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
 message(STATUS "Early CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
-project(mixxx VERSION 2.7.0 LANGUAGES C CXX)
 if(CMAKE_SYSTEM_NAME STREQUAL "Android")
   if(VCPKG_TARGET_TRIPLET MATCHES "arm64")
     set(ANDROID_ABI "arm64-v8a" CACHE STRING "" FORCE)
@@ -253,8 +255,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Android")
     set(ANDROID_ABI "x86_64" CACHE STRING "" FORCE)
     set(CMAKE_ANDROID_ARCH_ABI "x86_64" CACHE STRING "" FORCE)
   endif()
-
 endif()
+
+project(mixxx VERSION 2.7.0 LANGUAGES C CXX)
 option(QT6 "Build with Qt6" ON)
 option(NETWORKAUTH "Enable Spotify and YouTube features" OFF)
 cmake_dependent_option(
@@ -264,7 +267,6 @@ cmake_dependent_option(
   "QT6"
   OFF
 )
-
 
 message(STATUS "MIXXX_VCPKG_ROOT: ${MIXXX_VCPKG_ROOT}")
 message(STATUS "VCPKG_TARGET_TRIPLET: ${VCPKG_TARGET_TRIPLET}")
@@ -1633,8 +1635,8 @@ add_library(
   src/util/versionstore.cpp
   src/waveform/widgets/allshader/waveformwidget.cpp
   src/widget/tooltipqopengl.cpp
-  src/widget/wglwidgetqglwidget.cpp
-  src/widget/wglwidgetqopengl.cpp
+  $<$<NOT:$<BOOL:${QOPENGL}>>:src/widget/wglwidgetqglwidget.cpp>
+  $<$<BOOL:${QOPENGL}>:src/widget/wglwidgetqopengl.cpp>
   src/widget/wspinnyglsl.cpp
   src/widget/wstemlabel.cpp
   src/widget/wtrackstemmenu.cpp
@@ -2854,7 +2856,10 @@ if(BUILD_TESTING)
   endif()
 
   add_executable(mixxx-test ${src-mixxx-test})
-  target_include_directories(mixxx-test PRIVATE src "${CMAKE_CURRENT_BINARY_DIR}/src")
+  target_include_directories(
+    mixxx-test
+    PRIVATE src "${CMAKE_CURRENT_BINARY_DIR}/src"
+  )
   target_link_libraries(mixxx-test PRIVATE mixxx-lib)
   file(
     GLOB_RECURSE CONTROLLER_BULK_MAPPING_LIST
@@ -2949,7 +2954,6 @@ if(BUILD_TESTING)
   set_target_properties(mixxx-test PROPERTIES AUTORCC ON)
 endif()
 
-
 set(SOURCE_TARGET "mixxx")
 if(QT6)
   set(QT_VERSION_MAJOR 6)
@@ -3010,7 +3014,6 @@ endif()
 if(POLICY CMP0135)
   cmake_policy(SET CMP0135 NEW)
 endif()
-
 
 # Use this function to throw an error because the build environment is not set
 # up correctly.
@@ -3756,6 +3759,22 @@ if(NETWORKAUTH)
   )
   FetchContent_MakeAvailable(spdlog)
   FetchContent_Populate(librespot-cpp)
+  # Patch librespot-cpp to avoid target name conflict and use PRIVATE linking
+  file(READ "${librespot-cpp_SOURCE_DIR}/CMakeLists.txt" LIBRESPOT_CMAKE)
+  string(
+    REPLACE "add_library(${CMAKE_PROJECT_NAME}"
+    "add_library(librespot-cpp-lib STATIC"
+    LIBRESPOT_CMAKE
+    "${LIBRESPOT_CMAKE}"
+  )
+  string(
+    REPLACE "target_link_libraries(${CMAKE_PROJECT_NAME}"
+    "target_link_libraries(librespot-cpp-lib"
+    LIBRESPOT_CMAKE
+    "${LIBRESPOT_CMAKE}"
+  )
+  file(WRITE "${librespot-cpp_SOURCE_DIR}/CMakeLists.txt" "${LIBRESPOT_CMAKE}")
+
   if(NOT EXISTS "${librespot-cpp_SOURCE_DIR}/lib/spdlog/CMakeLists.txt")
     file(MAKE_DIRECTORY "${librespot-cpp_SOURCE_DIR}/lib/spdlog")
     file(
@@ -3764,7 +3783,7 @@ if(NETWORKAUTH)
     )
   endif()
   add_subdirectory(${librespot-cpp_SOURCE_DIR} ${librespot-cpp_BINARY_DIR})
-  target_link_libraries(mixxx-lib PRIVATE librespot-cpp)
+  target_link_libraries(mixxx-lib PRIVATE librespot-cpp-lib)
   target_link_libraries(mixxx-lib PRIVATE Qt${QT_VERSION_MAJOR}::NetworkAuth)
 
   find_program(YTDLP_EXECUTABLE NAMES yt-dlp)
