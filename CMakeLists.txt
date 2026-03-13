@@ -5,7 +5,7 @@ include(CMakeDependentOption)
 message(STATUS "Early CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 function(fatal_error_missing_env)
   if(WIN32)
-    if(CMAKE_BUILD_TYPE MATCHES "Debug")
+    if(CMAKE_BUILD_TYPE matches "Debug")
       message(
         FATAL_ERROR
         "Did you download the Mixxx build environment using `${CMAKE_CURRENT_SOURCE_DIR}/tools/windows_buildenv.bat`?"
@@ -16,13 +16,13 @@ function(fatal_error_missing_env)
         "Did you download the Mixxx build environment using `${CMAKE_CURRENT_SOURCE_DIR}/tools/windows_release_buildenv.bat` or `${CMAKE_CURRENT_SOURCE_DIR}/tools/windows_buildenv.bat`(includes Debug)?"
       )
     endif()
-  elseif(APPLE AND NOT IOS)
-    if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
+  elseif(APPLE and not IOS)
+    if(CMAKE_SYSTEM_PROCESSOR matches "arm64")
       message(
         FATAL_ERROR
         "Did you build the Mixxx build environment as described here: https://github.com/mixxxdj/mixxx/wiki/Compiling-dependencies-for-macOS-arm64?"
       )
-    elseif(CMAKE_BUILD_TYPE MATCHES "Debug")
+    elseif(CMAKE_BUILD_TYPE matches "Debug")
       message(
         FATAL_ERROR
         "Did you download the Mixxx build environment using `source ${CMAKE_CURRENT_SOURCE_DIR}/tools/macos_buildenv.sh setup`"
@@ -33,14 +33,22 @@ function(fatal_error_missing_env)
         "Did you download the Mixxx build environment using `source ${CMAKE_CURRENT_SOURCE_DIR}/tools/macos_release_buildenv.sh setup` or `source ${CMAKE_CURRENT_SOURCE_DIR}/tools/macos_buildenv.sh setup` (includes Debug)?"
       )
     endif()
-  elseif(UNIX AND NOT APPLE AND NOT ANDROID)
+  elseif(
+    UNIX
+    and
+    not
+    APPLE
+    and
+    not
+    ANDROID
+  )
     # Linux, BSD, Solaris, Minix
-    if(EXISTS "/etc/debian_version") # exists also on Ubuntu and Mint
+    if(exists "/etc/debian_version") # exists also on Ubuntu and Mint
       message(
         FATAL_ERROR
         "Did you install the required Debian dev packages via `${CMAKE_CURRENT_SOURCE_DIR}/tools/debian_buildenv.sh setup`?"
       )
-    elseif(EXISTS "/etc/redhat-release") # exists also on Fedora Mageia Madndriva Alma CentOS
+    elseif(exists "/etc/redhat-release") # exists also on Fedora Mageia Madndriva Alma CentOS
       message(
         FATAL_ERROR
         "Did you install the required RPM dev packages via `${CMAKE_CURRENT_SOURCE_DIR}/tools/rpm_buildenv.sh setup`?"
@@ -51,7 +59,7 @@ function(fatal_error_missing_env)
         "Did you install the equivalent dev packages listed in `${CMAKE_CURRENT_SOURCE_DIR}/tools/debian_buildenv.sh setup`?"
       )
     endif()
-  elseif(DEFINED VCPKG_TARGET_TRIPLET)
+  elseif(defined VCPKG_TARGET_TRIPLET)
     message(
       FATAL_ERROR
       "You are targeting ${VCPKG_TARGET_TRIPLET}, which does not have a prebuilt environment. Please make sure that -DMIXXX_VCPKG_ROOT points to a vcpkg environment containing installed dependencies for ${VCPKG_TARGET_TRIPLET}!"
@@ -64,20 +72,35 @@ function(fatal_error_missing_env)
   endif()
 endfunction()
 
-if(NOT DEFINED VCPKG_TARGET_TRIPLET)
-  if(DEFINED ENV{VCPKG_TARGET_TRIPLET})
+if(not defined VCPKG_TARGET_TRIPLET)
+  if(defined ENV{VCPKG_TARGET_TRIPLET})
     set(VCPKG_TARGET_TRIPLET "$ENV{VCPKG_TARGET_TRIPLET}")
-  elseif(DEFINED ENV{VCPKG_DEFAULT_TRIPLET})
+  elseif(defined ENV{VCPKG_DEFAULT_TRIPLET})
     set(VCPKG_TARGET_TRIPLET "$ENV{VCPKG_DEFAULT_TRIPLET}")
   endif()
 endif()
 
-if(DEFINED ENV{MIXXX_VCPKG_ROOT} AND NOT DEFINED MIXXX_VCPKG_ROOT)
+if(
+  defined
+  ENV{MIXXX_VCPKG_ROOT}
+  and
+  not
+  defined
+  MIXXX_VCPKG_ROOT
+)
   set(MIXXX_VCPKG_ROOT "$ENV{MIXXX_VCPKG_ROOT}")
 endif()
 
-if(NOT DEFINED MIXXX_VCPKG_ROOT AND NOT DEFINED ENV{MIXXX_VCPKG_ROOT})
-  if(DEFINED ENV{BUILDENV_BASEPATH})
+if(
+  not
+  defined
+  MIXXX_VCPKG_ROOT
+  and
+  not
+  defined
+  ENV{MIXXX_VCPKG_ROOT}
+)
+  if(defined ENV{BUILDENV_BASEPATH})
     set(BUILDENV_BASEPATH "$ENV{BUILDENV_BASEPATH}")
   else()
     set(BUILDENV_BASEPATH "${CMAKE_CURRENT_SOURCE_DIR}/buildenv")
@@ -86,25 +109,31 @@ endif()
 
 if(
   (
-    (APPLE AND NOT IOS)
-    OR WIN32
-    OR ANDROID
-    OR (CMAKE_SYSTEM_NAME STREQUAL "Android")
+    (APPLE and not IOS)
+    or
+    WIN32
+    or
+    ANDROID
+    or
+    (CMAKE_SYSTEM_NAME strequal "Android")
   )
-  AND NOT IS_DIRECTORY "${MIXXX_VCPKG_ROOT}"
+  and
+  not
+  is_directory
+  "${MIXXX_VCPKG_ROOT}"
 )
-  if(NOT DEFINED BUILDENV_BASEPATH)
-    if(DEFINED ENV{BUILDENV_BASEPATH})
+  if(not defined BUILDENV_BASEPATH)
+    if(defined ENV{BUILDENV_BASEPATH})
       set(BUILDENV_BASEPATH "$ENV{BUILDENV_BASEPATH}")
     else()
       set(BUILDENV_BASEPATH "${CMAKE_CURRENT_SOURCE_DIR}/buildenv")
     endif()
   endif()
 
-  if(NOT DEFINED BUILDENV_URL)
-    if(DEFINED ENV{BUILDENV_URL})
+  if(not defined BUILDENV_URL)
+    if(defined ENV{BUILDENV_URL})
       set(BUILDENV_URL "$ENV{BUILDENV_URL}")
-    elseif(NOT DEFINED BUILDENV_URL)
+    elseif(not defined BUILDENV_URL)
       message(FATAL_ERROR "BUILDENV_URL not specified")
     endif()
   endif()
@@ -123,18 +152,23 @@ if(
   message(STATUS "BUILDENV_NAME is: ${BUILDENV_NAME}")
 
   if(
-    NOT EXISTS "${BUILDENV_BASEPATH}/${BUILDENV_NAME}"
-    OR NOT IS_DIRECTORY "${BUILDENV_BASEPATH}/${BUILDENV_NAME}"
+    not
+    exists
+    "${BUILDENV_BASEPATH}/${BUILDENV_NAME}"
+    or
+    not
+    is_directory
+    "${BUILDENV_BASEPATH}/${BUILDENV_NAME}"
   )
-    if(NOT DEFINED BUILDENV_SHA256)
-      if(DEFINED ENV{BUILDENV_SHA256})
+    if(not defined BUILDENV_SHA256)
+      if(defined ENV{BUILDENV_SHA256})
         set(BUILDENV_SHA256 "$ENV{BUILDENV_SHA256}")
-      elseif(NOT DEFINED BUILDENV_SHA256)
+      elseif(not defined BUILDENV_SHA256)
         message(STATUS "BUILDENV_SHA256 not specified")
       endif()
     endif()
 
-    if(NOT EXISTS "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip")
+    if(not exists "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip")
       message(
         STATUS
         "Downloading file "
@@ -154,7 +188,7 @@ if(
       set(_dummy "${BUILDENV_URL}")
     endif()
 
-    if(NOT "${BUILDENV_SHA256}" STREQUAL "")
+    if(NOT "${BUILDENV_SHA256}" strequal "")
       message(
         STATUS
         "Verify SHA256 of downloaded file "
@@ -163,7 +197,7 @@ if(
       )
       file(SHA256 "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip" actual_sha256)
 
-      if(NOT actual_sha256 STREQUAL "${BUILDENV_SHA256}")
+      if(NOT actual_sha256 strequal "${BUILDENV_SHA256}")
         message(
           FATAL_ERROR
           "SHA256 checksum mismatch:\nexpected: ${BUILDENV_SHA256}\n     got: ${actual_sha256}"
@@ -192,19 +226,31 @@ else()
   set(_dummy "${BUILDENV_URL}" "${BUILDENV_BASEPATH}" "${BUILDENV_SHA256}")
 endif()
 
-if(NOT DEFINED MIXXX_VCPKG_ROOT AND NOT DEFINED ENV{MIXXX_VCPKG_ROOT})
-  if(DEFINED BUILDENV_BASEPATH AND DEFINED BUILDENV_NAME)
-    if(IS_DIRECTORY "${BUILDENV_BASEPATH}/${BUILDENV_NAME}")
+if(
+  not
+  defined
+  MIXXX_VCPKG_ROOT
+  and
+  not
+  defined
+  ENV{MIXXX_VCPKG_ROOT}
+)
+  if(defined BUILDENV_BASEPATH and defined BUILDENV_NAME)
+    if(is_directory "${BUILDENV_BASEPATH}/${BUILDENV_NAME}")
       set(MIXXX_VCPKG_ROOT "${BUILDENV_BASEPATH}/${BUILDENV_NAME}")
     endif()
   endif()
 endif()
 
-if(DEFINED MIXXX_VCPKG_ROOT)
+if(defined MIXXX_VCPKG_ROOT)
   file(TO_CMAKE_PATH "${MIXXX_VCPKG_ROOT}" MIXXX_VCPKG_ROOT)
   if(
-    EXISTS "${MIXXX_VCPKG_ROOT}/overlay/ports"
-    OR NOT EXISTS "${MIXXX_VCPKG_ROOT}/ports"
+    exists
+    "${MIXXX_VCPKG_ROOT}/overlay/ports"
+    or
+    not
+    exists
+    "${MIXXX_VCPKG_ROOT}/ports"
   )
     message(STATUS "Using MIXXX_VCPKG_ROOT: ${MIXXX_VCPKG_ROOT}")
   else()
@@ -215,7 +261,7 @@ if(DEFINED MIXXX_VCPKG_ROOT)
     fatal_error_missing_env()
   endif()
 
-  if(NOT DEFINED VCPKG_OVERLAY_PORTS)
+  if(not defined VCPKG_OVERLAY_PORTS)
     set(VCPKG_OVERLAY_PORTS "${MIXXX_VCPKG_ROOT}/overlay/ports")
     if(APPLE)
       list(APPEND VCPKG_OVERLAY_PORTS "${MIXXX_VCPKG_ROOT}/overlay/osx")
@@ -224,12 +270,12 @@ if(DEFINED MIXXX_VCPKG_ROOT)
     endif()
   endif()
 
-  if(NOT DEFINED VCPKG_OVERLAY_TRIPLETS)
+  if(not defined VCPKG_OVERLAY_TRIPLETS)
     set(VCPKG_OVERLAY_TRIPLETS "${MIXXX_VCPKG_ROOT}/overlay/triplets")
   endif()
 
   if(NOT CMAKE_TOOLCHAIN_FILE)
-    if(EXISTS "${MIXXX_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
+    if(exists "${MIXXX_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
       set(
         CMAKE_TOOLCHAIN_FILE
         "${MIXXX_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
@@ -241,12 +287,12 @@ if(DEFINED MIXXX_VCPKG_ROOT)
   endif()
 endif()
 
-if(CMAKE_SYSTEM_NAME STREQUAL "Android")
-  if(VCPKG_TARGET_TRIPLET MATCHES "arm64")
+if(CMAKE_SYSTEM_NAME strequal "Android")
+  if(VCPKG_TARGET_TRIPLET matches "arm64")
     set(ANDROID_ABI "arm64-v8a" CACHE STRING "" FORCE)
     set(CMAKE_ANDROID_ARCH_ABI "arm64-v8a" CACHE STRING "" FORCE)
     set(CMAKE_SYSTEM_PROCESSOR "aarch64" CACHE STRING "" FORCE)
-  elseif(VCPKG_TARGET_TRIPLET MATCHES "x64")
+  elseif(VCPKG_TARGET_TRIPLET matches "x64")
     set(ANDROID_ABI "x86_64" CACHE STRING "" FORCE)
     set(CMAKE_ANDROID_ARCH_ABI "x86_64" CACHE STRING "" FORCE)
   endif()
@@ -270,7 +316,7 @@ message(STATUS "MIXXX_VCPKG_ROOT: ${MIXXX_VCPKG_ROOT}")
 message(STATUS "VCPKG_TARGET_TRIPLET: ${VCPKG_TARGET_TRIPLET}")
 message(STATUS "CMAKE_TOOLCHAIN_FILE: ${CMAKE_TOOLCHAIN_FILE}")
 
-if(DEFINED MIXXX_VCPKG_ROOT AND DEFINED VCPKG_TARGET_TRIPLET)
+if(defined MIXXX_VCPKG_ROOT and defined VCPKG_TARGET_TRIPLET)
   set(TRIPLET_VARIANTS "${VCPKG_TARGET_TRIPLET}")
   string(REPLACE "-release" "" TRIPLET_BASE "${VCPKG_TARGET_TRIPLET}")
   string(REPLACE "-debug" "" TRIPLET_BASE "${TRIPLET_BASE}")
@@ -281,7 +327,7 @@ if(DEFINED MIXXX_VCPKG_ROOT AND DEFINED VCPKG_TARGET_TRIPLET)
   foreach(variant ${TRIPLET_VARIANTS})
     set(VCPKG_INSTALLED_PATH_TMP "${MIXXX_VCPKG_ROOT}/installed/${variant}")
     file(TO_CMAKE_PATH "${VCPKG_INSTALLED_PATH_TMP}" VCPKG_INSTALLED_PATH_TMP)
-    if(IS_DIRECTORY "${VCPKG_INSTALLED_PATH_TMP}")
+    if(is_directory "${VCPKG_INSTALLED_PATH_TMP}")
       set(VCPKG_INSTALLED_PATH "${VCPKG_INSTALLED_PATH_TMP}")
       set(VCPKG_INSTALLED_PATH_FOUND TRUE)
       message(STATUS "Found vcpkg installed path: ${VCPKG_INSTALLED_PATH}")
@@ -296,7 +342,7 @@ if(DEFINED MIXXX_VCPKG_ROOT AND DEFINED VCPKG_TARGET_TRIPLET)
       "${VCPKG_INSTALLED_PATH}/share"
       ${CMAKE_PREFIX_PATH}
     )
-    if(ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
+    if(ANDROID or (CMAKE_SYSTEM_NAME strequal "Android"))
       list(
         APPEND CMAKE_FIND_ROOT_PATH
         "${VCPKG_INSTALLED_PATH}"
@@ -322,7 +368,7 @@ endif()
 message(STATUS "Final CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")
 
 set(MIXXX_VERSION_PRERELEASE "alpha")
-if(MIXXX_VERSION_PRERELEASE STREQUAL "")
+if(MIXXX_VERSION_PRERELEASE strequal "")
   set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}")
 else()
   set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}-${MIXXX_VERSION_PRERELEASE}")
@@ -348,8 +394,8 @@ include(DefaultOption)
 include(IsStaticLibrary)
 
 # Verify VCPKG settings
-if(DEFINED _VCPKG_INSTALLED_DIR)
-  if(NOT EXISTS "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}")
+if(defined _VCPKG_INSTALLED_DIR)
+  if(not exists "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}")
     # Fail early if this part of CMAKE_PREFIX_PATH does not exist
     # else the library lookups below will fail with misleading error messages
     message(
@@ -366,15 +412,15 @@ endif()
 #######################################################################
 # Compilers and toolchains
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+if(CMAKE_CXX_COMPILER_ID strequal "GNU")
   # GNU is GNU GCC
   set(GNU_GCC true)
 else()
   set(GNU_GCC false)
 endif()
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  if(CMAKE_CXX_SIMULATE_ID MATCHES "MSVC")
+if(CMAKE_CXX_COMPILER_ID matches "Clang")
+  if(CMAKE_CXX_SIMULATE_ID matches "MSVC")
     set(LLVM_CLANG false)
     set(MSVC true)
   else()
@@ -399,7 +445,7 @@ if(MSVC)
   # Since c++11 they can safely be removed to speed up linking.
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:inline")
 
-  if(NOT DEFINED MSVC_TOOLSET_VERSION OR MSVC_TOOLSET_VERSION VERSION_LESS 143)
+  if(not defined MSVC_TOOLSET_VERSION or MSVC_TOOLSET_VERSION VERSION_LESS 143)
     message(
       FATAL_ERROR
       "MSVC_TOOLSET_VERSION is ${MSVC_TOOLSET_VERSION}.\n"
@@ -418,7 +464,7 @@ cmake_dependent_option(
   BUILD_LOW_MEMORY
   "Store temporary build files on disk by disabling the build option -pipe"
   OFF
-  "GNU_GCC OR LLVM_CLANG"
+  "GNU_GCC or LLVM_CLANG"
   ON
 )
 if(NOT BUILD_LOW_MEMORY)
@@ -481,7 +527,7 @@ message(STATUS "CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 # See https://github.com/mixxxdj/mixxx/pull/3589 for some test results
 # Note: IPO has caused issues on Fedora https://bugzilla.rpmfusion.org/show_bug.cgi?id=5829
 # Uncomment the following code to enable IPO for Release builds
-#if(NOT DEFINED CMAKE_INTERPROCEDURAL_OPTIMIZATION AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT OPTIMIZE STREQUAL "off")
+#if(not defined CMAKE_INTERPROCEDURAL_OPTIMIZATION and not CMAKE_BUILD_TYPE strequal "Debug" and not OPTIMIZE strequal "off")
 #  include(CheckIPOSupported)
 #  check_ipo_supported(RESULT HAVE_IPO)
 #  if(HAVE_IPO)
@@ -492,7 +538,7 @@ message(STATUS "CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 if(MSVC)
   # Microsoft Visual Studio Compiler
   add_compile_options(/UTF8)
-  if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x64|x86_64|AMD64)$")
+  if(CMAKE_SYSTEM_PROCESSOR matches "^(x64|x86_64|AMD64)$")
     # Target architecture is x64 -> x64 has alsways SSE and SSE2 instruction sets
     message(STATUS "x64 Enabling SSE2 CPU optimizations (>= Pentium 4)")
     # Define gcc/clang style defines for SSE and SSE2 for compatibility
@@ -500,10 +546,10 @@ if(MSVC)
   endif()
 
   # Needed for sccache
-  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  if(CMAKE_BUILD_TYPE strequal "Debug")
     string(REPLACE "/Zi" "/Z7" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
     string(REPLACE "/Zi" "/Z7" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
-  elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
+  elseif(CMAKE_BUILD_TYPE strequal "Release")
     string(
       REPLACE "/Zi"
       "/Z7"
@@ -511,7 +557,7 @@ if(MSVC)
       "${CMAKE_CXX_FLAGS_RELEASE}"
     )
     string(REPLACE "/Zi" "/Z7" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
-  elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+  elseif(CMAKE_BUILD_TYPE strequal "RelWithDebInfo")
     string(
       REPLACE "/Zi"
       "/Z7"
@@ -526,7 +572,7 @@ if(MSVC)
     )
   endif()
 
-  if(NOT OPTIMIZE STREQUAL "off")
+  if(NOT OPTIMIZE strequal "off")
     # Use the fastest floating point math library
     # http://msdn.microsoft.com/en-us/library/e7s85ffb.aspx
     # http://msdn.microsoft.com/en-us/library/ms235601.aspx
@@ -541,7 +587,7 @@ if(MSVC)
     # For repeated local development builds, /INCREMENTAL offers much faster build times with the same performance of the executable,
     # unless link time code generation (like CMAKE_INTERPROCEDURAL_OPTIMIZATION) is used, which is contrary to incremental linking.
 
-    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    if(CMAKE_BUILD_TYPE strequal "Debug")
       # Optimize Debug Builds as well, to have "normal" behavior of Mixxx during development
       string(REPLACE "/Od" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
       string(REPLACE "/Od" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS}")
@@ -557,7 +603,7 @@ if(MSVC)
         "${CMAKE_CXX_FLAGS_DEBUG}"
       )
       string(REPLACE "/RTC1" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
-    elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+    elseif(CMAKE_BUILD_TYPE strequal "RelWithDebInfo")
       # For some reasons cmake uses /Ob1 in RelWithDebInfo https://gitlab.kitware.com/cmake/cmake/-/issues/20812
       # /O2 is applied by CMake and this implies /Od2
       string(
@@ -599,15 +645,15 @@ if(MSVC)
         )
       endif()
       # Note: CMAKE_INTERPROCEDURAL_OPTIMIZATION sets the /GL and /LTCG flags for us
-    elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
+    elseif(CMAKE_BUILD_TYPE strequal "Release")
       # Reduce the size of the binary in Release builds
       # Do not use /OPT:ICF because it has no effect.
       # https://github.com/mixxxdj/mixxx/pull/3660#pullrequestreview-600137258
       add_link_options(/OPT:REF)
     endif()
 
-    if(OPTIMIZE STREQUAL "portable")
-      if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(i[3456]86|x86)$")
+    if(OPTIMIZE strequal "portable")
+      if(CMAKE_SYSTEM_PROCESSOR matches "^(i[3456]86|x86)$")
         # Target architecture is x86 with SSE and SSE2
         message(STATUS "x86 Enabling SSE2 CPU optimizations (>= Pentium 4)")
         # Define gcc/clang style defines for SSE and SSE2 for compatibility
@@ -615,9 +661,9 @@ if(MSVC)
         # Set compiler option for SSE/SSE2
         add_compile_options(/arch:SSE2)
       endif()
-    elseif(OPTIMIZE STREQUAL "native")
+    elseif(OPTIMIZE strequal "native")
       message("Enabling optimizations for native system, specified by user")
-      if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(i[3456]86|x86)$")
+      if(CMAKE_SYSTEM_PROCESSOR matches "^(i[3456]86|x86)$")
         # Target architecture is x86 with SSE and SSE2
         message(STATUS "x86 Enabling SSE2 CPU optimizations (>= Pentium 4)")
         # Define gcc/clang style defines for SSE and SSE2 for compatibility
@@ -631,10 +677,10 @@ if(MSVC)
         "User need to set the MSVC compiler flags for the native processor here!"
       )
       add_compile_options("/favor:${CMAKE_SYSTEM_PROCESSOR}")
-    elseif(OPTIMIZE STREQUAL "legacy")
-      if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x64|x86_64|AMD64)$")
+    elseif(OPTIMIZE strequal "legacy")
+      if(CMAKE_SYSTEM_PROCESSOR matches "^(x64|x86_64|AMD64)$")
         message("Enabling pure x64 instruction set (without AVX etc.)")
-      elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(i[3456]86|x86)$")
+      elseif(CMAKE_SYSTEM_PROCESSOR matches "^(i[3456]86|x86)$")
         message("Enabling pure i386 instruction set (without SSE/SSE2 etc.)")
       endif()
     else()
@@ -645,7 +691,7 @@ if(MSVC)
     endif()
   else()
     # OPTIMIZE=off
-    if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    if(CMAKE_BUILD_TYPE strequal "Release")
       # Remove optimize flags set by cmake defaults
       string(
         REPLACE "/O2"
@@ -663,7 +709,7 @@ if(MSVC)
       string(REPLACE "/Ob2" "" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
       add_compile_options(/Od) # this implies /Ob0
       add_compile_options(/RTC1)
-    elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+    elseif(CMAKE_BUILD_TYPE strequal "RelWithDebInfo")
       # Remove optimize flags set by cmake defaults
       string(
         REPLACE "/O2"
@@ -694,8 +740,8 @@ if(MSVC)
       add_compile_options(/RTC1)
     endif()
   endif()
-elseif(GNU_GCC OR LLVM_CLANG)
-  if(NOT OPTIMIZE STREQUAL "off")
+elseif(GNU_GCC or LLVM_CLANG)
+  if(NOT OPTIMIZE strequal "off")
     # Common flags to all optimizations.
     # -ffast-math will prevent a performance penalty by denormals
     # (floating point values almost Zero are treated as Zero)
@@ -715,13 +761,13 @@ elseif(GNU_GCC OR LLVM_CLANG)
     # Clang sanitizers.
     # Note: It is only included in -O on machines where it does not
     # interfere with debugging
-    if(NOT PROFILING AND NOT SANITIZERS)
+    if(NOT PROFILING and not SANITIZERS)
       add_compile_options(-fomit-frame-pointer)
     endif()
 
-    if(OPTIMIZE STREQUAL "portable")
+    if(OPTIMIZE strequal "portable")
       # portable: sse2 CPU (>= Pentium 4)
-      if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(i[3456]86|x86|x64|x86_64|AMD64)$")
+      if(CMAKE_SYSTEM_PROCESSOR matches "^(i[3456]86|x86|x64|x86_64|AMD64)$")
         message(STATUS "Enabling SSE2 CPU optimizations (>= Pentium 4)")
         if(NOT EMSCRIPTEN)
           add_compile_options(-mtune=generic)
@@ -741,7 +787,7 @@ elseif(GNU_GCC OR LLVM_CLANG)
         # TODO(rryan): macOS can use SSE3, and possibly SSE 4.1 once
         # we require macOS 10.12.
         # https://stackoverflow.com/questions/45917280/mac-osx-minumum-support-sse-version
-      elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|armv7.*)$") # but not armv8
+      elseif(CMAKE_SYSTEM_PROCESSOR matches "^(arm|armv7.*)$") # but not armv8
         add_compile_options(-mfloat-abi=hard -mfpu=neon)
       endif()
       # this sets macros __SSE2_MATH__ __SSE_MATH__ __SSE2__ __SSE__
@@ -755,17 +801,17 @@ elseif(GNU_GCC OR LLVM_CLANG)
       # i386 compatible, so builds that claim 'i386' will crash.
       # -- rryan 2/2011
       # Note: SSE2 is a core part of x64 CPUs
-    elseif(OPTIMIZE STREQUAL "native")
+    elseif(OPTIMIZE strequal "native")
       message("Enabling native optimizations for ${CMAKE_SYSTEM_PROCESSOR}")
       add_compile_options(-march=native)
       # Note: requires gcc >= 4.2.0
       # macros like __SSE2_MATH__ __SSE_MATH__ __SSE2__ __SSE__
       # are set automatically
-      if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|armv7.*)$") # but not armv8
+      if(CMAKE_SYSTEM_PROCESSOR matches "^(arm|armv7.*)$") # but not armv8
         add_compile_options(-mfloat-abi=hard -mfpu=neon)
       endif()
-    elseif(OPTIMIZE STREQUAL "legacy")
-      if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(i[3456]86|x86|x64|x86_64|AMD64)$")
+    elseif(OPTIMIZE strequal "legacy")
+      if(CMAKE_SYSTEM_PROCESSOR matches "^(i[3456]86|x86|x64|x86_64|AMD64)$")
         message("Enabling pure i386 code")
         add_compile_options(-mtune=generic)
         # -mtune=generic pick the most common, but compatible options.
@@ -790,7 +836,7 @@ if(WIN32)
 endif()
 
 if(MSVC)
-  if(NOT DEFINED CMAKE_DISABLE_PRECOMPILE_HEADERS)
+  if(not defined CMAKE_DISABLE_PRECOMPILE_HEADERS)
     # With MSVC, PCH is faster than caching
     set(CMAKE_DISABLE_PRECOMPILE_HEADERS OFF)
   endif()
@@ -806,7 +852,7 @@ if(MSVC)
   if(SCCACHE_EXECUTABLE)
     message(STATUS "Found sccache: ${SCCACHE_EXECUTABLE}")
   else()
-    message(STATUS "Could NOT find sccache (missing executable)")
+    message(STATUS "Could not find sccache (missing executable)")
   endif()
   default_option(SCCACHE_SUPPORT "Enable sccache support" "SCCACHE_EXECUTABLE;CMAKE_DISABLE_PRECOMPILE_HEADERS")
   message(STATUS "Support for sccache: ${SCCACHE_SUPPORT}")
@@ -826,11 +872,11 @@ else()
   if(CCACHE_EXECUTABLE)
     message(STATUS "Found ccache: ${CCACHE_EXECUTABLE}")
   else()
-    message(STATUS "Could NOT find ccache (missing executable)")
+    message(STATUS "Could not find ccache (missing executable)")
   endif()
   default_option(CCACHE_SUPPORT "Enable ccache support" "CCACHE_EXECUTABLE;NOT ANDROID")
 
-  if(NOT DEFINED CMAKE_DISABLE_PRECOMPILE_HEADERS)
+  if(not defined CMAKE_DISABLE_PRECOMPILE_HEADERS)
     set(CMAKE_DISABLE_PRECOMPILE_HEADERS ${CCACHE_SUPPORT})
   endif()
   set(
@@ -841,7 +887,7 @@ else()
   )
 
   if(CCACHE_SUPPORT)
-    if(GNU_GCC OR LLVM_CLANG)
+    if(GNU_GCC or LLVM_CLANG)
       # without this compiler messages in `make` backend would be uncolored
       set(
         CMAKE_CXX_FLAGS
@@ -857,8 +903,15 @@ else()
         ERROR_QUIET
       )
       if(
-        NOT CCACHE_CONFIGURED_SLOPPINESS MATCHES "pch_defines"
-        OR NOT CCACHE_CONFIGURED_SLOPPINESS MATCHES "time_macros"
+        not
+        CCACHE_CONFIGURED_SLOPPINESS
+        matches
+        "pch_defines"
+        or
+        not
+        CCACHE_CONFIGURED_SLOPPINESS
+        matches
+        "time_macros"
       )
         message(
           WARNING
@@ -894,8 +947,8 @@ if(NOT MSVC)
   if(MOLD_SYMLINK)
     set(MOLD_SYMLINK_FOUND TRUE)
   endif()
-  default_option(MOLD_SUPPORT "Use 'mold' for linking" "MOLD_FUSE_FOUND OR MOLD_SYMLINK_FOUND")
-  if(MOLD_SUPPORT AND NOT ANDROID)
+  default_option(MOLD_SUPPORT "Use 'mold' for linking" "MOLD_FUSE_FOUND or MOLD_SYMLINK_FOUND")
+  if(MOLD_SUPPORT and not ANDROID)
     if(MOLD_FUSE_FOUND)
       message(STATUS "Selecting mold as linker")
       add_link_options("-fuse-ld=mold")
@@ -906,7 +959,7 @@ if(NOT MSVC)
       )
       add_link_options("-B${MOLD_SYMLINK_DIRECTORY}")
     else()
-      message(FATAL_ERROR "Could NOT find mold (missing executable)")
+      message(FATAL_ERROR "Could not find mold (missing executable)")
     endif()
   else()
     # Try to configure lld as linker
@@ -940,10 +993,10 @@ if(NOT MSVC)
           message(STATUS "Selecting lld as linker")
           add_link_options("-fuse-ld=lld")
         else()
-          message(FATAL_ERROR "Could NOT find ld.lld > 10.0.0")
+          message(FATAL_ERROR "Could not find ld.lld > 10.0.0")
         endif()
       else()
-        message(FATAL_ERROR "Could NOT find ld.lld (missing executable)")
+        message(FATAL_ERROR "Could not find ld.lld (missing executable)")
       endif()
     endif()
   endif()
@@ -1822,7 +1875,7 @@ target_include_directories(
   mixxx-lib
   PUBLIC src "${CMAKE_CURRENT_BINARY_DIR}/src"
 )
-if(UNIX AND NOT APPLE)
+if(UNIX and not APPLE)
   set(MIXXX_SETTINGS_PATH ".mixxx/")
 endif()
 
@@ -1875,7 +1928,7 @@ if(EMSCRIPTEN)
 endif()
 
 # QML Debugging
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+if(CMAKE_BUILD_TYPE strequal "Debug")
   target_compile_definitions(mixxx-lib PUBLIC QT_QML_DEBUG)
   message(
     STATUS
@@ -2003,7 +2056,7 @@ set(MIXXX_INSTALL_BINDIR ".")
 set(MIXXX_INSTALL_DATADIR ".")
 set(MIXXX_INSTALL_DOCDIR "./doc")
 set(MIXXX_INSTALL_LICENSEDIR "./doc")
-if(APPLE AND MACOS_BUNDLE)
+if(APPLE and MACOS_BUNDLE)
   set(MIXXX_INSTALL_BINDIR "${CMAKE_INSTALL_BINDIR}")
   set(
     MACOS_BUNDLE_NAME
@@ -2021,7 +2074,7 @@ if(APPLE AND MACOS_BUNDLE)
   set(MIXXX_INSTALL_DATADIR "${MIXXX_INSTALL_PREFIX}/Contents/Resources")
   set(MIXXX_INSTALL_DOCDIR "${MIXXX_INSTALL_DATADIR}")
   set(MIXXX_INSTALL_LICENSEDIR "${MIXXX_INSTALL_DATADIR}/licenses")
-elseif(APPLE AND IOS)
+elseif(APPLE and IOS)
   set(MIXXX_INSTALL_BINDIR "${CMAKE_INSTALL_BINDIR}")
   set(
     IOS_BUNDLE_NAME
@@ -2067,13 +2120,13 @@ if(WIN32)
 elseif(UNIX)
   if(APPLE)
     target_compile_definitions(mixxx-lib PUBLIC __APPLE__)
-  elseif(ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
+  elseif(ANDROID or (CMAKE_SYSTEM_NAME strequal "Android"))
     target_compile_definitions(mixxx-lib PUBLIC __ANDROID__)
   else()
     target_compile_definitions(mixxx-lib PUBLIC __UNIX__)
-    if(CMAKE_SYSTEM_NAME STREQUAL Linux)
+    if(CMAKE_SYSTEM_NAME strequal Linux)
       target_compile_definitions(mixxx-lib PUBLIC __LINUX__)
-    elseif(CMAKE_SYSTEM_NAME MATCHES "^.*BSD$")
+    elseif(CMAKE_SYSTEM_NAME matches "^.*BSD$")
       target_compile_definitions(mixxx-lib PUBLIC __BSD__)
     endif()
   endif()
@@ -2102,21 +2155,30 @@ if(QT6)
     MultimediaWidgets
     Core5Compat
   )
-  if(NOT APPLE AND NOT WIN32 AND NOT ANDROID)
+  if(
+    not
+    APPLE
+    and
+    not
+    WIN32
+    and
+    not
+    ANDROID
+  )
     list(APPEND QT_COMPONENTS DBus)
   endif()
   find_package(Qt6 COMPONENTS ${QT_COMPONENTS})
-  if(NOT Qt6_FOUND AND MIXXX_VCPKG_ROOT)
+  if(NOT Qt6_FOUND and MIXXX_VCPKG_ROOT)
     message(
       STATUS
-      "Qt6 NOT found. Searching manually in ${MIXXX_VCPKG_ROOT}..."
+      "Qt6 not found. Searching manually in ${MIXXX_VCPKG_ROOT}..."
     )
     # Specifically look in the triplet share directory first
     set(
       QT6_SEARCH_PATH
       "${MIXXX_VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/share/Qt6"
     )
-    if(EXISTS "${QT6_SEARCH_PATH}/Qt6Config.cmake")
+    if(exists "${QT6_SEARCH_PATH}/Qt6Config.cmake")
       set(Qt6_DIR "${QT6_SEARCH_PATH}" CACHE PATH "Path to Qt6 directory" FORCE)
       message(STATUS "Found Qt6 in search path: ${Qt6_DIR}")
     else()
@@ -2146,7 +2208,7 @@ if(QT6)
   # below that takes care of the correct object order in the resulting binary
   # According to https://doc.qt.io/qt-6/qt-finalize-target.html it is importand for
   # builds with Qt < 3.21
-  if(ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
+  if(ANDROID or (CMAKE_SYSTEM_NAME strequal "Android"))
     find_package(Qt6 COMPONENTS Core REQUIRED)
     target_compile_definitions(
       mixxx-lib
@@ -2250,7 +2312,16 @@ else()
     MultimediaWidgets
     Core5Compat
   )
-  if(NOT APPLE AND NOT WIN32 AND NOT ANDROID)
+  if(
+    not
+    APPLE
+    and
+    not
+    WIN32
+    and
+    not
+    ANDROID
+  )
     list(APPEND QT_COMPONENTS DBus)
   endif()
   if(NETWORKAUTH)
@@ -2337,7 +2408,7 @@ endif()
 
 if(WIN32)
   set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION "${MIXXX_INSTALL_BINDIR}")
-  if(MSVC AND CMAKE_BUILD_TYPE STREQUAL "Debug")
+  if(MSVC and CMAKE_BUILD_TYPE strequal "Debug")
     set(CMAKE_INSTALL_UCRT_LIBRARIES true)
     set(CMAKE_INSTALL_DEBUG_LIBRARIES true)
     set(CMAKE_INSTALL_DEBUG_LIBRARIES_ONLY true)
@@ -2389,7 +2460,7 @@ install(
 # tools/debian_buildenv.sh. If that font is not packaged on most distros, we
 # need to re-enable font installation on Linux/BSD and exclude the packaged
 # fonts here.
-if(APPLE OR WIN32)
+if(APPLE or WIN32)
   install(
     DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/res/fonts"
     DESTINATION "${MIXXX_INSTALL_DATADIR}"
@@ -2417,7 +2488,7 @@ install(
     "${CMAKE_CURRENT_SOURCE_DIR}/res/Mixxx-Keyboard-Shortcuts.pdf"
   DESTINATION "${MIXXX_INSTALL_DOCDIR}"
 )
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/res/Mixxx-Manual.pdf")
+if(exists "${CMAKE_CURRENT_SOURCE_DIR}/res/Mixxx-Manual.pdf")
   install(
     FILES "${CMAKE_CURRENT_SOURCE_DIR}/res/Mixxx-Manual.pdf"
     DESTINATION "${MIXXX_INSTALL_DOCDIR}"
@@ -2425,7 +2496,7 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/res/Mixxx-Manual.pdf")
 endif()
 
 # Additional Linux-only files
-if(UNIX AND NOT APPLE)
+if(UNIX and not APPLE)
   # .desktop file for KDE/GNOME menu
   install(
     FILES "${CMAKE_CURRENT_SOURCE_DIR}/res/linux/org.mixxx.Mixxx.desktop"
@@ -2454,8 +2525,13 @@ if(UNIX AND NOT APPLE)
   if(INSTALL_USER_UDEV_RULES)
     set(MIXXX_UDEVDIR "${MIXXX_INSTALL_DATADIR}/udev")
     if(
-      CMAKE_INSTALL_PREFIX STREQUAL "/usr"
-      OR CMAKE_INSTALL_PREFIX STREQUAL "/"
+      CMAKE_INSTALL_PREFIX
+      strequal
+      "/usr"
+      or
+      CMAKE_INSTALL_PREFIX
+      strequal
+      "/"
     )
       # /usr and / install prefixes at treated by cmake GNUInstallDirs as
       # synonym for "system location". In this case we can look up the correct udevdir
@@ -2476,7 +2552,7 @@ if(UNIX AND NOT APPLE)
         endif()
       endif()
     endif()
-    if(MIXXX_UDEVDIR STREQUAL "${MIXXX_INSTALL_DATADIR}/udev")
+    if(MIXXX_UDEVDIR strequal "${MIXXX_INSTALL_DATADIR}/udev")
       install(
         FILES "${CMAKE_CURRENT_SOURCE_DIR}/res/linux/mixxx-usb-uaccess.rules"
         DESTINATION "${MIXXX_UDEVDIR}/rules.d"
@@ -2598,7 +2674,7 @@ if(MSVC)
   )
 endif()
 
-if(WIN32 AND NOT QT6)
+if(WIN32 and not QT6)
   # Qt 5 loads these ANGLE DLLs at runtime if the graphics driver is on the ignore list.
   # It does not work with Debug, because the debug version is compiled without the a d suffix
   find_package(unofficial-angle CONFIG REQUIRED)
@@ -2614,7 +2690,7 @@ if(WIN32 AND NOT QT6)
       COMPONENT
       applocal
   )
-  set(APPLOCAL_COMPONENT_DEFINED true)
+  set(APPLOCAL_COMPONENT_defined true)
 endif()
 
 #
@@ -2635,13 +2711,13 @@ endif()
 
 find_package(benchmark)
 default_option(BUILD_BENCH "Build mixxx-benchmark" "benchmark_FOUND")
-if(BUILD_BENCH AND BUILD_TESTING)
+if(BUILD_BENCH and BUILD_TESTING)
   if(benchmark_FOUND)
     message(STATUS "Found google-benchmark: mixxx-benchmark enabled")
   else()
     message(FATAL_ERROR "google-benchmark: not found")
   endif()
-elseif(BUILD_BENCH AND NOT BUILD_TESTING)
+elseif(BUILD_BENCH and not BUILD_TESTING)
   message(FATAL_ERROR "Benchmark needs Unittests (-DBUILD_TESTING=ON)")
 endif()
 
@@ -2660,7 +2736,8 @@ if(FFMPEG)
   # macOS: Untested
   if(
     FFMPEG_libavcodec_VERSION
-    AND FFMPEG_libavcodec_VERSION VERSION_LESS 58.35.100
+    and
+    FFMPEG_libavcodec_VERSION VERSION_LESS 58.35.100
   )
     message(
       FATAL_ERROR
@@ -2669,7 +2746,8 @@ if(FFMPEG)
   endif()
   if(
     FFMPEG_libavformat_VERSION
-    AND FFMPEG_libavformat_VERSION VERSION_LESS 58.20.100
+    and
+    FFMPEG_libavformat_VERSION VERSION_LESS 58.20.100
   )
     message(
       FATAL_ERROR
@@ -2678,7 +2756,8 @@ if(FFMPEG)
   endif()
   if(
     FFMPEG_libavutil_VERSION
-    AND FFMPEG_libavutil_VERSION VERSION_LESS 56.22.100
+    and
+    FFMPEG_libavutil_VERSION VERSION_LESS 56.22.100
   )
     message(
       FATAL_ERROR
@@ -2687,7 +2766,8 @@ if(FFMPEG)
   endif()
   if(
     FFMPEG_libswresample_VERSION
-    AND FFMPEG_libswresample_VERSION VERSION_LESS 3.3.100
+    and
+    FFMPEG_libswresample_VERSION VERSION_LESS 3.3.100
   )
     message(
       FATAL_ERROR
@@ -2919,7 +2999,10 @@ endif() # BUILD_TESTING
 option(DOWNLOAD_MANUAL "Download Manual PDF from Mixxx website" OFF)
 if(
   DOWNLOAD_MANUAL
-  AND NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/res/Mixxx-Manual.pdf"
+  and
+  not
+  exists
+  "${CMAKE_CURRENT_SOURCE_DIR}/res/Mixxx-Manual.pdf"
 )
   set(
     MANUAL_URL
@@ -3021,13 +3104,21 @@ endif()
 # Use this function to throw an error because the build environment is not set
 # up correctly.
 
-if(UNIX AND NOT APPLE)
+if(UNIX and not APPLE)
   execute_process(
     COMMAND uname -r
     OUTPUT_VARIABLE UNAME_R
     OUTPUT_STRIP_TRAILING_WHITESPACE
   )
-  if(UNAME_R MATCHES ".*[Mm]icrosoft.*" OR UNAME_R MATCHES ".*WSL.*")
+  if(
+    UNAME_R
+    matches
+    ".*[Mm]icrosoft.*"
+    or
+    UNAME_R
+    matches
+    ".*WSL.*"
+  )
     message(
       FATAL_ERROR
       "Building on Windows Subsystem for Linux (WSL) is not supported. If you want to build Mixxx from command line on Windows, you need to use the \"x64 Native Tools Command Prompt for VS 2022\"!"
@@ -3036,7 +3127,7 @@ if(UNIX AND NOT APPLE)
 endif()
 if(WIN32)
   # Check if we are running from "Visual Studio 20XX Developer Command Prompt"
-  if(NOT DEFINED ENV{INCLUDE})
+  if(not defined ENV{INCLUDE})
     message(
       FATAL_ERROR
       "The INCLUDE environment variable is not defined. Please ensure you are using the correct shell like 'x64 Native Tools Command Prompt for VS 20XX'"
@@ -3055,7 +3146,16 @@ set(
 # Set a default build type if none was specified
 # See https://blog.kitware.com/cmake-and-the-default-build-type/ for details.
 set(default_build_type "RelWithDebInfo")
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git" AND NOT WIN32 AND NOT ANDROID)
+if(
+  exists
+  "${CMAKE_CURRENT_SOURCE_DIR}/.git"
+  and
+  not
+  WIN32
+  and
+  not
+  ANDROID
+)
   # On Windows and Android, Debug builds are linked to unoptimized libs
   # generating unusable slow Mixxx builds.
   set(default_build_type "Debug")
@@ -3079,7 +3179,7 @@ if(NOT CMAKE_CONFIGURATION_TYPES)
       CACHE CMAKE_BUILD_TYPE
       PROPERTY STRINGS "Debug" "Release" "RelWithDebInfo"
     )
-  elseif(NOT CMAKE_BUILD_TYPE MATCHES "^(Debug|Release|RelWithDebInfo)$")
+  elseif(NOT CMAKE_BUILD_TYPE matches "^(Debug|Release|RelWithDebInfo)$")
     message(
       FATAL_ERROR
       "CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} is not supported, use one of Debug, Release or RelWithDebInfo."
@@ -3101,9 +3201,9 @@ if(QML)
   add_compile_definitions(MIXXX_USE_QML)
 endif()
 
-if(VCPKG_TARGET_TRIPLET MATCHES "^wasm(32|64)-emscripten")
+if(VCPKG_TARGET_TRIPLET matches "^wasm(32|64)-emscripten")
   message(STATUS "Targeting Emscripten (${VCPKG_TARGET_TRIPLET})")
-  if(DEFINED ENV{EMSDK})
+  if(defined ENV{EMSDK})
     message(STATUS "Found EMSDK at $ENV{EMSDK}")
   else()
     message(
@@ -3111,7 +3211,7 @@ if(VCPKG_TARGET_TRIPLET MATCHES "^wasm(32|64)-emscripten")
       "Please make sure emsdk is installed and the environment variable EMSDK is set (see https://emscripten.org/docs/getting_started/downloads.html)"
     )
   endif()
-  if(NOT DEFINED VCPKG_CHAINLOAD_TOOLCHAIN_FILE)
+  if(not defined VCPKG_CHAINLOAD_TOOLCHAIN_FILE)
     set(
       VCPKG_CHAINLOAD_TOOLCHAIN_FILE
       "$ENV{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
@@ -3139,10 +3239,10 @@ elseif(APPLE)
     )
   endif()
 
-  if(VCPKG_TARGET_TRIPLET MATCHES "^[a-zA-Z0-9]+-osx")
+  if(VCPKG_TARGET_TRIPLET matches "^[a-zA-Z0-9]+-osx")
     message(STATUS "Targeting macOS (${VCPKG_TARGET_TRIPLET})")
     set(CMAKE_SYSTEM_NAME Darwin CACHE STRING "Target macOS")
-    if(VCPKG_TARGET_TRIPLET MATCHES "^arm64-")
+    if(VCPKG_TARGET_TRIPLET matches "^arm64-")
       # Minimum macOS version for arm64 Support
       set(
         CMAKE_OSX_DEPLOYMENT_TARGET
@@ -3178,7 +3278,7 @@ elseif(APPLE)
         add_compile_options(-fno-aligned-allocation)
       endif()
     endif()
-  elseif(VCPKG_TARGET_TRIPLET MATCHES "^[a-zA-Z0-9]+-ios")
+  elseif(VCPKG_TARGET_TRIPLET matches "^[a-zA-Z0-9]+-ios")
     message(STATUS "Targeting iOS (${VCPKG_TARGET_TRIPLET})")
     set(CMAKE_SYSTEM_NAME iOS CACHE STRING "Target iOS")
     set(
@@ -3204,11 +3304,11 @@ configure_file(src/version.h.in src/version.h @ONLY)
 
 if(
   GIT_COMMIT_DATE
-  AND
-    NOT
-      GIT_COMMIT_DATE
-        MATCHES
-        "^[0-9]*-[0-9]*-[0-9]*T[0-9]*\\:[0-9]*\\:[0-9]*[+-][0-9]*\\:[0-9]*$"
+  and
+  not
+  GIT_COMMIT_DATE
+  matches
+  "^[0-9]*-[0-9]*-[0-9]*T[0-9]*\\:[0-9]*\\:[0-9]*[+-][0-9]*\\:[0-9]*$"
 )
   message(
     FATAL_ERROR
@@ -3216,7 +3316,7 @@ if(
   )
 endif()
 
-if(MIXXX_VERSION_PRERELEASE STREQUAL "")
+if(MIXXX_VERSION_PRERELEASE strequal "")
   set(MIXXX_PRERELEASE 0)
 else()
   set(MIXXX_PRERELEASE 1)
@@ -3244,7 +3344,7 @@ if(NOT SQLite3_FOUND)
   set(LOCALECOMPARE_DEFAULT OFF)
 else()
   is_static_library(SQLite3_IS_STATIC SQLite::SQLite3)
-  if(SQLite3_IS_STATIC OR NOT APPLE)
+  if(SQLite3_IS_STATIC or not APPLE)
     set(LOCALECOMPARE_DEFAULT ON)
   else()
     set(LOCALECOMPARE_DEFAULT OFF)
@@ -3290,7 +3390,7 @@ if(ENGINEPRIME)
   else()
     # On MacOS, Mixxx does not use system SQLite, so we will use libdjinterop's
     # embedded SQLite in such a case.
-    if(APPLE AND NOT SQLite3_IS_STATIC)
+    if(APPLE and not SQLite3_IS_STATIC)
       message(
         STATUS
         "Building libdjinterop sources (with embedded SQLite) fetched from GitHub"
@@ -3371,7 +3471,7 @@ if(ENGINEPRIME)
     # The include folder needs to already exist, otherwise INTERFACE_INCLUDE_DIRECTORIES will not be propagated
     file(MAKE_DIRECTORY "${DJINTEROP_INSTALL_DIR}/include")
 
-    if(NOT CMAKE_GENERATOR STREQUAL "Ninja")
+    if(NOT CMAKE_GENERATOR strequal "Ninja")
       # Required for 'CMakeFiles/mixxx-lib_autogen_timestamp_deps'
       # This tells 'make' that the libdjinterop is required for the djinterop library
       # BUILD_BYPRODUCTS work for Ninja only, while this workaround does not work for Ninja on macOS
@@ -3518,7 +3618,7 @@ if(KEYFINDER)
     # an error if not.
     file(MAKE_DIRECTORY "${KeyFinder_INSTALL_DIR}/include")
 
-    if(NOT CMAKE_GENERATOR STREQUAL "Ninja")
+    if(NOT CMAKE_GENERATOR strequal "Ninja")
       # Required for 'CMakeFiles/mixxx-lib_autogen_timestamp_deps'
       # This tells 'make' that the libkeyfinder is required for the mixxx-keyfinder library
       # BUILD_BYPRODUCTS work for Ninja only, while this workaround does not work for Ninja on macOS
@@ -3564,11 +3664,16 @@ add_library(FpClassify STATIC EXCLUDE_FROM_ALL src/util/fpclassify.cpp)
 set_target_properties(FpClassify PROPERTIES INTERPROCEDURAL_OPTIMIZATION OFF)
 
 if(
-  CMAKE_CXX_COMPILER_ID MATCHES "Clang"
-  AND CMAKE_CXX_SIMULATE_ID MATCHES "MSVC"
+  CMAKE_CXX_COMPILER_ID
+  matches
+  "Clang"
+  and
+  CMAKE_CXX_SIMULATE_ID
+  matches
+  "MSVC"
 )
   target_compile_options(FpClassify PRIVATE /fp:precise)
-elseif(GNU_GCC OR LLVM_CLANG)
+elseif(GNU_GCC or LLVM_CLANG)
   # The option `-ffp-contract=on` must precede `-fno-fast-math`
   # to silence a warning on Clang 14
   target_compile_options(
@@ -3597,9 +3702,9 @@ target_include_directories(
 target_link_libraries(mixxx-lib PRIVATE rekordbox_metadata)
 
 #silence "enumeration values not handled in switch" in generated code
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+if(CMAKE_CXX_COMPILER_ID matches "GNU|Clang")
   target_compile_options(rekordbox_metadata PRIVATE -Wno-switch)
-elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+elseif(CMAKE_CXX_COMPILER_ID matches "MSVC")
   target_compile_options(rekordbox_metadata PRIVATE /w44063)
 endif()
 
@@ -3656,7 +3761,7 @@ else()
       mixxx-lib
       PUBLIC -sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2 -sFULL_ES2=1
     )
-  elseif(ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
+  elseif(ANDROID or (CMAKE_SYSTEM_NAME strequal "Android"))
     find_library(GLESv2_LIBRARY GLESv2)
     target_link_libraries(mixxx-lib PRIVATE "${GLESv2_LIBRARY}")
     target_compile_definitions(mixxx-lib PUBLIC QT_OPENGL_ES_2)
@@ -3668,7 +3773,7 @@ else()
       target_link_libraries(mixxx-lib PRIVATE OpenGL::GL)
     endif()
   endif()
-  if(UNIX AND QGLES2)
+  if(UNIX and QGLES2)
     target_compile_definitions(mixxx-lib PUBLIC QT_OPENGL_ES_2)
   endif()
   if(APPLE)
@@ -3692,7 +3797,7 @@ target_link_libraries(
 find_package(PortAudio REQUIRED)
 target_link_libraries(mixxx-lib PUBLIC PortAudio::PortAudio)
 
-if(ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
+if(ANDROID or (CMAKE_SYSTEM_NAME strequal "Android"))
   target_link_libraries(mixxx-lib PUBLIC OpenSLES android)
   target_compile_definitions(mixxx-lib PUBLIC PA_USE_OBOE)
 endif()
@@ -3762,7 +3867,7 @@ if(NETWORKAUTH)
   )
   FetchContent_MakeAvailable(spdlog)
   FetchContent_Populate(librespot-cpp)
-  if(NOT EXISTS "${librespot-cpp_SOURCE_DIR}/lib/spdlog/CMakeLists.txt")
+  if(not exists "${librespot-cpp_SOURCE_DIR}/lib/spdlog/CMakeLists.txt")
     file(MAKE_DIRECTORY "${librespot-cpp_SOURCE_DIR}/lib/spdlog")
     file(
       WRITE "${librespot-cpp_SOURCE_DIR}/lib/spdlog/CMakeLists.txt"
@@ -4088,14 +4193,14 @@ if(WIN32)
   # override not working default NSIS
   set(CPACK_GENERATOR WIX)
 
-  if(CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64")
+  if(CMAKE_SYSTEM_PROCESSOR matches "ARM64")
     if(${CMAKE_VERSION} VERSION_LESS "3.24")
       message(FATAL_ERROR "WIX: Need CMake version >= 3.24 for ARM64")
     endif()
     set(CPACK_WIX_ARCHITECTURE "ARM64")
-  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x64|x86_64|AMD64)$")
+  elseif(CMAKE_SYSTEM_PROCESSOR matches "^(x64|x86_64|AMD64)$")
     set(CPACK_WIX_ARCHITECTURE "x64")
-  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(i[3456]86|x86)$")
+  elseif(CMAKE_SYSTEM_PROCESSOR matches "^(i[3456]86|x86)$")
     set(CPACK_WIX_ARCHITECTURE "x86")
   else()
     message(
@@ -4110,7 +4215,7 @@ endif()
 
 include(CPack)
 
-if(APPLOCAL_COMPONENT_DEFINED)
+if(APPLOCAL_COMPONENT_defined)
   cpack_add_component(applocal HIDDEN REQUIRED)
 
   # In order to run Mixx from the build directory install applocal components
@@ -4126,7 +4231,7 @@ if(APPLOCAL_COMPONENT_DEFINED)
   )
 endif()
 
-if(APPLE AND MACOS_BUNDLE)
+if(APPLE and MACOS_BUNDLE)
   set(BUNDLE_NAME "${MIXXX_INSTALL_PREFIX}")
   foreach(PREFIX ${CMAKE_PREFIX_PATH})
     list(APPEND BUNDLE_DIRS "${PREFIX}/lib")
@@ -4179,13 +4284,13 @@ if(WIN32)
   )
   set(MIXXX_PRODUCTVERSION "${MIXXX_FILEVERSION}")
 
-  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  if(CMAKE_BUILD_TYPE strequal "Debug")
     set(MIXXX_DEBUG 1)
   else()
     set(MIXXX_DEBUG 0)
   endif()
 
-  if(MIXXX_VERSION_PRERELEASE STREQUAL "")
+  if(MIXXX_VERSION_PRERELEASE strequal "")
     set(MIXXX_PRERELEASE 0)
   else()
     set(MIXXX_PRERELEASE 1)
