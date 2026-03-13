@@ -59,7 +59,7 @@ function(fatal_error_missing_env)
   else()
     message(
       FATAL_ERROR
-      "You are building for an unknown platform AND are missing a build environment. Please set -DVCPKG_TARGET_TRIPLET AND make sure that -DMIXXX_VCPKG_ROOT points to a vcpkg environment containing installed dependencies for your target platform!"
+      "You are building for an unknown platform AND are missing a build environment. Please set -DVCPKG_TARGET_TRIPLET AND make sure that -DMIXXX_VCPKG_ROOT points to a vcpkg environment containing installed dependencies for your TARGET platform!"
     )
   endif()
 endfunction()
@@ -403,7 +403,7 @@ if(MSVC)
     message(
       FATAL_ERROR
       "MSVC_TOOLSET_VERSION is ${MSVC_TOOLSET_VERSION}.\n"
-      "Mixxx requires the Microsoft Visual C++ Redistributable toolset of version 143 (VS2022) OR greater, "
+      "Mixxx requires the Microsoft Visual C++ Redistributable toolset of version 143 (VS2022) OR GREATER, "
       "as the VCPKG buildenv is built with this version.\n"
       "Please use the Visual Studio 2022 toolset therefore!"
     )
@@ -478,7 +478,7 @@ message(STATUS "CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 # CMAKE_INTERPROCEDURAL_OPTIMIZATION can be DEFINED to override the default behaviour.
 # We keep CMAKE_INTERPROCEDURAL_OPTIMIZATION unset (IPO disabled) to save
 # build time at the cost of a bigger memory footprint at run-time.
-# See https://github.com/mixxxdj/mixxx/pull/3589 for some test results
+# See https://github.com/mixxxdj/mixxx/pull/3589 for some TEST results
 # Note: IPO has caused issues on Fedora https://bugzilla.rpmfusion.org/show_bug.cgi?id=5829
 # Uncomment the following code to enable IPO for Release builds
 #if(NOT DEFINED CMAKE_INTERPROCEDURAL_OPTIMIZATION AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT OPTIMIZE STREQUAL "off")
@@ -623,7 +623,7 @@ if(MSVC)
         # Define gcc/clang style defines for SSE AND SSE2 for compatibility
         add_compile_definitions("__SSE__" "__SSE2__")
       endif()
-      # Define the target processor instruction AND other compiler optimization flags here:
+      # Define the TARGET processor instruction AND other compiler optimization flags here:
       # https://docs.microsoft.com/en-us/cpp/build/reference/arch-x64?view=msvc-160
       # add_compile_options(/arch:AVX512)
       message(
@@ -2114,9 +2114,7 @@ if(QT6)
   else()
     list(REMOVE_ITEM QT_COMPONENTS PrintSupport MultimediaWidgets)
   endif()
-  if(NETWORKAUTH)
-    list(APPEND QT_COMPONENTS NetworkAuth)
-  endif()
+
   find_package(Qt6 COMPONENTS ${QT_COMPONENTS})
   if(NOT Qt6_FOUND AND MIXXX_VCPKG_ROOT)
     message(
@@ -2150,13 +2148,33 @@ if(QT6)
   foreach(component ${QT_COMPONENTS})
     target_link_libraries(mixxx-lib PUBLIC Qt6::${component})
   endforeach()
+  if(NETWORKAUTH)
+    find_package(Qt${QT_VERSION_MAJOR} COMPONENTS NetworkAuth QUIET)
+    if(Qt${QT_VERSION_MAJOR}NetworkAuth_FOUND)
+      message(STATUS "Found Qt${QT_VERSION_MAJOR}NetworkAuth")
+      target_link_libraries(mixxx-lib PUBLIC Qt${QT_VERSION_MAJOR}::NetworkAuth)
+    else()
+      message(
+        WARNING
+        "Qt${QT_VERSION_MAJOR}NetworkAuth NOT found. Disabling NETWORKAUTH."
+      )
+      set(
+        NETWORKAUTH
+        OFF
+        CACHE BOOL
+        "Enable network authentication features"
+        FORCE
+      )
+    endif()
+  endif()
+
   # This is the first package form the environment, if this fails give hints how to install the environment
   if(NOT Qt6_FOUND)
     fatal_error_missing_env()
   endif()
   # qt_add_executable() is the recommended initial call for qt_finalize_target()
   # below that takes care of the correct object order in the resulting binary
-  # According to https://doc.qt.io/qt-6/qt-finalize-target.html it is importand for
+  # According to https://doc.qt.io/qt-6/qt-finalize-TARGET.html it is importand for
   # builds with Qt < 3.21
   if(ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
     find_package(Qt6 COMPONENTS Core REQUIRED)
@@ -2269,9 +2287,7 @@ else()
   else()
     list(REMOVE_ITEM QT_COMPONENTS PrintSupport MultimediaWidgets)
   endif()
-  if(NETWORKAUTH)
-    list(APPEND QT_COMPONENTS NetworkAuth)
-  endif()
+
   find_package(Qt5 COMPONENTS ${QT_COMPONENTS} REQUIRED)
   foreach(component ${QT_COMPONENTS})
     target_link_libraries(mixxx-lib PUBLIC Qt5::${component})
@@ -2736,150 +2752,150 @@ endif()
 
 if(BUILD_TESTING)
   set(
-    src-mixxx-test
-    src/test/analyserwaveformtest.cpp
-    src/test/analyzersilence_test.cpp
-    src/test/audiotaperpot_test.cpp
-    src/test/autodjprocessor_test.cpp
-    src/test/beatgridtest.cpp
-    src/test/beatmaptest.cpp
-    src/test/beatstest.cpp
-    src/test/beatstranslatetest.cpp
-    src/test/borrowabletest.cpp
-    src/test/bpmtest.cpp
-    src/test/bpmcontrol_test.cpp
-    src/test/broadcastprofile_test.cpp
-    src/test/broadcastsettings_test.cpp
-    src/test/cache_test.cpp
-    src/test/channelhandle_test.cpp
-    src/test/chrono_clock_resolution_test.cpp
-    src/test/colorconfig_test.cpp
-    src/test/colormapperjsproxy_test.cpp
-    src/test/colorpalette_test.cpp
-    src/test/configobject_test.cpp
-    src/test/controller_mapping_validation_test.cpp
-    src/test/controller_mapping_settings_test.cpp
-    src/test/controllers/controller_columnid_regression_test.cpp
-    src/test/controllerscriptenginelegacy_test.cpp
-    src/test/controlobjecttest.cpp
-    src/test/controlobjectaliastest.cpp
-    src/test/controlobjectscripttest.cpp
-    src/test/controlpotmetertest.cpp
-    src/test/coreservicestest.cpp
-    src/test/coverartcache_test.cpp
-    src/test/coverartutils_test.cpp
-    src/test/cratestorage_test.cpp
-    src/test/cue_test.cpp
-    src/test/cuecontrol_test.cpp
-    src/test/dbconnectionpool_test.cpp
-    src/test/dbidtest.cpp
-    src/test/directorydaotest.cpp
-    src/test/duration_test.cpp
-    src/test/durationutiltest.cpp
+    src-mixxx-TEST
+    src/TEST/analyserwaveformtest.cpp
+    src/TEST/analyzersilence_test.cpp
+    src/TEST/audiotaperpot_test.cpp
+    src/TEST/autodjprocessor_test.cpp
+    src/TEST/beatgridtest.cpp
+    src/TEST/beatmaptest.cpp
+    src/TEST/beatstest.cpp
+    src/TEST/beatstranslatetest.cpp
+    src/TEST/borrowabletest.cpp
+    src/TEST/bpmtest.cpp
+    src/TEST/bpmcontrol_test.cpp
+    src/TEST/broadcastprofile_test.cpp
+    src/TEST/broadcastsettings_test.cpp
+    src/TEST/cache_test.cpp
+    src/TEST/channelhandle_test.cpp
+    src/TEST/chrono_clock_resolution_test.cpp
+    src/TEST/colorconfig_test.cpp
+    src/TEST/colormapperjsproxy_test.cpp
+    src/TEST/colorpalette_test.cpp
+    src/TEST/configobject_test.cpp
+    src/TEST/controller_mapping_validation_test.cpp
+    src/TEST/controller_mapping_settings_test.cpp
+    src/TEST/controllers/controller_columnid_regression_test.cpp
+    src/TEST/controllerscriptenginelegacy_test.cpp
+    src/TEST/controlobjecttest.cpp
+    src/TEST/controlobjectaliastest.cpp
+    src/TEST/controlobjectscripttest.cpp
+    src/TEST/controlpotmetertest.cpp
+    src/TEST/coreservicestest.cpp
+    src/TEST/coverartcache_test.cpp
+    src/TEST/coverartutils_test.cpp
+    src/TEST/cratestorage_test.cpp
+    src/TEST/cue_test.cpp
+    src/TEST/cuecontrol_test.cpp
+    src/TEST/dbconnectionpool_test.cpp
+    src/TEST/dbidtest.cpp
+    src/TEST/directorydaotest.cpp
+    src/TEST/duration_test.cpp
+    src/TEST/durationutiltest.cpp
     #TODO: write useful tests for refactored effects system
-    #src/test/effectchainslottest.cpp
-    src/test/enginebufferscalelineartest.cpp
-    src/test/enginebuffertest.cpp
-    src/test/enginefilterbiquadtest.cpp
-    src/test/enginemixertest.cpp
-    src/test/enginemicrophonetest.cpp
-    src/test/enginesynctest.cpp
-    src/test/fileinfo_test.cpp
-    src/test/frametest.cpp
-    src/test/globaltrackcache_test.cpp
-    src/test/hotcuecontrol_test.cpp
-    src/test/hotcueorderbyposition_test.cpp
-    src/test/imageutils_test.cpp
-    src/test/indexrange_test.cpp
-    src/test/itunesxmlimportertest.cpp
-    src/test/keyfactorytest.cpp
-    src/test/keyutilstest.cpp
-    src/test/lcstest.cpp
-    src/test/learningutilstest.cpp
-    src/test/libraryscannertest.cpp
-    src/test/librarytest.cpp
-    src/test/looping_control_test.cpp
-    src/test/main.cpp
-    src/test/mathutiltest.cpp
-    src/test/metadatatest.cpp
+    #src/TEST/effectchainslottest.cpp
+    src/TEST/enginebufferscalelineartest.cpp
+    src/TEST/enginebuffertest.cpp
+    src/TEST/enginefilterbiquadtest.cpp
+    src/TEST/enginemixertest.cpp
+    src/TEST/enginemicrophonetest.cpp
+    src/TEST/enginesynctest.cpp
+    src/TEST/fileinfo_test.cpp
+    src/TEST/frametest.cpp
+    src/TEST/globaltrackcache_test.cpp
+    src/TEST/hotcuecontrol_test.cpp
+    src/TEST/hotcueorderbyposition_test.cpp
+    src/TEST/imageutils_test.cpp
+    src/TEST/indexrange_test.cpp
+    src/TEST/itunesxmlimportertest.cpp
+    src/TEST/keyfactorytest.cpp
+    src/TEST/keyutilstest.cpp
+    src/TEST/lcstest.cpp
+    src/TEST/learningutilstest.cpp
+    src/TEST/libraryscannertest.cpp
+    src/TEST/librarytest.cpp
+    src/TEST/looping_control_test.cpp
+    src/TEST/main.cpp
+    src/TEST/mathutiltest.cpp
+    src/TEST/metadatatest.cpp
     #TODO: make this build again
-    #src/test/metaknob_link_test.cpp
-    src/test/midicontrollertest.cpp
-    src/test/mixxxtest.cpp
-    src/test/mock_networkaccessmanager.cpp
-    src/test/musicbrainzrecordingstasktest.cpp
-    src/test/performancetimer_test.cpp
-    src/test/playcountertest.cpp
-    src/test/playermanagertest.cpp
-    src/test/playlisttest.cpp
-    src/test/portmidicontroller_test.cpp
-    src/test/portmidienumeratortest.cpp
-    src/test/queryutiltest.cpp
-    src/test/rangelist_test.cpp
-    src/test/readaheadmanager_test.cpp
-    src/test/replaygaintest.cpp
-    src/test/rescalertest.cpp
-    src/test/rgbcolor_test.cpp
-    src/test/rotary_test.cpp
-    src/test/samplebuffertest.cpp
-    src/test/schemamanager_test.cpp
-    src/test/searchqueryparsertest.cpp
-    src/test/seratobeatgridtest.cpp
-    src/test/seratomarkerstest.cpp
-    src/test/seratomarkers2test.cpp
-    src/test/seratotagstest.cpp
-    src/test/signalpathtest.cpp
-    src/test/skincontext_test.cpp
-    src/test/softtakeover_test.cpp
-    src/test/soundproxy_test.cpp
-    src/test/soundsourceproviderregistrytest.cpp
-    src/test/sqliteliketest.cpp
-    src/test/synccontroltest.cpp
-    src/test/synctrackmetadatatest.cpp
-    src/test/tableview_test.cpp
-    src/test/taglibtest.cpp
-    src/test/trackdao_test.cpp
-    src/test/trackexport_test.cpp
-    src/test/trackmetadata_test.cpp
-    src/test/trackmetadataexport_test.cpp
-    src/test/tracknumberstest.cpp
-    src/test/trackreftest.cpp
-    src/test/trackupdate_test.cpp
-    src/test/uuid_test.cpp
-    src/test/wbatterytest.cpp
-    src/test/wpushbutton_test.cpp
-    src/test/wwidgetstack_test.cpp
+    #src/TEST/metaknob_link_test.cpp
+    src/TEST/midicontrollertest.cpp
+    src/TEST/mixxxtest.cpp
+    src/TEST/mock_networkaccessmanager.cpp
+    src/TEST/musicbrainzrecordingstasktest.cpp
+    src/TEST/performancetimer_test.cpp
+    src/TEST/playcountertest.cpp
+    src/TEST/playermanagertest.cpp
+    src/TEST/playlisttest.cpp
+    src/TEST/portmidicontroller_test.cpp
+    src/TEST/portmidienumeratortest.cpp
+    src/TEST/queryutiltest.cpp
+    src/TEST/rangelist_test.cpp
+    src/TEST/readaheadmanager_test.cpp
+    src/TEST/replaygaintest.cpp
+    src/TEST/rescalertest.cpp
+    src/TEST/rgbcolor_test.cpp
+    src/TEST/rotary_test.cpp
+    src/TEST/samplebuffertest.cpp
+    src/TEST/schemamanager_test.cpp
+    src/TEST/searchqueryparsertest.cpp
+    src/TEST/seratobeatgridtest.cpp
+    src/TEST/seratomarkerstest.cpp
+    src/TEST/seratomarkers2test.cpp
+    src/TEST/seratotagstest.cpp
+    src/TEST/signalpathtest.cpp
+    src/TEST/skincontext_test.cpp
+    src/TEST/softtakeover_test.cpp
+    src/TEST/soundproxy_test.cpp
+    src/TEST/soundsourceproviderregistrytest.cpp
+    src/TEST/sqliteliketest.cpp
+    src/TEST/synccontroltest.cpp
+    src/TEST/synctrackmetadatatest.cpp
+    src/TEST/tableview_test.cpp
+    src/TEST/taglibtest.cpp
+    src/TEST/trackdao_test.cpp
+    src/TEST/trackexport_test.cpp
+    src/TEST/trackmetadata_test.cpp
+    src/TEST/trackmetadataexport_test.cpp
+    src/TEST/tracknumberstest.cpp
+    src/TEST/trackreftest.cpp
+    src/TEST/trackupdate_test.cpp
+    src/TEST/uuid_test.cpp
+    src/TEST/wbatterytest.cpp
+    src/TEST/wpushbutton_test.cpp
+    src/TEST/wwidgetstack_test.cpp
     src/util/moc_included_test.cpp
-    src/test/helpers/log_test.cpp
+    src/TEST/helpers/log_test.cpp
   )
   if(STEM)
     set(
-      src-mixxx-test
-      ${src-mixxx-test}
-      src/test/stemtest.cpp
-      src/test/steminfotest.cpp
-      src/test/stemcontrolobjecttest.cpp
+      src-mixxx-TEST
+      ${src-mixxx-TEST}
+      src/TEST/stemtest.cpp
+      src/TEST/steminfotest.cpp
+      src/TEST/stemcontrolobjecttest.cpp
     )
   endif()
   if(BUILD_BENCH)
     set(
-      src-mixxx-test
-      ${src-mixxx-test}
-      src/test/engineeffectsdelay_test.cpp
-      src/test/movinginterquartilemean_test.cpp
-      src/test/nativeeffects_test.cpp
-      src/test/ringdelaybuffer_test.cpp
-      src/test/sampleutiltest.cpp
-      src/test/waveform_upgrade_test.cpp
+      src-mixxx-TEST
+      ${src-mixxx-TEST}
+      src/TEST/engineeffectsdelay_test.cpp
+      src/TEST/movinginterquartilemean_test.cpp
+      src/TEST/nativeeffects_test.cpp
+      src/TEST/ringdelaybuffer_test.cpp
+      src/TEST/sampleutiltest.cpp
+      src/TEST/waveform_upgrade_test.cpp
     )
   endif()
 
-  add_executable(mixxx-test ${src-mixxx-test})
+  add_executable(mixxx-TEST ${src-mixxx-TEST})
   target_include_directories(
-    mixxx-test
+    mixxx-TEST
     PRIVATE src "${CMAKE_CURRENT_BINARY_DIR}/src"
   )
-  target_link_libraries(mixxx-test PRIVATE mixxx-lib)
+  target_link_libraries(mixxx-TEST PRIVATE mixxx-lib)
   file(
     GLOB_RECURSE CONTROLLER_BULK_MAPPING_LIST
     "${CMAKE_CURRENT_SOURCE_DIR}/res/controllers/*.bulk.xml"
@@ -2897,7 +2913,7 @@ if(BUILD_TESTING)
   list(JOIN CONTROLLER_MIDI_MAPPING_LIST "|" CONTROLLER_MIDI_MAPPINGS)
 
   target_compile_definitions(
-    mixxx-test
+    mixxx-TEST
     PUBLIC RESOURCE_FOLDER="${CMAKE_CURRENT_SOURCE_DIR}/res"
     PUBLIC CONTROLLER_BULK_MAPPINGS="${CONTROLLER_BULK_MAPPINGS}"
     PUBLIC CONTROLLER_HID_MAPPINGS="${CONTROLLER_HID_MAPPINGS}"
@@ -2905,7 +2921,7 @@ if(BUILD_TESTING)
   )
 
   gtest_discover_tests(
-    mixxx-test
+    mixxx-TEST
     EXTRA_ARGS --logLevel info
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     TEST_LIST testsuite
@@ -2916,19 +2932,19 @@ if(BUILD_TESTING)
     # Benchmarking
     add_custom_target(
       mixxx-benchmark
-      COMMAND $<TARGET_FILE:mixxx-test> --benchmark
+      COMMAND $<TARGET_FILE:mixxx-TEST> --benchmark
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
       COMMENT "Mixxx Benchmarks"
       VERBATIM
     )
-    add_dependencies(mixxx-benchmark mixxx-test)
+    add_dependencies(mixxx-benchmark mixxx-TEST)
   endif()
 endif() # BUILD_TESTING
 
 #
 # Resources
 #
-# Add resources to mixxx AND mixxx-test binaries, NOT the mixxx-lib static
+# Add resources to mixxx AND mixxx-TEST binaries, NOT the mixxx-lib static
 # library. Doing this would require initialization using Q_INIT_RESOURCE()
 # calls that are NOT present at the moment. Further information can be found
 # at: https://doc.qt.io/qt5/resources.html#using-resources-in-a-library
@@ -2970,7 +2986,7 @@ endif()
 
 set_target_properties(mixxx PROPERTIES AUTORCC ON)
 if(BUILD_TESTING)
-  set_target_properties(mixxx-test PROPERTIES AUTOMOC ON AUTORCC ON)
+  set_target_properties(mixxx-TEST PROPERTIES AUTOMOC ON AUTORCC ON)
 endif()
 
 set(SOURCE_TARGET "mixxx")
@@ -3011,7 +3027,7 @@ endif()
 
 # Propagate interface link properties
 if(POLICY CMP0099)
-  # This avoids a warning when qt deals with different behaviours controlled by this policy
+  # This avoids a warning when qt deals with different behaviours controlled by this POLICY
   # in its cmake functions. See
   # https://github.com/qt/qtbase/commit/e3e1007f9778d8fc629a06f7d3d216bb7f81351b
   cmake_policy(SET CMP0099 NEW)
@@ -3022,7 +3038,7 @@ if(POLICY CMP0127)
   cmake_policy(SET CMP0127 NEW)
 endif()
 
-# An imported target missing its location property fails during generation.
+# An imported TARGET missing its location property fails during generation.
 if(POLICY CMP0111)
   cmake_policy(SET CMP0111 NEW)
 endif()
@@ -3046,7 +3062,7 @@ if(UNIX AND NOT APPLE)
   if(UNAME_R MATCHES ".*[Mm]icrosoft.*" OR UNAME_R MATCHES ".*WSL.*")
     message(
       FATAL_ERROR
-      "Building on Windows Subsystem for Linux (WSL) is NOT supported. If you want to build Mixxx from command line on Windows, you need to use the \"x64 Native Tools Command Prompt for VS 2022\"!"
+      "Building on Windows Subsystem for Linux (WSL) is NOT supported. If you want to build Mixxx from COMMAND line on Windows, you need to use the \"x64 Native Tools Command Prompt for VS 2022\"!"
     )
   endif()
 endif()
@@ -3064,7 +3080,7 @@ set(
   X_VCPKG_APPLOCAL_DEPS_INSTALL
   ON
   CACHE BOOL
-  "Automatically copy dependencies into the install target directory for executables."
+  "Automatically copy dependencies into the install TARGET directory for executables."
   FORCE
 )
 
@@ -3148,7 +3164,7 @@ elseif(APPLE)
     OUTPUT_QUIET
   )
   if(XCODE_SELECT_RESULT)
-    # xcode-select command failed, meaning it is NOT installed OR NOT configured properly
+    # xcode-select COMMAND failed, meaning it is NOT installed OR NOT configured properly
     message(
       FATAL_ERROR
       "'xcode-select -v' failed with '${XCODE_SELECT_RESULT}'. You may need to install Xcode AND run 'sudo xcode-select --install'."
@@ -3166,12 +3182,12 @@ elseif(APPLE)
         CACHE STRING
         "Minimum macOS version the build will be able to run on"
       )
-      set(CMAKE_OSX_ARCHITECTURES arm64 CACHE STRING "The target architecture")
+      set(CMAKE_OSX_ARCHITECTURES arm64 CACHE STRING "The TARGET architecture")
       set(
         CMAKE_SYSTEM_PROCESSOR
         arm64
         CACHE STRING
-        "The target system processor"
+        "The TARGET system processor"
       )
     else()
       if(QT6)
@@ -3190,7 +3206,7 @@ elseif(APPLE)
           CACHE STRING
           "Minimum macOS version the build will be able to run on"
         )
-        # Needed for deployment target < 10.14
+        # Needed for deployment TARGET < 10.14
         add_compile_options(-fno-aligned-allocation)
       endif()
     endif()
@@ -3201,7 +3217,7 @@ elseif(APPLE)
       CMAKE_OSX_DEPLOYMENT_TARGET
       14.0
       CACHE STRING
-      "Minimum iOS version to target"
+      "Minimum iOS version to TARGET"
     )
   else()
     message(
@@ -3342,7 +3358,7 @@ if(ENGINEPRIME)
     # copy it into DOWNLOAD_DIR under DOWNLOAD_NAME prior to starting
     # the configuration.
     #
-    # If you want to test (locally) an experimental fork/branch of libdjinterop,
+    # If you want to TEST (locally) an experimental fork/branch of libdjinterop,
     # you can comment out URL AND URL_HASH AND use GIT_REPOSITORY instead:
     #
     # GIT_REPOSITORY "https://github.com/abcd/your-fork-of-libdjinterop"
@@ -3373,7 +3389,7 @@ if(ENGINEPRIME)
         -DCMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}
         -DCMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME}
         -DSYSTEM_SQLITE=${DJINTEROP_SYSTEM_SQLITE}
-      BUILD_COMMAND ${CMAKE_COMMAND} --build . --target DjInterop
+      BUILD_COMMAND ${CMAKE_COMMAND} --build . --TARGET DjInterop
       BUILD_BYPRODUCTS <INSTALL_DIR>/${DJINTEROP_LIBRARY}
       EXCLUDE_FROM_ALL TRUE
     )
@@ -3396,7 +3412,7 @@ if(ENGINEPRIME)
         DEPENDS libdjinterop
         COMMAND echo libdjinterop installed
         COMMENT
-          "Tell 'make' that libdjinterop is required for the djinterop target"
+          "Tell 'make' that libdjinterop is required for the djinterop TARGET"
       )
     endif()
 
@@ -3543,7 +3559,7 @@ if(KEYFINDER)
         DEPENDS libkeyfinder
         COMMAND echo libkeyfinder installed
         COMMENT
-          "Tell 'make' that libkeyfinder is required for the mixxx-keyfinder target"
+          "Tell 'make' that libkeyfinder is required for the mixxx-keyfinder TARGET"
       )
     endif()
 
@@ -3789,7 +3805,7 @@ if(NETWORKAUTH)
       "if(NOT TARGET spdlog)\n  add_library(spdlog INTERFACE)\nendif()"
     )
   endif()
-  # Patch librespot-cpp to avoid target name collision AND link signature mismatch
+  # Patch librespot-cpp to avoid TARGET name collision AND link signature mismatch
   file(READ "${librespot-cpp_SOURCE_DIR}/CMakeLists.txt" LIBRESPOT_CMAKELISTS)
   string(
     REPLACE "project(mixxx)"
@@ -3816,7 +3832,8 @@ if(NETWORKAUTH)
 
   add_subdirectory(${librespot-cpp_SOURCE_DIR} ${librespot-cpp_BINARY_DIR})
   target_link_libraries(mixxx-lib PRIVATE librespot-cpp-lib)
-  target_link_libraries(mixxx-lib PRIVATE Qt${QT_VERSION_MAJOR}::NetworkAuth)
+  # Linked above
+  # target_link_libraries(mixxx-lib PRIVATE Qt${QT_VERSION_MAJOR}::NetworkAuth)
 
   find_program(YTDLP_EXECUTABLE NAMES yt-dlp)
   if(NOT YTDLP_EXECUTABLE)
@@ -3856,7 +3873,7 @@ target_precompile_headers(
   PUBLIC ${MIXXX_LIB_PRECOMPILED_HEADER} ${MIXXX_COMMON_PRECOMPILED_HEADER}
 )
 if(BUILD_TESTING)
-  target_precompile_headers(mixxx-test REUSE_FROM mixxx-lib)
+  target_precompile_headers(mixxx-TEST REUSE_FROM mixxx-lib)
 endif()
 
 # Configure file with build options
@@ -4093,9 +4110,9 @@ endif()
 
 add_custom_target(
   mixxx-gitinfo
-  # Note: We don't quote the paths in the command since CMake already inserts
+  # Note: We don't quote the paths in the COMMAND since CMake already inserts
   # escapes (which, if quoted, lead to paths wrongly containing backslashes).
-  # See https://stackoverflow.com/questions/8925396/why-does-cmake-prefixes-spaces-with-backslashes-when-executing-a-command
+  # See https://stackoverflow.com/questions/8925396/why-does-cmake-prefixes-spaces-with-backslashes-when-executing-a-COMMAND
   COMMAND
     ${CMAKE_COMMAND} -DGIT_DESCRIBE=${GIT_DESCRIBE}
     -DGIT_COMMIT_DATE=${GIT_COMMIT_DATE}
