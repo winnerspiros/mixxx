@@ -15,16 +15,8 @@
 
 class CoverArtUtilTest : public MixxxTest {
   protected:
-            void extractEmbeddedCover(const QString& trackLocation, const QImage& referenceImage) {
+    void extractEmbeddedCover(const QString& trackLocation, const QImage& referenceImage) {
         mixxx::FileAccess fa{mixxx::FileInfo{trackLocation}};
-        QImage resImage = CoverArtUtils::extractEmbeddedCover(fa);
-        EXPECT_FALSE(resImage.isNull());
-        EXPECT_EQ(referenceImage, resImage);
-    }};
-        QImage resImage = CoverArtUtils::extractEmbeddedCover(fa);
-        EXPECT_FALSE(resImage.isNull());
-        EXPECT_EQ(referenceImage, resImage);
-    }};
         QImage resImage = CoverArtUtils::extractEmbeddedCover(fa);
         EXPECT_FALSE(resImage.isNull());
         EXPECT_EQ(referenceImage, resImage);
@@ -84,10 +76,10 @@ TEST_F(CoverArtUtilTest, searchImage) {
 
     TrackPointer pTrack(Track::newTemporary(kTrackLocationTest));
     QList<QFileInfo> covers;
-    CoverInfo res;
+    CoverInfoRelative res;
     // looking for cover in an empty directory
     res = CoverArtUtils::selectCoverArtForTrack(*pTrack, covers);
-    CoverInfo expected1;
+    CoverInfoRelative expected1;
     expected1.source = CoverInfo::GUESSED;
     EXPECT_EQ(expected1, res);
 
@@ -98,7 +90,7 @@ TEST_F(CoverArtUtilTest, searchImage) {
             SoundSourceProxy(pTrack).updateTrackFromSource(
                     SoundSourceProxy::UpdateTrackFromSourceMode::Once,
                     SyncTrackMetadataParams{}));
-    CoverInfo result = pTrack->getCoverInfoWithLocation();
+    CoverInfoRelative result = pTrack->getCoverInfoWithLocation();
     EXPECT_EQ(result.type, CoverInfo::METADATA);
     EXPECT_EQ(result.source, CoverInfo::GUESSED);
     EXPECT_EQ(result.coverLocation, QString());
@@ -129,7 +121,7 @@ TEST_F(CoverArtUtilTest, searchImage) {
     // 7. if just one file exists take that otherwise none.
 
     // All the following expect the same image/hash to be selected.
-    CoverInfo expected2;
+    CoverInfoRelative expected2;
 
     // All the following expect FILE and GUESSED.
     expected2.type = CoverInfo::FILE;
@@ -143,7 +135,7 @@ TEST_F(CoverArtUtilTest, searchImage) {
     expected2.coverLocation = "foo.jpg";
     expected2.setImageDigest(QImage(cLoc_foo));
     covers << QFileInfo(cLoc_foo);
-    CoverInfo res2 = CoverArtUtils::selectCoverArtForTrack(
+    CoverInfoRelative res2 = CoverArtUtils::selectCoverArtForTrack(
             mixxx::FileInfo(trackBaseName), trackAlbum, covers);
     EXPECT_EQ(expected2, res2);
     QFile::remove(cLoc_foo);

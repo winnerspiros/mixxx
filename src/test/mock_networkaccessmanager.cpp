@@ -21,7 +21,6 @@
 #include <QtDebug>
 #include <algorithm>
 
-#include "moc_mock_networkaccessmanager.cpp"
 
 using std::min;
 
@@ -143,3 +142,4 @@ void MockNetworkReply::Done() {
 void MockNetworkReply::setAttribute(QNetworkRequest::Attribute code, const QVariant& value) {
     QNetworkReply::setAttribute(code, value);
 }
+#include "moc_mock_networkaccessmanager.cpp"

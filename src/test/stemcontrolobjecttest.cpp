@@ -34,7 +34,7 @@ TEST_F(StemControlTest, InitialValue) {
     for (int i = 0; i < 4; ++i) {
         QString group = getGroupForStem(QStringLiteral("[Channel1]"), i);
         ControlProxy p(group, QStringLiteral("enabled"));
-        ASSERT_TRUE(p.isBound());
+        ASSERT_TRUE(p.valid());
         EXPECT_DOUBLE_EQ(1.0, p.get());
     }
 }

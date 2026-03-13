@@ -55,7 +55,7 @@ TempoTrackV2::filter_df(d_vec_t &df)
 
 
     // forwards filtering
-    for (int i = 0; i < df_len; i++) {
+    for (std::size_t i = 0; i < (std::size_t)df_len; i++) {
         lp_df[i] =  b[0]*df[i] + b[1]*inp1 + b[2]*inp2 - a[1]*out1 - a[2]*out2;
         inp2 = inp1;
         inp1 = df[i];
@@ -65,11 +65,11 @@ TempoTrackV2::filter_df(d_vec_t &df)
 
     // copy forwards filtering to df...
     // but, time-reversed, ready for backwards filtering
-    for (int i = 0; i < df_len; i++) {
+    for (std::size_t i = 0; i < (std::size_t)df_len; i++) {
         df[i] = lp_df[df_len - i - 1];
     }
 
-    for (int i = 0; i < df_len; i++) {
+    for (std::size_t i = 0; i < (std::size_t)df_len; i++) {
         lp_df[i] = 0.;
     }
 
@@ -77,7 +77,7 @@ TempoTrackV2::filter_df(d_vec_t &df)
     out1 = 0.; out2 = 0.;
 
     // backwards filetering on time-reversed df
-    for (int i = 0; i < df_len; i++) {
+    for (std::size_t i = 0; i < (std::size_t)df_len; i++) {
         lp_df[i] =  b[0]*df[i] + b[1]*inp1 + b[2]*inp2 - a[1]*out1 - a[2]*out2;
         inp2 = inp1;
         inp1 = df[i];
@@ -86,7 +86,7 @@ TempoTrackV2::filter_df(d_vec_t &df)
     }
 
     // write the re-reversed (i.e. forward) version back to df
-    for (int i = 0; i < df_len; i++) {
+    for (std::size_t i = 0; i < (std::size_t)df_len; i++) {
         df[i] = lp_df[df_len - i - 1];
     }
 }
@@ -256,7 +256,7 @@ TempoTrackV2::viterbi_decode(const d_mat_t &rcfmat, const d_vec_t &wv, i_vec_t &
     double sigma = 8.;
     // don't want really short beat periods, or really long ones
     for (std::size_t i = 20; i  < Q - 20; i++) {
-        for (int j = 20; j < Q - 20; j++) {
+        for (std::size_t j = 20; j < Q - 20; j++) {
             double mu = double(i);
             tmat[i][j] = exp( (-1.*pow((j-mu),2.)) / (2.*pow(sigma,2.)) );
         }
@@ -326,7 +326,7 @@ TempoTrackV2::get_max_val(const d_vec_t &df)
     double maxval = 0.;
     int df_len = int(df.size());
     
-    for (int i = 0; i < df_len; i++) {
+    for (std::size_t i = 0; i < (std::size_t)df_len; i++) {
         if (maxval < df[i]) {
             maxval = df[i];
         }
@@ -342,7 +342,7 @@ TempoTrackV2::get_max_ind(const d_vec_t &df)
     int ind = 0;
     int df_len = int(df.size());
     
-    for (int i = 0; i < df_len; i++) {
+    for (std::size_t i = 0; i < (std::size_t)df_len; i++) {
         if (maxval < df[i]) {
             maxval = df[i];
             ind = i;
@@ -358,11 +358,11 @@ TempoTrackV2::normalise_vec(d_vec_t &df)
     double sum = 0.;
     int df_len = int(df.size());
     
-    for (int i = 0; i < df_len; i++) {
+    for (std::size_t i = 0; i < (std::size_t)df_len; i++) {
         sum += df[i];
     }
 
-    for (int i = 0; i < df_len; i++) {
+    for (std::size_t i = 0; i < (std::size_t)df_len; i++) {
         df[i]/= (sum + EPS);
     }
 }
@@ -384,7 +384,7 @@ TempoTrackV2::calculateBeats(const vector<double> &df,
     i_vec_t backlink(df_len); // backlink (stores best beat locations at each time instant)
     d_vec_t localscore(df_len); // localscore, for now this is the same as the detection function
 
-    for (int i = 0; i < df_len; i++) {
+    for (std::size_t i = 0; i < (std::size_t)df_len; i++) {
         localscore[i] = df[i];
         backlink[i] = -1;
     }
@@ -401,7 +401,7 @@ TempoTrackV2::calculateBeats(const vector<double> &df,
     d_vec_t txwt;
 
     // main loop
-    for (int i = 0; i < df_len; i++) {
+    for (std::size_t i = 0; i < (std::size_t)df_len; i++) {
         // df contains the magnitude of the onsets
         //
         // beat_period is the viterbi path following the most likely bpm in a
