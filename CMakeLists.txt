@@ -2175,7 +2175,7 @@ if(QT6)
   endif()
 
   # This is the first package form the environment, if this fails give hints how to install the environment
-  if(NOT Qt6_Core_FOUND AND NOT ANDROID)
+  if(NOT Qt6_FOUND AND NOT ANDROID)
     fatal_error_missing_env()
   endif()
 else()
@@ -2215,7 +2215,7 @@ else()
     endif()
   endforeach()
   # This is the first package form the environment, if this fails give hints how to install the environment
-  if(NOT Qt5_Core_FOUND AND NOT ANDROID)
+  if(NOT Qt5_FOUND AND NOT ANDROID)
     fatal_error_missing_env()
   endif()
 endif()
