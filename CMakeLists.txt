@@ -89,7 +89,7 @@ if(
     (APPLE AND NOT IOS)
     OR WIN32
     OR ANDROID
-    OR (CMAKE_SYSTEM_NAME STREQUAL "Android")
+    OR(CMAKE_SYSTEM_NAME STREQUAL "Android")
   )
   AND NOT IS_DIRECTORY "${MIXXX_VCPKG_ROOT}"
 )
@@ -2753,140 +2753,140 @@ endif()
 if(BUILD_TESTING)
   set(
     src-mixxx-TEST
-    src/TEST/analyserwaveformtest.cpp
-    src/TEST/analyzersilence_test.cpp
-    src/TEST/audiotaperpot_test.cpp
-    src/TEST/autodjprocessor_test.cpp
-    src/TEST/beatgridtest.cpp
-    src/TEST/beatmaptest.cpp
-    src/TEST/beatstest.cpp
-    src/TEST/beatstranslatetest.cpp
-    src/TEST/borrowabletest.cpp
-    src/TEST/bpmtest.cpp
-    src/TEST/bpmcontrol_test.cpp
-    src/TEST/broadcastprofile_test.cpp
-    src/TEST/broadcastsettings_test.cpp
-    src/TEST/cache_test.cpp
-    src/TEST/channelhandle_test.cpp
-    src/TEST/chrono_clock_resolution_test.cpp
-    src/TEST/colorconfig_test.cpp
-    src/TEST/colormapperjsproxy_test.cpp
-    src/TEST/colorpalette_test.cpp
-    src/TEST/configobject_test.cpp
-    src/TEST/controller_mapping_validation_test.cpp
-    src/TEST/controller_mapping_settings_test.cpp
-    src/TEST/controllers/controller_columnid_regression_test.cpp
-    src/TEST/controllerscriptenginelegacy_test.cpp
-    src/TEST/controlobjecttest.cpp
-    src/TEST/controlobjectaliastest.cpp
-    src/TEST/controlobjectscripttest.cpp
-    src/TEST/controlpotmetertest.cpp
-    src/TEST/coreservicestest.cpp
-    src/TEST/coverartcache_test.cpp
-    src/TEST/coverartutils_test.cpp
-    src/TEST/cratestorage_test.cpp
-    src/TEST/cue_test.cpp
-    src/TEST/cuecontrol_test.cpp
-    src/TEST/dbconnectionpool_test.cpp
-    src/TEST/dbidtest.cpp
-    src/TEST/directorydaotest.cpp
-    src/TEST/duration_test.cpp
-    src/TEST/durationutiltest.cpp
+    src/test/analyserwaveformtest.cpp
+    src/test/analyzersilence_test.cpp
+    src/test/audiotaperpot_test.cpp
+    src/test/autodjprocessor_test.cpp
+    src/test/beatgridtest.cpp
+    src/test/beatmaptest.cpp
+    src/test/beatstest.cpp
+    src/test/beatstranslatetest.cpp
+    src/test/borrowabletest.cpp
+    src/test/bpmtest.cpp
+    src/test/bpmcontrol_test.cpp
+    src/test/broadcastprofile_test.cpp
+    src/test/broadcastsettings_test.cpp
+    src/test/cache_test.cpp
+    src/test/channelhandle_test.cpp
+    src/test/chrono_clock_resolution_test.cpp
+    src/test/colorconfig_test.cpp
+    src/test/colormapperjsproxy_test.cpp
+    src/test/colorpalette_test.cpp
+    src/test/configobject_test.cpp
+    src/test/controller_mapping_validation_test.cpp
+    src/test/controller_mapping_settings_test.cpp
+    src/test/controllers/controller_columnid_regression_test.cpp
+    src/test/controllerscriptenginelegacy_test.cpp
+    src/test/controlobjecttest.cpp
+    src/test/controlobjectaliastest.cpp
+    src/test/controlobjectscripttest.cpp
+    src/test/controlpotmetertest.cpp
+    src/test/coreservicestest.cpp
+    src/test/coverartcache_test.cpp
+    src/test/coverartutils_test.cpp
+    src/test/cratestorage_test.cpp
+    src/test/cue_test.cpp
+    src/test/cuecontrol_test.cpp
+    src/test/dbconnectionpool_test.cpp
+    src/test/dbidtest.cpp
+    src/test/directorydaotest.cpp
+    src/test/duration_test.cpp
+    src/test/durationutiltest.cpp
     #TODO: write useful tests for refactored effects system
-    #src/TEST/effectchainslottest.cpp
-    src/TEST/enginebufferscalelineartest.cpp
-    src/TEST/enginebuffertest.cpp
-    src/TEST/enginefilterbiquadtest.cpp
-    src/TEST/enginemixertest.cpp
-    src/TEST/enginemicrophonetest.cpp
-    src/TEST/enginesynctest.cpp
-    src/TEST/fileinfo_test.cpp
-    src/TEST/frametest.cpp
-    src/TEST/globaltrackcache_test.cpp
-    src/TEST/hotcuecontrol_test.cpp
-    src/TEST/hotcueorderbyposition_test.cpp
-    src/TEST/imageutils_test.cpp
-    src/TEST/indexrange_test.cpp
-    src/TEST/itunesxmlimportertest.cpp
-    src/TEST/keyfactorytest.cpp
-    src/TEST/keyutilstest.cpp
-    src/TEST/lcstest.cpp
-    src/TEST/learningutilstest.cpp
-    src/TEST/libraryscannertest.cpp
-    src/TEST/librarytest.cpp
-    src/TEST/looping_control_test.cpp
-    src/TEST/main.cpp
-    src/TEST/mathutiltest.cpp
-    src/TEST/metadatatest.cpp
+    #src/test/effectchainslottest.cpp
+    src/test/enginebufferscalelineartest.cpp
+    src/test/enginebuffertest.cpp
+    src/test/enginefilterbiquadtest.cpp
+    src/test/enginemixertest.cpp
+    src/test/enginemicrophonetest.cpp
+    src/test/enginesynctest.cpp
+    src/test/fileinfo_test.cpp
+    src/test/frametest.cpp
+    src/test/globaltrackcache_test.cpp
+    src/test/hotcuecontrol_test.cpp
+    src/test/hotcueorderbyposition_test.cpp
+    src/test/imageutils_test.cpp
+    src/test/indexrange_test.cpp
+    src/test/itunesxmlimportertest.cpp
+    src/test/keyfactorytest.cpp
+    src/test/keyutilstest.cpp
+    src/test/lcstest.cpp
+    src/test/learningutilstest.cpp
+    src/test/libraryscannertest.cpp
+    src/test/librarytest.cpp
+    src/test/looping_control_test.cpp
+    src/test/main.cpp
+    src/test/mathutiltest.cpp
+    src/test/metadatatest.cpp
     #TODO: make this build again
-    #src/TEST/metaknob_link_test.cpp
-    src/TEST/midicontrollertest.cpp
-    src/TEST/mixxxtest.cpp
-    src/TEST/mock_networkaccessmanager.cpp
-    src/TEST/musicbrainzrecordingstasktest.cpp
-    src/TEST/performancetimer_test.cpp
-    src/TEST/playcountertest.cpp
-    src/TEST/playermanagertest.cpp
-    src/TEST/playlisttest.cpp
-    src/TEST/portmidicontroller_test.cpp
-    src/TEST/portmidienumeratortest.cpp
-    src/TEST/queryutiltest.cpp
-    src/TEST/rangelist_test.cpp
-    src/TEST/readaheadmanager_test.cpp
-    src/TEST/replaygaintest.cpp
-    src/TEST/rescalertest.cpp
-    src/TEST/rgbcolor_test.cpp
-    src/TEST/rotary_test.cpp
-    src/TEST/samplebuffertest.cpp
-    src/TEST/schemamanager_test.cpp
-    src/TEST/searchqueryparsertest.cpp
-    src/TEST/seratobeatgridtest.cpp
-    src/TEST/seratomarkerstest.cpp
-    src/TEST/seratomarkers2test.cpp
-    src/TEST/seratotagstest.cpp
-    src/TEST/signalpathtest.cpp
-    src/TEST/skincontext_test.cpp
-    src/TEST/softtakeover_test.cpp
-    src/TEST/soundproxy_test.cpp
-    src/TEST/soundsourceproviderregistrytest.cpp
-    src/TEST/sqliteliketest.cpp
-    src/TEST/synccontroltest.cpp
-    src/TEST/synctrackmetadatatest.cpp
-    src/TEST/tableview_test.cpp
-    src/TEST/taglibtest.cpp
-    src/TEST/trackdao_test.cpp
-    src/TEST/trackexport_test.cpp
-    src/TEST/trackmetadata_test.cpp
-    src/TEST/trackmetadataexport_test.cpp
-    src/TEST/tracknumberstest.cpp
-    src/TEST/trackreftest.cpp
-    src/TEST/trackupdate_test.cpp
-    src/TEST/uuid_test.cpp
-    src/TEST/wbatterytest.cpp
-    src/TEST/wpushbutton_test.cpp
-    src/TEST/wwidgetstack_test.cpp
+    #src/test/metaknob_link_test.cpp
+    src/test/midicontrollertest.cpp
+    src/test/mixxxtest.cpp
+    src/test/mock_networkaccessmanager.cpp
+    src/test/musicbrainzrecordingstasktest.cpp
+    src/test/performancetimer_test.cpp
+    src/test/playcountertest.cpp
+    src/test/playermanagertest.cpp
+    src/test/playlisttest.cpp
+    src/test/portmidicontroller_test.cpp
+    src/test/portmidienumeratortest.cpp
+    src/test/queryutiltest.cpp
+    src/test/rangelist_test.cpp
+    src/test/readaheadmanager_test.cpp
+    src/test/replaygaintest.cpp
+    src/test/rescalertest.cpp
+    src/test/rgbcolor_test.cpp
+    src/test/rotary_test.cpp
+    src/test/samplebuffertest.cpp
+    src/test/schemamanager_test.cpp
+    src/test/searchqueryparsertest.cpp
+    src/test/seratobeatgridtest.cpp
+    src/test/seratomarkerstest.cpp
+    src/test/seratomarkers2test.cpp
+    src/test/seratotagstest.cpp
+    src/test/signalpathtest.cpp
+    src/test/skincontext_test.cpp
+    src/test/softtakeover_test.cpp
+    src/test/soundproxy_test.cpp
+    src/test/soundsourceproviderregistrytest.cpp
+    src/test/sqliteliketest.cpp
+    src/test/synccontroltest.cpp
+    src/test/synctrackmetadatatest.cpp
+    src/test/tableview_test.cpp
+    src/test/taglibtest.cpp
+    src/test/trackdao_test.cpp
+    src/test/trackexport_test.cpp
+    src/test/trackmetadata_test.cpp
+    src/test/trackmetadataexport_test.cpp
+    src/test/tracknumberstest.cpp
+    src/test/trackreftest.cpp
+    src/test/trackupdate_test.cpp
+    src/test/uuid_test.cpp
+    src/test/wbatterytest.cpp
+    src/test/wpushbutton_test.cpp
+    src/test/wwidgetstack_test.cpp
     src/util/moc_included_test.cpp
-    src/TEST/helpers/log_test.cpp
+    src/test/helpers/log_test.cpp
   )
   if(STEM)
     set(
       src-mixxx-TEST
       ${src-mixxx-TEST}
-      src/TEST/stemtest.cpp
-      src/TEST/steminfotest.cpp
-      src/TEST/stemcontrolobjecttest.cpp
+      src/test/stemtest.cpp
+      src/test/steminfotest.cpp
+      src/test/stemcontrolobjecttest.cpp
     )
   endif()
   if(BUILD_BENCH)
     set(
       src-mixxx-TEST
       ${src-mixxx-TEST}
-      src/TEST/engineeffectsdelay_test.cpp
-      src/TEST/movinginterquartilemean_test.cpp
-      src/TEST/nativeeffects_test.cpp
-      src/TEST/ringdelaybuffer_test.cpp
-      src/TEST/sampleutiltest.cpp
-      src/TEST/waveform_upgrade_test.cpp
+      src/test/engineeffectsdelay_test.cpp
+      src/test/movinginterquartilemean_test.cpp
+      src/test/nativeeffects_test.cpp
+      src/test/ringdelaybuffer_test.cpp
+      src/test/sampleutiltest.cpp
+      src/test/waveform_upgrade_test.cpp
     )
   endif()
 
