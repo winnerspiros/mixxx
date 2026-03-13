@@ -1,59 +1,20 @@
-cmake_minimum_required(VERSION 3.21)
 include(FetchContent)
-
+cmake_minimum_required(VERSION 3.21)
 include(CMakeDependentOption)
-option(QT6 "Build with Qt6" ON)
-option(NETWORKAUTH "Enable Spotify and YouTube features" OFF)
-cmake_dependent_option(
-  QML
-  "Build with QML"
-  ON
-  "QT6"
-  OFF
-)
 
-if(QT6)
-  set(QOPENGL ON CACHE INTERNAL "Forced ON because QT6=ON")
-  set(QT_VERSION_MAJOR 6)
 
-else()
-  option(QOPENGL "Use QOpenGLWindow based widget instead of QGLWidget" ON)
-  set(QT_VERSION_MAJOR 5)
-
-endif()
-
-if(CMAKE_SYSTEM_NAME STREQUAL "Android")
-  if(VCPKG_TARGET_TRIPLET MATCHES "arm64")
-    set(ANDROID_ABI "arm64-v8a" CACHE STRING "" FORCE)
-    set(CMAKE_ANDROID_ARCH_ABI "arm64-v8a" CACHE STRING "" FORCE)
-    set(CMAKE_SYSTEM_PROCESSOR "aarch64" CACHE STRING "" FORCE)
-    set(QT_ANDROID_ABIS "arm64-v8a" CACHE STRING "" FORCE)
-  elseif(VCPKG_TARGET_TRIPLET MATCHES "x64")
-    set(ANDROID_ABI "x86_64" CACHE STRING "" FORCE)
-    set(CMAKE_ANDROID_ARCH_ABI "x86_64" CACHE STRING "" FORCE)
-  endif()
-endif()
-
-project(mixxx VERSION 2.7.0 LANGUAGES C CXX)
-
-set(MIXXX_VERSION_PRERELEASE "alpha")
-if(MIXXX_VERSION_PRERELEASE STREQUAL "")
-  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}")
-else()
-  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}-${MIXXX_VERSION_PRERELEASE}")
-endif()
-
+message(STATUS "Early CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 function(fatal_error_missing_env)
   if(WIN32)
     if(CMAKE_BUILD_TYPE MATCHES "Debug")
       message(
         FATAL_ERROR
-        "Did you download the Mixxx build environment using `${CMAKE_SOURCE_DIR}/tools/windows_buildenv.bat`?"
+        "Did you download the Mixxx build environment using `${CMAKE_CURRENT_SOURCE_DIR}/tools/windows_buildenv.bat`?"
       )
     else()
       message(
         FATAL_ERROR
-        "Did you download the Mixxx build environment using `${CMAKE_SOURCE_DIR}/tools/windows_release_buildenv.bat` or `${CMAKE_SOURCE_DIR}/tools/windows_buildenv.bat`(includes Debug)?"
+        "Did you download the Mixxx build environment using `${CMAKE_CURRENT_SOURCE_DIR}/tools/windows_release_buildenv.bat` or `${CMAKE_CURRENT_SOURCE_DIR}/tools/windows_buildenv.bat`(includes Debug)?"
       )
     endif()
   elseif(APPLE AND NOT IOS)
@@ -65,12 +26,12 @@ function(fatal_error_missing_env)
     elseif(CMAKE_BUILD_TYPE MATCHES "Debug")
       message(
         FATAL_ERROR
-        "Did you download the Mixxx build environment using `source ${CMAKE_SOURCE_DIR}/tools/macos_buildenv.sh setup`"
+        "Did you download the Mixxx build environment using `source ${CMAKE_CURRENT_SOURCE_DIR}/tools/macos_buildenv.sh setup`"
       )
     else()
       message(
         FATAL_ERROR
-        "Did you download the Mixxx build environment using `source ${CMAKE_SOURCE_DIR}/tools/macos_release_buildenv.sh setup` or `source ${CMAKE_SOURCE_DIR}/tools/macos_buildenv.sh setup` (includes Debug)?"
+        "Did you download the Mixxx build environment using `source ${CMAKE_CURRENT_SOURCE_DIR}/tools/macos_release_buildenv.sh setup` or `source ${CMAKE_CURRENT_SOURCE_DIR}/tools/macos_buildenv.sh setup` (includes Debug)?"
       )
     endif()
   elseif(UNIX AND NOT APPLE AND NOT ANDROID)
@@ -78,17 +39,17 @@ function(fatal_error_missing_env)
     if(EXISTS "/etc/debian_version") # exists also on Ubuntu and Mint
       message(
         FATAL_ERROR
-        "Did you install the required Debian dev packages via `${CMAKE_SOURCE_DIR}/tools/debian_buildenv.sh setup`?"
+        "Did you install the required Debian dev packages via `${CMAKE_CURRENT_SOURCE_DIR}/tools/debian_buildenv.sh setup`?"
       )
     elseif(EXISTS "/etc/redhat-release") # exists also on Fedora Mageia Madndriva Alma CentOS
       message(
         FATAL_ERROR
-        "Did you install the required RPM dev packages via `${CMAKE_SOURCE_DIR}/tools/rpm_buildenv.sh setup`?"
+        "Did you install the required RPM dev packages via `${CMAKE_CURRENT_SOURCE_DIR}/tools/rpm_buildenv.sh setup`?"
       )
     else()
       message(
         FATAL_ERROR
-        "Did you install the equivalent dev packages listed in `${CMAKE_SOURCE_DIR}/tools/debian_buildenv.sh setup`?"
+        "Did you install the equivalent dev packages listed in `${CMAKE_CURRENT_SOURCE_DIR}/tools/debian_buildenv.sh setup`?"
       )
     endif()
   elseif(DEFINED VCPKG_TARGET_TRIPLET)
@@ -112,9 +73,6 @@ if(NOT DEFINED VCPKG_TARGET_TRIPLET)
   endif()
 endif()
 
-if(DEFINED MIXXX_VCPKG_ROOT)
-  string(STRIP "${MIXXX_VCPKG_ROOT}" MIXXX_VCPKG_ROOT)
-endif()
 if(DEFINED ENV{MIXXX_VCPKG_ROOT} AND NOT DEFINED MIXXX_VCPKG_ROOT)
   set(MIXXX_VCPKG_ROOT "$ENV{MIXXX_VCPKG_ROOT}")
 endif()
@@ -123,24 +81,19 @@ if(NOT DEFINED MIXXX_VCPKG_ROOT AND NOT DEFINED ENV{MIXXX_VCPKG_ROOT})
   if(DEFINED ENV{BUILDENV_BASEPATH})
     set(BUILDENV_BASEPATH "$ENV{BUILDENV_BASEPATH}")
   else()
-    set(BUILDENV_BASEPATH "${CMAKE_SOURCE_DIR}/buildenv")
+    set(BUILDENV_BASEPATH "${CMAKE_CURRENT_SOURCE_DIR}/buildenv")
   endif()
 endif()
 
 if(
-  (
-    (APPLE AND NOT IOS)
-    OR WIN32
-    OR ANDROID
-    OR (CMAKE_SYSTEM_NAME STREQUAL "Android")
-  )
+  ((APPLE AND NOT IOS) OR WIN32 OR ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
   AND NOT IS_DIRECTORY "${MIXXX_VCPKG_ROOT}"
 )
   if(NOT DEFINED BUILDENV_BASEPATH)
     if(DEFINED ENV{BUILDENV_BASEPATH})
       set(BUILDENV_BASEPATH "$ENV{BUILDENV_BASEPATH}")
     else()
-      set(BUILDENV_BASEPATH "${CMAKE_SOURCE_DIR}/buildenv")
+      set(BUILDENV_BASEPATH "${CMAKE_CURRENT_SOURCE_DIR}/buildenv")
     endif()
   endif()
 
@@ -181,9 +134,9 @@ if(
       message(
         STATUS
         "Downloading file "
-        "${BUILDENV_URL}"
+        ${BUILDENV_URL}
         " to "
-        "${BUILDENV_BASEPATH}"
+        ${BUILDENV_BASEPATH}
         " ..."
       )
       file(
@@ -201,7 +154,8 @@ if(
       message(
         STATUS
         "Verify SHA256 of downloaded file "
-        "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip ..."
+        ${BUILDENV_BASEPATH}/${BUILDENV_NAME}
+        ".zip ..."
       )
       file(SHA256 "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip" actual_sha256)
 
@@ -211,14 +165,15 @@ if(
           "SHA256 checksum mismatch:\nexpected: ${BUILDENV_SHA256}\n     got: ${actual_sha256}"
         )
       else()
-        message(STATUS "SHA256 ${BUILDENV_SHA256} is correct!")
+        message(STATUS "SHA256 " ${BUILDENV_SHA256} " is correct!")
       endif()
     endif()
 
     message(
       STATUS
       "Unpacking file "
-      "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip ..."
+      ${BUILDENV_BASEPATH}/${BUILDENV_NAME}
+      ".zip ..."
     )
     execute_process(
       COMMAND ${CMAKE_COMMAND} -E tar xzf "${BUILDENV_NAME}.zip"
@@ -282,13 +237,30 @@ if(DEFINED MIXXX_VCPKG_ROOT)
   endif()
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Android")
+  if(VCPKG_TARGET_TRIPLET MATCHES "arm64")
+    set(ANDROID_ABI "arm64-v8a" CACHE STRING "" FORCE)
+    set(CMAKE_ANDROID_ARCH_ABI "arm64-v8a" CACHE STRING "" FORCE)
+    set(CMAKE_SYSTEM_PROCESSOR "aarch64" CACHE STRING "" FORCE)
+  elseif(VCPKG_TARGET_TRIPLET MATCHES "x64")
+    set(ANDROID_ABI "x86_64" CACHE STRING "" FORCE)
+    set(CMAKE_ANDROID_ARCH_ABI "x86_64" CACHE STRING "" FORCE)
+  endif()
+endif()
+
 message(STATUS "Early CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
-message(STATUS "Early CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 
+project(mixxx VERSION 2.7.0 LANGUAGES C CXX)
 
-
-
-
+option(QT6 "Build with Qt6" ON)
+option(NETWORKAUTH "Enable Spotify and YouTube features" OFF)
+cmake_dependent_option(
+  QML
+  "Build with QML"
+  ON
+  "QT6"
+  OFF
+)
 
 
 message(STATUS "MIXXX_VCPKG_ROOT: ${MIXXX_VCPKG_ROOT}")
@@ -321,6 +293,10 @@ if(DEFINED MIXXX_VCPKG_ROOT AND DEFINED VCPKG_TARGET_TRIPLET)
       "${VCPKG_INSTALLED_PATH}/share"
       ${CMAKE_PREFIX_PATH}
     )
+    if(ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
+      list(APPEND CMAKE_FIND_ROOT_PATH "${VCPKG_INSTALLED_PATH}" "${VCPKG_INSTALLED_PATH}/share")
+      list(REMOVE_DUPLICATES CMAKE_FIND_ROOT_PATH)
+    endif()
     set(
       CMAKE_PREFIX_PATH
       "${CMAKE_PREFIX_PATH}"
@@ -338,7 +314,12 @@ endif()
 
 message(STATUS "Final CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")
 
-
+set(MIXXX_VERSION_PRERELEASE "alpha")
+if(MIXXX_VERSION_PRERELEASE STREQUAL "")
+  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}")
+else()
+  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}-${MIXXX_VERSION_PRERELEASE}")
+endif()
 
 # set to "alpha" "beta" or ""
 
@@ -1653,16 +1634,12 @@ add_library(
   src/util/versionstore.cpp
   src/waveform/widgets/allshader/waveformwidget.cpp
   src/widget/tooltipqopengl.cpp
+  src/widget/wglwidgetqglwidget.cpp
+  src/widget/wglwidgetqopengl.cpp
   src/widget/wspinnyglsl.cpp
   src/widget/wstemlabel.cpp
   src/widget/wtrackstemmenu.cpp
   src/widget/wvumeterglsl.cpp
-)
-target_sources(
-  mixxx-lib
-  PRIVATE
-  $<$<NOT:$<BOOL:${QOPENGL}>>:src/widget/wglwidgetqglwidget.cpp>
-  $<$<BOOL:${QOPENGL}>:src/widget/wglwidgetqopengl.cpp>
 )
 set(MIXXX_COMMON_PRECOMPILED_HEADER src/util/assert.h)
 set(
@@ -1838,7 +1815,7 @@ target_include_directories(
   mixxx-lib
   PUBLIC src "${CMAKE_CURRENT_BINARY_DIR}/src"
 )
-if(UNIX AND NOT APPLE AND NOT ANDROID)
+if(UNIX AND NOT APPLE)
   set(MIXXX_SETTINGS_PATH ".mixxx/")
 endif()
 
@@ -1956,7 +1933,7 @@ if(RELATIVE_MACRO_PATHS)
   if(NOT MSVC)
     target_compile_options(
       mixxx-lib
-      PUBLIC "-fmacro-prefix-map=${CMAKE_SOURCE_DIR}=."
+      PUBLIC "-fmacro-prefix-map=${CMAKE_CURRENT_SOURCE_DIR}=."
     )
   endif()
 endif()
@@ -2097,11 +2074,11 @@ endif()
 
 # The mixxx executable
 if(QT6)
-
+  set(QT_VERSION_MAJOR 6)
   set(
     QT_COMPONENTS
-    Concurrent
     Core
+    Concurrent
     Gui
     Network
     OpenGL
@@ -2118,12 +2095,6 @@ if(QT6)
     MultimediaWidgets
     Core5Compat
   )
-  if(QT6 AND (ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android")))
-    list(APPEND QT_COMPONENTS QmlIntegration)
-    list(REMOVE_ITEM QT_COMPONENTS PrintSupport MultimediaWidgets)
-  elseif(QT6 AND WIN32 AND CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
-    list(APPEND QT_COMPONENTS QmlIntegration)
-  endif()
   if(NOT APPLE AND NOT WIN32 AND NOT ANDROID)
     list(APPEND QT_COMPONENTS DBus)
   endif()
@@ -2136,7 +2107,7 @@ if(QT6)
     # Specifically look in the triplet share directory first
     set(
       QT6_SEARCH_PATH
-      "${MIXXX_VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/share/qt6"
+      "${MIXXX_VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/share/Qt6"
     )
     if(EXISTS "${QT6_SEARCH_PATH}/Qt6Config.cmake")
       set(Qt6_DIR "${QT6_SEARCH_PATH}" CACHE PATH "Path to Qt6 directory" FORCE)
@@ -2166,7 +2137,7 @@ if(QT6)
   endif()
   # qt_add_executable() is the recommended initial call for qt_finalize_target()
   # below that takes care of the correct object order in the resulting binary
-  # According to https://doc.qt.io/qt-6/qt-finalize-target.html it is important for
+  # According to https://doc.qt.io/qt-6/qt-finalize-target.html it is importand for
   # builds with Qt < 3.21
   if(ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
     target_compile_definitions(
@@ -2182,7 +2153,7 @@ if(QT6)
     set_property(
       TARGET mixxx
       PROPERTY
-        QT_ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_SOURCE_DIR}/packaging/android"
+        QT_ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/packaging/android"
     )
     set_target_properties(mixxx PROPERTIES QT_ANDROID_ABIS "${ANDROID_ABI}")
     set_target_properties(mixxx PROPERTIES QT_ANDROID_PACKAGE_NAME "org.mixxx")
@@ -2234,10 +2205,10 @@ if(QT6)
       copy-resource-android
       COMMENT "Copy resources folder to Android build asset directory"
       COMMAND
-        ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/packaging/android
+        ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/packaging/android
         ${CMAKE_CURRENT_BINARY_DIR}/android
       COMMAND
-        ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/res
+        ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/res
         ${CMAKE_CURRENT_BINARY_DIR}/android-build/assets
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     )
@@ -2248,11 +2219,11 @@ if(QT6)
     qt_add_executable(mixxx WIN32 src/main.cpp MANUAL_FINALIZATION)
   endif()
 else()
-
+  set(QT_VERSION_MAJOR 5)
   set(
     QT_COMPONENTS
-    Concurrent
     Core
+    Concurrent
     Gui
     Network
     OpenGL
@@ -2444,7 +2415,7 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/res/Mixxx-Manual.pdf")
 endif()
 
 # Additional Linux-only files
-if(UNIX AND NOT APPLE AND NOT ANDROID)
+if(UNIX AND NOT APPLE)
   # .desktop file for KDE/GNOME menu
   install(
     FILES "${CMAKE_CURRENT_SOURCE_DIR}/res/linux/org.mixxx.Mixxx.desktop"
@@ -2501,17 +2472,100 @@ if(UNIX AND NOT APPLE AND NOT ANDROID)
         DESTINATION "${MIXXX_UDEVDIR}/rules.d"
       )
       install(
-        CODE "message(STATUS \"Important Note: Installation of udev rules\n\
-The udev rule file for USB HID and Bulk controller permissions have been\n\
-installed to: ${MIXXX_UDEVDIR}/rules.d.\n\n\
-If you are installing Mixxx from source for your own use, copy\n\
-mixxx-usb-uaccess.rules to /etc/udev/rules.d/ and run:\n\
-  udevadm control --reload-rules && udevadm trigger\n\
-as root to load the rules.\n\n\
-If you are building a package for a distribution, the correct directory for\n\
-system rules is either /lib/udev/rules.d (e.g. Debian, Fedora) or\n\
-/usr/lib/udev/rules.d (e.g. Arch Linux) with an appropriate priority prefix.\n\
-Adjust your package script accordingly and set -DINSTALL_USER_UDEV_RULES=OFF\")"
+        CODE ""
+        message
+        (
+          STATUS
+          \"Important
+          Note:
+          Installation
+          of
+          udev
+          rules\n\"
+          \"The
+          udev
+          rule
+          file
+          for
+          USB
+          HID
+          and
+          Bulk
+          controller
+          permissions
+          have
+          been\n\"
+          \"installed
+          to:\n\"
+          \"
+          ${MIXXX_UDEVDIR}/rules.d.\n\"
+          \"If
+          you
+          are
+          installing
+          Mixxx
+          from
+          source
+          for
+          your
+          own
+          use,
+          copy\n\"
+          \"mixxx-usb-uaccess.rules
+          to
+          /etc/udev/rules.d/
+          and
+          run:\n\"
+          \"
+          udevadm
+          control
+          --reload-rules
+          &&
+          udevadm
+          trigger\n\"
+          \"as
+          root
+          to
+          load
+          the
+          rules.\n\"
+          \"If
+          you
+          are
+          building
+          a
+          package
+          for
+          a
+          distribution,
+          the
+          correct
+          directory
+          for\n\"
+          \"system
+          rules
+          is
+          either
+          /lib/udev/rules.d
+          (e.g. Debian, Fedora)
+          or\n\"
+          \"/usr/lib/udev/rules.d
+          (e.g. Arch Linux)
+          with
+          an
+          appropriate
+          priority
+          prefix.\n\"
+          \"Adjust
+          your
+          package
+          script
+          accordingly
+          and
+          set
+          -DINSTALL_USER_UDEV_RULES=OFF\"
+        )
+        ""
       )
     else()
       install(
@@ -2795,10 +2849,7 @@ if(BUILD_TESTING)
   endif()
 
   add_executable(mixxx-test ${src-mixxx-test})
-  target_include_directories(
-    mixxx-test
-    PRIVATE src "${CMAKE_CURRENT_BINARY_DIR}/src"
-  )
+  target_include_directories(mixxx-test PRIVATE src "${CMAKE_CURRENT_BINARY_DIR}/src")
   target_link_libraries(mixxx-test PRIVATE mixxx-lib)
   file(
     GLOB_RECURSE CONTROLLER_BULK_MAPPING_LIST
@@ -2871,11 +2922,11 @@ if(
   )
   list(GET MANUAL_PDF_DOWNLOAD 0 MANUAL_PDF_DOWNLOAD_ERROR)
   if(NOT MANUAL_PDF_DOWNLOAD_ERROR EQUAL 0)
-    list(GET MANUAL_PDF_DOWNLOAD 1 MANUAL_PDF_DOWNLOAD_MESSAGE)
+    list(GET MANUAL_PDF_DOWNLOAD 1 MANUAL_PDF_DOWNLOAD_MESSGAE)
     message(
       FATAL_ERROR
       "Manual PDF download failed with: "
-      "${MANUAL_PDF_DOWNLOAD_MESSAGE} Code: ${MANUAL_PDF_DOWNLOAD_ERROR}. "
+      "${MANUAL_PDF_DOWNLOAD_MESSGAE} Code: ${MANUAL_PDF_DOWNLOAD_ERROR}. "
       "Either download it yourself and move it to "
       "'${CMAKE_CURRENT_SOURCE_DIR}/res/Mixxx-Manual.pdf' or "
       "reconfigure with -DDOWNLOAD_MANUAL=OFF to build without included "
@@ -2893,8 +2944,13 @@ if(BUILD_TESTING)
   set_target_properties(mixxx-test PROPERTIES AUTORCC ON)
 endif()
 
-set(SOURCE_TARGET "mixxx")
 
+set(SOURCE_TARGET "mixxx")
+if(QT6)
+  set(QT_VERSION_MAJOR 6)
+else()
+  set(QT_VERSION_MAJOR 5)
+endif()
 
 # lint_cmake: -readability/wonkycase
 
@@ -2950,10 +3006,11 @@ if(POLICY CMP0135)
   cmake_policy(SET CMP0135 NEW)
 endif()
 
+
 # Use this function to throw an error because the build environment is not set
 # up correctly.
 
-if(UNIX AND NOT APPLE AND NOT ANDROID)
+if(UNIX AND NOT APPLE)
   execute_process(
     COMMAND uname -r
     OUTPUT_VARIABLE UNAME_R
@@ -2987,7 +3044,7 @@ set(
 # Set a default build type if none was specified
 # See https://blog.kitware.com/cmake-and-the-default-build-type/ for details.
 set(default_build_type "RelWithDebInfo")
-if(EXISTS "${CMAKE_SOURCE_DIR}/.git" AND NOT WIN32 AND NOT ANDROID)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git" AND NOT WIN32 AND NOT ANDROID)
   # On Windows and Android, Debug builds are linked to unoptimized libs
   # generating unusable slow Mixxx builds.
   set(default_build_type "Debug")
@@ -3019,7 +3076,11 @@ if(NOT CMAKE_CONFIGURATION_TYPES)
   endif()
 endif()
 
-
+if(QT6)
+  set(QOPENGL ON CACHE INTERNAL "Forced ON because QT6=ON")
+else()
+  option(QOPENGL "Use QOpenGLWindow based widget instead of QGLWidget" ON)
+endif()
 
 if(QOPENGL)
   add_compile_definitions(MIXXX_USE_QOPENGL)
@@ -3676,7 +3737,6 @@ set(QT_EXTRA_COMPONENTS "")
 if(NETWORKAUTH)
   list(APPEND QT_EXTRA_COMPONENTS "NetworkAuth")
 endif()
-
 if(NETWORKAUTH)
   target_compile_definitions(mixxx-lib PUBLIC NETWORKAUTH)
 
@@ -3685,28 +3745,21 @@ if(NETWORKAUTH)
     spdlog
     URL https://github.com/gabime/spdlog/archive/refs/tags/v1.12.0.zip
   )
-  FetchContent_MakeAvailable(spdlog)
-
   FetchContent_Declare(
     librespot-cpp
     URL https://github.com/iscle/librespot-cpp/archive/refs/heads/master.zip
   )
+  FetchContent_MakeAvailable(spdlog)
   FetchContent_Populate(librespot-cpp)
-
-  # Patch librespot-cpp to avoid target name conflict and use PRIVATE linking
-  file(READ "${librespot-cpp_SOURCE_DIR}/CMakeLists.txt" LIBRESPOT_CMAKE)
-  string(REPLACE "project(\${CMAKE_PROJECT_NAME}" "project(librespot-cpp" LIBRESPOT_CMAKE "${LIBRESPOT_CMAKE}")
-  string(REPLACE "add_library(\${CMAKE_PROJECT_NAME}" "add_library(librespot-cpp-lib STATIC" LIBRESPOT_CMAKE "${LIBRESPOT_CMAKE}")
-  string(REPLACE "target_link_libraries(\${CMAKE_PROJECT_NAME}" "target_link_libraries(librespot-cpp-lib PRIVATE" LIBRESPOT_CMAKE "${LIBRESPOT_CMAKE}")
-
-  if(TARGET spdlog)
-    string(REPLACE "add_subdirectory(lib/spdlog)" "# add_subdirectory(lib/spdlog)" LIBRESPOT_CMAKE "${LIBRESPOT_CMAKE}")
+  if(NOT EXISTS "${librespot-cpp_SOURCE_DIR}/lib/spdlog/CMakeLists.txt")
+    file(MAKE_DIRECTORY "${librespot-cpp_SOURCE_DIR}/lib/spdlog")
+    file(
+      WRITE "${librespot-cpp_SOURCE_DIR}/lib/spdlog/CMakeLists.txt"
+      "add_library(spdlog INTERFACE)"
+    )
   endif()
-
-  file(WRITE "${librespot-cpp_SOURCE_DIR}/CMakeLists.txt" "${LIBRESPOT_CMAKE}")
-
   add_subdirectory(${librespot-cpp_SOURCE_DIR} ${librespot-cpp_BINARY_DIR})
-  target_link_libraries(mixxx-lib PRIVATE librespot-cpp-lib)
+  target_link_libraries(mixxx-lib PRIVATE librespot-cpp)
   target_link_libraries(mixxx-lib PRIVATE Qt${QT_VERSION_MAJOR}::NetworkAuth)
 
   find_program(YTDLP_EXECUTABLE NAMES yt-dlp)
@@ -3727,6 +3780,7 @@ if(NETWORKAUTH)
   endif()
   target_compile_definitions(mixxx-lib PRIVATE YTDLP_PATH="${YTDLP_EXECUTABLE}")
 endif()
+
 # WavPack audio file support
 find_package(wavpack)
 default_option(WAVPACK "WavPack audio file support" "wavpack_FOUND")
@@ -3773,7 +3827,7 @@ set(
 )
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "Mixxx")
 set(CPACK_PACKAGE_EXECUTABLES "mixxx;Mixxx")
-set(CPACK_PACKAGE_ICON "${CMAKE_SOURCE_DIR}/res/images/mixxx_install_logo.bmp")
+set(CPACK_PACKAGE_ICON "${CMAKE_CURRENT_SOURCE_DIR}/res/images/mixxx_install_logo.bmp")
 set(CPACK_PACKAGE_HOMEPAGE_URL "https://www.mixxx.org/")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
@@ -3876,7 +3930,7 @@ if(NOT CPACK_DEBIAN_PACKAGE_RELEASE)
 endif()
 
 set(CPACK_DEBIAN_DISTRIBUTION_RELEASES noble questing resolute)
-set(CPACK_DEBIAN_SOURCE_DIR ${CMAKE_SOURCE_DIR})
+set(CPACK_DEBIAN_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(
   CPACK_DEBIAN_UPLOAD_PPA_SCRIPT
   "${CMAKE_CURRENT_SOURCE_DIR}/packaging/CPackDebUploadPPA.cmake"
@@ -3891,7 +3945,7 @@ set(
   CPACK_WIX_LICENSE_RTF
   "${CMAKE_CURRENT_BINARY_DIR}/packaging/wix/LICENSE.rtf"
 )
-set(CPACK_WIX_PRODUCT_ICON "${CMAKE_SOURCE_DIR}/res/images/icons/ic_mixxx.ico")
+set(CPACK_WIX_PRODUCT_ICON "${CMAKE_CURRENT_SOURCE_DIR}/res/images/icons/ic_mixxx.ico")
 set(CPACK_WIX_PROPERTY_ARPHELPLINK "${CPACK_PACKAGE_HOMEPAGE_URL}")
 set(
   CPACK_WIX_UI_BANNER
@@ -3902,7 +3956,7 @@ set(
   "${CMAKE_CURRENT_SOURCE_DIR}/packaging/wix/images/dialog.bmp"
 )
 
-set(CPACK_PROJECT_CONFIG_FILE "${CMAKE_SOURCE_DIR}/packaging/CPackConfig.cmake")
+set(CPACK_PROJECT_CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/packaging/CPackConfig.cmake")
 
 if(WIN32)
   # override not working default NSIS
