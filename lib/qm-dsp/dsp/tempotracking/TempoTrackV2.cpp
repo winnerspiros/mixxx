@@ -256,7 +256,7 @@ TempoTrackV2::viterbi_decode(const d_mat_t &rcfmat, const d_vec_t &wv, i_vec_t &
     double sigma = 8.;
     // don't want really short beat periods, or really long ones
     for (std::size_t i = 20; i  < Q - 20; i++) {
-        for (int j = 20; j < Q - 20; j++) {
+        for (std::size_t j = 20; j < Q - 20; j++) {
             double mu = double(i);
             tmat[i][j] = exp( (-1.*pow((j-mu),2.)) / (2.*pow(sigma,2.)) );
         }

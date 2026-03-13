@@ -2,7 +2,6 @@ include(FetchContent)
 cmake_minimum_required(VERSION 3.21)
 include(CMakeDependentOption)
 
-
 message(STATUS "Early CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 function(fatal_error_missing_env)
   if(WIN32)
@@ -86,7 +85,12 @@ if(NOT DEFINED MIXXX_VCPKG_ROOT AND NOT DEFINED ENV{MIXXX_VCPKG_ROOT})
 endif()
 
 if(
-  ((APPLE AND NOT IOS) OR WIN32 OR ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
+  (
+    (APPLE AND NOT IOS)
+    OR WIN32
+    OR ANDROID
+    OR (CMAKE_SYSTEM_NAME STREQUAL "Android")
+  )
   AND NOT IS_DIRECTORY "${MIXXX_VCPKG_ROOT}"
 )
   if(NOT DEFINED BUILDENV_BASEPATH)
@@ -262,7 +266,6 @@ cmake_dependent_option(
   OFF
 )
 
-
 message(STATUS "MIXXX_VCPKG_ROOT: ${MIXXX_VCPKG_ROOT}")
 message(STATUS "VCPKG_TARGET_TRIPLET: ${VCPKG_TARGET_TRIPLET}")
 message(STATUS "CMAKE_TOOLCHAIN_FILE: ${CMAKE_TOOLCHAIN_FILE}")
@@ -294,7 +297,11 @@ if(DEFINED MIXXX_VCPKG_ROOT AND DEFINED VCPKG_TARGET_TRIPLET)
       ${CMAKE_PREFIX_PATH}
     )
     if(ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
-      list(APPEND CMAKE_FIND_ROOT_PATH "${VCPKG_INSTALLED_PATH}" "${VCPKG_INSTALLED_PATH}/share")
+      list(
+        APPEND CMAKE_FIND_ROOT_PATH
+        "${VCPKG_INSTALLED_PATH}"
+        "${VCPKG_INSTALLED_PATH}/share"
+      )
       list(REMOVE_DUPLICATES CMAKE_FIND_ROOT_PATH)
     endif()
     set(
@@ -1634,7 +1641,7 @@ add_library(
   src/util/versionstore.cpp
   src/waveform/widgets/allshader/waveformwidget.cpp
   src/widget/tooltipqopengl.cpp
-  src/widget/wglwidgetqglwidget.cpp
+  $<$<NOT:$<BOOL:${QT6}>>:src/widget/wglwidgetqglwidget.cpp>
   src/widget/wglwidgetqopengl.cpp
   src/widget/wspinnyglsl.cpp
   src/widget/wstemlabel.cpp
@@ -2140,6 +2147,7 @@ if(QT6)
   # According to https://doc.qt.io/qt-6/qt-finalize-target.html it is importand for
   # builds with Qt < 3.21
   if(ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
+    find_package(Qt6 COMPONENTS Core REQUIRED)
     target_compile_definitions(
       mixxx-lib
       PUBLIC __STDC_CONSTANT_MACROS __STDC_LIMIT_MACROS __STDC_FORMAT_MACROS
@@ -2153,7 +2161,8 @@ if(QT6)
     set_property(
       TARGET mixxx
       PROPERTY
-        QT_ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/packaging/android"
+        QT_ANDROID_PACKAGE_SOURCE_DIR
+          "${CMAKE_CURRENT_SOURCE_DIR}/packaging/android"
     )
     set_target_properties(mixxx PROPERTIES QT_ANDROID_ABIS "${ANDROID_ABI}")
     set_target_properties(mixxx PROPERTIES QT_ANDROID_PACKAGE_NAME "org.mixxx")
@@ -2205,7 +2214,8 @@ if(QT6)
       copy-resource-android
       COMMENT "Copy resources folder to Android build asset directory"
       COMMAND
-        ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/packaging/android
+        ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_CURRENT_SOURCE_DIR}/packaging/android
         ${CMAKE_CURRENT_BINARY_DIR}/android
       COMMAND
         ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/res
@@ -2849,7 +2859,10 @@ if(BUILD_TESTING)
   endif()
 
   add_executable(mixxx-test ${src-mixxx-test})
-  target_include_directories(mixxx-test PRIVATE src "${CMAKE_CURRENT_BINARY_DIR}/src")
+  target_include_directories(
+    mixxx-test
+    PRIVATE src "${CMAKE_CURRENT_BINARY_DIR}/src"
+  )
   target_link_libraries(mixxx-test PRIVATE mixxx-lib)
   file(
     GLOB_RECURSE CONTROLLER_BULK_MAPPING_LIST
@@ -2944,7 +2957,6 @@ if(BUILD_TESTING)
   set_target_properties(mixxx-test PROPERTIES AUTORCC ON)
 endif()
 
-
 set(SOURCE_TARGET "mixxx")
 if(QT6)
   set(QT_VERSION_MAJOR 6)
@@ -3005,7 +3017,6 @@ endif()
 if(POLICY CMP0135)
   cmake_policy(SET CMP0135 NEW)
 endif()
-
 
 # Use this function to throw an error because the build environment is not set
 # up correctly.
@@ -3755,11 +3766,36 @@ if(NETWORKAUTH)
     file(MAKE_DIRECTORY "${librespot-cpp_SOURCE_DIR}/lib/spdlog")
     file(
       WRITE "${librespot-cpp_SOURCE_DIR}/lib/spdlog/CMakeLists.txt"
-      "add_library(spdlog INTERFACE)"
+      "if(NOT TARGET spdlog)\n  add_library(spdlog INTERFACE)\nendif()"
     )
   endif()
+  # Patch librespot-cpp to avoid target name collision and link signature mismatch
+  file(READ "${librespot-cpp_SOURCE_DIR}/CMakeLists.txt" LIBRESPOT_CMAKELISTS)
+  string(
+    REPLACE "project(mixxx)"
+    "project(librespot-cpp)"
+    LIBRESPOT_CMAKELISTS
+    "${LIBRESPOT_CMAKELISTS}"
+  )
+  string(
+    REPLACE "add_executable(mixxx"
+    "add_library(librespot-cpp-lib STATIC"
+    LIBRESPOT_CMAKELISTS
+    "${LIBRESPOT_CMAKELISTS}"
+  )
+  string(
+    REPLACE "target_link_libraries(mixxx"
+    "target_link_libraries(librespot-cpp-lib PRIVATE"
+    LIBRESPOT_CMAKELISTS
+    "${LIBRESPOT_CMAKELISTS}"
+  )
+  file(
+    WRITE "${librespot-cpp_SOURCE_DIR}/CMakeLists.txt"
+    "${LIBRESPOT_CMAKELISTS}"
+  )
+
   add_subdirectory(${librespot-cpp_SOURCE_DIR} ${librespot-cpp_BINARY_DIR})
-  target_link_libraries(mixxx-lib PRIVATE librespot-cpp)
+  target_link_libraries(mixxx-lib PRIVATE librespot-cpp-lib)
   target_link_libraries(mixxx-lib PRIVATE Qt${QT_VERSION_MAJOR}::NetworkAuth)
 
   find_program(YTDLP_EXECUTABLE NAMES yt-dlp)
@@ -3827,7 +3863,10 @@ set(
 )
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "Mixxx")
 set(CPACK_PACKAGE_EXECUTABLES "mixxx;Mixxx")
-set(CPACK_PACKAGE_ICON "${CMAKE_CURRENT_SOURCE_DIR}/res/images/mixxx_install_logo.bmp")
+set(
+  CPACK_PACKAGE_ICON
+  "${CMAKE_CURRENT_SOURCE_DIR}/res/images/mixxx_install_logo.bmp"
+)
 set(CPACK_PACKAGE_HOMEPAGE_URL "https://www.mixxx.org/")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
@@ -3859,40 +3898,118 @@ set(CPACK_DEBIAN_PACKAGE_SUGGESTS "pdf-viewer, pulseaudio-utils")
 set(CPACK_DEBIAN_PACKAGE_REPLACES "mixxx-data")
 
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "")
-list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "fonts-open-sans")
-list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "fonts-ubuntu")
+list(
+      APPEND
+      CPACK_DEBIAN_PACKAGE_DEPENDS
+      "fonts-open-sans"
+    )
+list(
+      APPEND
+      CPACK_DEBIAN_PACKAGE_DEPENDS
+      "fonts-ubuntu"
+    )
 if(QT6)
-  list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "libqt6sql6-sqlite")
-  list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qt6-qpa-plugins")
+  list(
+      APPEND
+      CPACK_DEBIAN_PACKAGE_DEPENDS
+      "libqt6sql6-sqlite"
+    )
+  list(
+      APPEND
+      CPACK_DEBIAN_PACKAGE_DEPENDS
+      "qt6-qpa-plugins"
+    )
   if(QT_VERSION VERSION_GREATER_EQUAL 6.8)
-    list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qt6-svg-plugins")
+    list(
+      APPEND
+      CPACK_DEBIAN_PACKAGE_DEPENDS
+      "qt6-svg-plugins"
+    )
   endif()
   if(QML)
     list(
-      APPEND CPACK_DEBIAN_PACKAGE_DEPENDS
+      APPEND
+      CPACK_DEBIAN_PACKAGE_DEPENDS
       "qml6-module-qt-labs-folderlistmodel"
     )
-    list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml6-module-qt-labs-qmlmodels")
     list(
-      APPEND CPACK_DEBIAN_PACKAGE_DEPENDS
+      APPEND
+      CPACK_DEBIAN_PACKAGE_DEPENDS
+      "qml6-module-qt-labs-qmlmodels"
+    )
+    list(
+      APPEND
+      CPACK_DEBIAN_PACKAGE_DEPENDS
       "qml6-module-qt5compat-graphicaleffects"
     )
-    list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml6-module-qtmultimedia")
-    list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml6-module-qtqml-workerscript")
-    list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml6-module-qtquick-controls")
-    list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml6-module-qtquick-dialogs")
-    list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml6-module-qtquick-layouts")
-    list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml6-module-qtquick-shapes")
-    list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml6-module-qtquick-templates")
-    list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml6-module-qtquick-window")
+    list(
+      APPEND
+      CPACK_DEBIAN_PACKAGE_DEPENDS
+      "qml6-module-qtmultimedia"
+    )
+    list(
+      APPEND
+      CPACK_DEBIAN_PACKAGE_DEPENDS
+      "qml6-module-qtqml-workerscript"
+    )
+    list(
+      APPEND
+      CPACK_DEBIAN_PACKAGE_DEPENDS
+      "qml6-module-qtquick-controls"
+    )
+    list(
+      APPEND
+      CPACK_DEBIAN_PACKAGE_DEPENDS
+      "qml6-module-qtquick-dialogs"
+    )
+    list(
+      APPEND
+      CPACK_DEBIAN_PACKAGE_DEPENDS
+      "qml6-module-qtquick-layouts"
+    )
+    list(
+      APPEND
+      CPACK_DEBIAN_PACKAGE_DEPENDS
+      "qml6-module-qtquick-shapes"
+    )
+    list(
+      APPEND
+      CPACK_DEBIAN_PACKAGE_DEPENDS
+      "qml6-module-qtquick-templates"
+    )
+    list(
+      APPEND
+      CPACK_DEBIAN_PACKAGE_DEPENDS
+      "qml6-module-qtquick-window"
+    )
   endif()
 else()
-  list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "libqt5sql5-sqlite")
+  list(
+      APPEND
+      CPACK_DEBIAN_PACKAGE_DEPENDS
+      "libqt5sql5-sqlite"
+    )
   if(QML)
-    list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml-module-qtquick-controls")
-    list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml-module-qtquick-controls2")
-    list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml-module-qt-labs-qmlmodels")
-    list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml-module-qtquick-shapes")
+    list(
+      APPEND
+      CPACK_DEBIAN_PACKAGE_DEPENDS
+      "qml-module-qtquick-controls"
+    )
+    list(
+      APPEND
+      CPACK_DEBIAN_PACKAGE_DEPENDS
+      "qml-module-qtquick-controls2"
+    )
+    list(
+      APPEND
+      CPACK_DEBIAN_PACKAGE_DEPENDS
+      "qml-module-qt-labs-qmlmodels"
+    )
+    list(
+      APPEND
+      CPACK_DEBIAN_PACKAGE_DEPENDS
+      "qml-module-qtquick-shapes"
+    )
   endif()
 endif()
 list(JOIN CPACK_DEBIAN_PACKAGE_DEPENDS ", " CPACK_DEBIAN_PACKAGE_DEPENDS)
@@ -3906,18 +4023,21 @@ set(
   "${CPACK_DEBIAN_PACKAGE_DESCRIPTION}"
 )
 string(
-  PREPEND CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED
+  PREPEND
+  CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED
   "${CPACK_PACKAGE_DESCRIPTION_SUMMARY}"
   "\n"
 )
 string(
-  REPLACE "\n\n"
+  REPLACE
+  "\n\n"
   "\n.\n"
   CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED
   "${CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED}"
 )
 string(
-  REPLACE "\n"
+  REPLACE
+  "\n"
   "\n "
   CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED
   "${CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED}"
@@ -3945,7 +4065,10 @@ set(
   CPACK_WIX_LICENSE_RTF
   "${CMAKE_CURRENT_BINARY_DIR}/packaging/wix/LICENSE.rtf"
 )
-set(CPACK_WIX_PRODUCT_ICON "${CMAKE_CURRENT_SOURCE_DIR}/res/images/icons/ic_mixxx.ico")
+set(
+  CPACK_WIX_PRODUCT_ICON
+  "${CMAKE_CURRENT_SOURCE_DIR}/res/images/icons/ic_mixxx.ico"
+)
 set(CPACK_WIX_PROPERTY_ARPHELPLINK "${CPACK_PACKAGE_HOMEPAGE_URL}")
 set(
   CPACK_WIX_UI_BANNER
@@ -3956,7 +4079,10 @@ set(
   "${CMAKE_CURRENT_SOURCE_DIR}/packaging/wix/images/dialog.bmp"
 )
 
-set(CPACK_PROJECT_CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/packaging/CPackConfig.cmake")
+set(
+  CPACK_PROJECT_CONFIG_FILE
+  "${CMAKE_CURRENT_SOURCE_DIR}/packaging/CPackConfig.cmake"
+)
 
 if(WIN32)
   # override not working default NSIS
