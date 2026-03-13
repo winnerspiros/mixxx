@@ -253,8 +253,6 @@ message(STATUS "Early CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
 
 project(mixxx VERSION 2.7.0 LANGUAGES C CXX)
 add_compile_definitions(kiss_fft_scalar=double)
-add_compile_definitions(kiss_fft_scalar=double)
-add_compile_definitions(kiss_fft_scalar=double)
 
 option(QT6 "Build with Qt6" ON)
 option(NETWORKAUTH "Enable Spotify AND YouTube features" OFF)
