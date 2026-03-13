@@ -1,4 +1,4 @@
-find_package(QT NAMES Qt6 REQUIRED COMPONENTS Core Gui OpenGL ShaderTools)
+find_package(QT NAMES Qt6 REQUIRED COMPONENTS Core Gui OpenGL ShaderTools QmlIntegration)
 message(STATUS "Qt version ${QT_VERSION_MAJOR}.${QT_VERSION_MINOR}")
 
 if(QT_VERSION_MINOR GREATER_EQUAL 6)
