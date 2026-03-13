@@ -1700,6 +1700,11 @@ add_library(
   src/widget/wstemlabel.cpp
   src/widget/wtrackstemmenu.cpp
   src/widget/wvumeterglsl.cpp
+  src/control/controlmodel.cpp
+  src/controllers/midi/portmidicontroller.cpp
+  src/library/export/dlglibraryexport.cpp
+  src/qml/qmlautoreload.cpp
+  src/qml/qmldlgpreferencesproxy.cpp
 )
 set(MIXXX_COMMON_PRECOMPILED_HEADER src/util/assert.h)
 set(
@@ -2166,6 +2171,8 @@ if(QT6)
     ANDROID
   )
     list(APPEND QT_COMPONENTS DBus)
+  else()
+    list(REMOVE_ITEM QT_COMPONENTS PrintSupport MultimediaWidgets)
   endif()
   find_package(Qt6 COMPONENTS ${QT_COMPONENTS})
   if(NOT Qt6_FOUND and MIXXX_VCPKG_ROOT)
@@ -2323,6 +2330,8 @@ else()
     ANDROID
   )
     list(APPEND QT_COMPONENTS DBus)
+  else()
+    list(REMOVE_ITEM QT_COMPONENTS PrintSupport MultimediaWidgets)
   endif()
   if(NETWORKAUTH)
     list(APPEND QT_COMPONENTS NetworkAuth)
@@ -3018,11 +3027,11 @@ if(
   )
   list(GET MANUAL_PDF_DOWNLOAD 0 MANUAL_PDF_DOWNLOAD_ERROR)
   if(NOT MANUAL_PDF_DOWNLOAD_ERROR EQUAL 0)
-    list(GET MANUAL_PDF_DOWNLOAD 1 MANUAL_PDF_DOWNLOAD_MESSGAE)
+    list(GET MANUAL_PDF_DOWNLOAD 1 MANUAL_PDF_DOWNLOAD_MESSAGE)
     message(
       FATAL_ERROR
       "Manual PDF download failed with: "
-      "${MANUAL_PDF_DOWNLOAD_MESSGAE} Code: ${MANUAL_PDF_DOWNLOAD_ERROR}. "
+      "${MANUAL_PDF_DOWNLOAD_MESSAGE} Code: ${MANUAL_PDF_DOWNLOAD_ERROR}. "
       "Either download it yourself and move it to "
       "'${CMAKE_CURRENT_SOURCE_DIR}/res/Mixxx-Manual.pdf' or "
       "reconfigure with -DDOWNLOAD_MANUAL=OFF to build without included "
@@ -3037,7 +3046,7 @@ endif()
 
 set_target_properties(mixxx PROPERTIES AUTORCC ON)
 if(BUILD_TESTING)
-  set_target_properties(mixxx-test PROPERTIES AUTORCC ON)
+  set_target_properties(mixxx-test PROPERTIES AUTOMOC ON AUTORCC ON)
 endif()
 
 set(SOURCE_TARGET "mixxx")
@@ -3700,6 +3709,8 @@ target_include_directories(
   PUBLIC lib/rekordbox-metadata
 )
 target_link_libraries(mixxx-lib PRIVATE rekordbox_metadata)
+find_package(SoundTouch REQUIRED)
+target_link_libraries(mixxx-lib PUBLIC SoundTouch::SoundTouch)
 
 #silence "enumeration values not handled in switch" in generated code
 if(CMAKE_CXX_COMPILER_ID matches "GNU|Clang")
@@ -3823,7 +3834,9 @@ endif()
 
 # Protobuf
 add_subdirectory(src/proto)
-target_link_libraries(mixxx-lib PUBLIC mixxx-proto)
+add_subdirectory(src/rendergraph)
+add_subdirectory(lib)
+target_link_libraries(mixxx-lib PUBLIC mixxx-proto rendergraph_gl qmdsp replaygain)
 
 # Rigtorp SPSC Queue
 # https://github.com/rigtorp/SPSCQueue
@@ -4322,6 +4335,8 @@ target_include_directories(mixxx-lib SYSTEM PUBLIC lib/replaygain)
 find_package(TagLib 1.11 REQUIRED)
 target_include_directories(mixxx-lib SYSTEM PUBLIC ${TagLib_INCLUDE_DIRS})
 target_link_libraries(mixxx-lib PUBLIC TagLib::TagLib)
+find_package(SndFile REQUIRED)
+target_link_libraries(mixxx-lib PUBLIC SndFile::SndFile)
 
 # QM-DSP
 target_include_directories(mixxx-lib SYSTEM PUBLIC lib/qm-dsp)

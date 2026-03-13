@@ -5,7 +5,6 @@
 #include <QNetworkAccessManager>
 #include <QTest>
 
-#include "moc_musicbrainzrecordingstasktest.cpp"
 #include "musicbrainz/web/musicbrainzrecordingstask.h"
 #include "test/mixxxtest.h"
 #include "test/mock_networkaccessmanager.h"
@@ -138,3 +137,4 @@ TEST_F(MusicBrainzRecordingsTaskTest, RespodsEmpty) {
         application()->processEvents();
     }
 }
+#include "moc_musicbrainzrecordingstasktest.cpp"

@@ -6,7 +6,6 @@
 #include <QDebug>
 #include <QScopedPointer>
 
-#include "moc_trackexport_test.cpp"
 #include "track/track.h"
 
 FakeOverwriteAnswerer::~FakeOverwriteAnswerer() { }
@@ -300,3 +299,4 @@ TEST_F(TrackExporterTest, MungeFilename) {
     // Remove the track we created.
     tempPath.remove("cover-test.ogg");
 }
+#include "moc_trackexport_test.cpp"

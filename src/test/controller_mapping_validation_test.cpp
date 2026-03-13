@@ -6,10 +6,10 @@
 
 #include "test/mixxxtest.h"
 
-
 #include <vector>
 #include <string>
 #include <sstream>
+#include <algorithm>
 
 static std::vector<std::string> SplitMappings(const std::string& s) {
     std::vector<std::string> res;
@@ -66,5 +66,4 @@ INSTANTIATE_TEST_SUITE_P(MidiMappings,
         PrintMappingName);
 #endif
 #endif
-
 #include "moc_controller_mapping_validation_test.cpp"
