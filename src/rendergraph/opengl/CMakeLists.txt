@@ -48,7 +48,9 @@ target_compile_definitions(rendergraph_gl PRIVATE rendergraph=rendergraph_gl)
 # USE_QSHADER_FOR_GL is set in rendergraph/CMakeLists.txt
 if(USE_QSHADER_FOR_GL)
   message(STATUS "Using QShader to load qsb shaders for opengl")
-  target_link_libraries(rendergraph_gl PUBLIC Qt6::GuiPrivate)
+  if(TARGET Qt6::GuiPrivate)
+    target_link_libraries(rendergraph_gl PUBLIC Qt6::GuiPrivate)
+  endif()
   target_compile_definitions(rendergraph_gl PRIVATE USE_QSHADER_FOR_GL)
 endif()
 
