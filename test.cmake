@@ -1,0 +1,10 @@
+if(
+  not
+  defined
+  VAR
+  and
+  exists
+  "file"
+)
+  message("yes")
+endif()
