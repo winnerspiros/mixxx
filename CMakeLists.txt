@@ -33,15 +33,7 @@ function(fatal_error_missing_env)
         "Did you download the Mixxx build environment using `source ${CMAKE_CURRENT_SOURCE_DIR}/tools/macos_release_buildenv.sh setup` OR `source ${CMAKE_CURRENT_SOURCE_DIR}/tools/macos_buildenv.sh setup` (includes Debug)?"
       )
     endif()
-  elseif(
-    UNIX
-    AND
-    NOT
-    APPLE
-    AND
-    NOT
-    ANDROID
-  )
+  elseif(UNIX AND NOT APPLE AND NOT ANDROID)
     # Linux, BSD, Solaris, Minix
     if(EXISTS "/etc/debian_version") # EXISTS also on Ubuntu AND Mint
       message(
@@ -80,26 +72,11 @@ if(NOT DEFINED VCPKG_TARGET_TRIPLET)
   endif()
 endif()
 
-if(
-  DEFINED
-  ENV{MIXXX_VCPKG_ROOT}
-  AND
-  NOT
-  DEFINED
-  MIXXX_VCPKG_ROOT
-)
+if(DEFINED ENV{MIXXX_VCPKG_ROOT} AND NOT DEFINED MIXXX_VCPKG_ROOT)
   set(MIXXX_VCPKG_ROOT "$ENV{MIXXX_VCPKG_ROOT}")
 endif()
 
-if(
-  NOT
-  DEFINED
-  MIXXX_VCPKG_ROOT
-  AND
-  NOT
-  DEFINED
-  ENV{MIXXX_VCPKG_ROOT}
-)
+if(NOT DEFINED MIXXX_VCPKG_ROOT AND NOT DEFINED ENV{MIXXX_VCPKG_ROOT})
   if(DEFINED ENV{BUILDENV_BASEPATH})
     set(BUILDENV_BASEPATH "$ENV{BUILDENV_BASEPATH}")
   else()
@@ -110,17 +87,11 @@ endif()
 if(
   (
     (APPLE AND NOT IOS)
-    OR
-    WIN32
-    OR
-    ANDROID
-    OR
-    (CMAKE_SYSTEM_NAME STREQUAL "Android")
+    OR WIN32
+    OR ANDROID
+    OR (CMAKE_SYSTEM_NAME STREQUAL "Android")
   )
-  AND
-  NOT
-  IS_DIRECTORY
-  "${MIXXX_VCPKG_ROOT}"
+  AND NOT IS_DIRECTORY "${MIXXX_VCPKG_ROOT}"
 )
   if(NOT DEFINED BUILDENV_BASEPATH)
     if(DEFINED ENV{BUILDENV_BASEPATH})
@@ -152,13 +123,8 @@ if(
   message(STATUS "BUILDENV_NAME is: ${BUILDENV_NAME}")
 
   if(
-    NOT
-    EXISTS
-    "${BUILDENV_BASEPATH}/${BUILDENV_NAME}"
-    OR
-    NOT
-    IS_DIRECTORY
-    "${BUILDENV_BASEPATH}/${BUILDENV_NAME}"
+    NOT EXISTS "${BUILDENV_BASEPATH}/${BUILDENV_NAME}"
+    OR NOT IS_DIRECTORY "${BUILDENV_BASEPATH}/${BUILDENV_NAME}"
   )
     if(NOT DEFINED BUILDENV_SHA256)
       if(DEFINED ENV{BUILDENV_SHA256})
@@ -226,15 +192,7 @@ else()
   set(_dummy "${BUILDENV_URL}" "${BUILDENV_BASEPATH}" "${BUILDENV_SHA256}")
 endif()
 
-if(
-  NOT
-  DEFINED
-  MIXXX_VCPKG_ROOT
-  AND
-  NOT
-  DEFINED
-  ENV{MIXXX_VCPKG_ROOT}
-)
+if(NOT DEFINED MIXXX_VCPKG_ROOT AND NOT DEFINED ENV{MIXXX_VCPKG_ROOT})
   if(DEFINED BUILDENV_BASEPATH AND DEFINED BUILDENV_NAME)
     if(IS_DIRECTORY "${BUILDENV_BASEPATH}/${BUILDENV_NAME}")
       set(MIXXX_VCPKG_ROOT "${BUILDENV_BASEPATH}/${BUILDENV_NAME}")
@@ -245,12 +203,8 @@ endif()
 if(DEFINED MIXXX_VCPKG_ROOT)
   file(TO_CMAKE_PATH "${MIXXX_VCPKG_ROOT}" MIXXX_VCPKG_ROOT)
   if(
-    EXISTS
-    "${MIXXX_VCPKG_ROOT}/overlay/ports"
-    OR
-    NOT
-    EXISTS
-    "${MIXXX_VCPKG_ROOT}/ports"
+    EXISTS "${MIXXX_VCPKG_ROOT}/overlay/ports"
+    OR NOT EXISTS "${MIXXX_VCPKG_ROOT}/ports"
   )
     message(STATUS "Using MIXXX_VCPKG_ROOT: ${MIXXX_VCPKG_ROOT}")
   else()
@@ -903,15 +857,8 @@ else()
         ERROR_QUIET
       )
       if(
-        NOT
-        CCACHE_CONFIGURED_SLOPPINESS
-        MATCHES
-        "pch_defines"
-        OR
-        NOT
-        CCACHE_CONFIGURED_SLOPPINESS
-        MATCHES
-        "time_macros"
+        NOT CCACHE_CONFIGURED_SLOPPINESS MATCHES "pch_defines"
+        OR NOT CCACHE_CONFIGURED_SLOPPINESS MATCHES "time_macros"
       )
         message(
           WARNING
@@ -2159,20 +2106,16 @@ if(QT6)
     Multimedia
     MultimediaWidgets
     Core5Compat
+    ShaderTools
+    QmlIntegration
   )
-  if(
-    NOT
-    APPLE
-    AND
-    NOT
-    WIN32
-    AND
-    NOT
-    ANDROID
-  )
+  if(NOT APPLE AND NOT WIN32 AND NOT ANDROID)
     list(APPEND QT_COMPONENTS DBus)
   else()
     list(REMOVE_ITEM QT_COMPONENTS PrintSupport MultimediaWidgets)
+  endif()
+  if(NETWORKAUTH)
+    list(APPEND QT_COMPONENTS NetworkAuth)
   endif()
   find_package(Qt6 COMPONENTS ${QT_COMPONENTS})
   if(NOT Qt6_FOUND AND MIXXX_VCPKG_ROOT)
@@ -2318,17 +2261,10 @@ else()
     Multimedia
     MultimediaWidgets
     Core5Compat
+    ShaderTools
+    QmlIntegration
   )
-  if(
-    NOT
-    APPLE
-    AND
-    NOT
-    WIN32
-    AND
-    NOT
-    ANDROID
-  )
+  if(NOT APPLE AND NOT WIN32 AND NOT ANDROID)
     list(APPEND QT_COMPONENTS DBus)
   else()
     list(REMOVE_ITEM QT_COMPONENTS PrintSupport MultimediaWidgets)
@@ -2534,13 +2470,8 @@ if(UNIX AND NOT APPLE)
   if(INSTALL_USER_UDEV_RULES)
     set(MIXXX_UDEVDIR "${MIXXX_INSTALL_DATADIR}/udev")
     if(
-      CMAKE_INSTALL_PREFIX
-      STREQUAL
-      "/usr"
-      OR
-      CMAKE_INSTALL_PREFIX
-      STREQUAL
-      "/"
+      CMAKE_INSTALL_PREFIX STREQUAL "/usr"
+      OR CMAKE_INSTALL_PREFIX STREQUAL "/"
     )
       # /usr AND / install prefixes at treated by cmake GNUInstallDirs as
       # synonym for "system location". In this case we can look up the correct udevdir
@@ -2745,8 +2676,7 @@ if(FFMPEG)
   # macOS: Untested
   if(
     FFMPEG_libavcodec_VERSION
-    AND
-    FFMPEG_libavcodec_VERSION VERSION_LESS 58.35.100
+    AND FFMPEG_libavcodec_VERSION VERSION_LESS 58.35.100
   )
     message(
       FATAL_ERROR
@@ -2755,8 +2685,7 @@ if(FFMPEG)
   endif()
   if(
     FFMPEG_libavformat_VERSION
-    AND
-    FFMPEG_libavformat_VERSION VERSION_LESS 58.20.100
+    AND FFMPEG_libavformat_VERSION VERSION_LESS 58.20.100
   )
     message(
       FATAL_ERROR
@@ -2765,8 +2694,7 @@ if(FFMPEG)
   endif()
   if(
     FFMPEG_libavutil_VERSION
-    AND
-    FFMPEG_libavutil_VERSION VERSION_LESS 56.22.100
+    AND FFMPEG_libavutil_VERSION VERSION_LESS 56.22.100
   )
     message(
       FATAL_ERROR
@@ -2775,8 +2703,7 @@ if(FFMPEG)
   endif()
   if(
     FFMPEG_libswresample_VERSION
-    AND
-    FFMPEG_libswresample_VERSION VERSION_LESS 3.3.100
+    AND FFMPEG_libswresample_VERSION VERSION_LESS 3.3.100
   )
     message(
       FATAL_ERROR
@@ -3008,10 +2935,7 @@ endif() # BUILD_TESTING
 option(DOWNLOAD_MANUAL "Download Manual PDF from Mixxx website" OFF)
 if(
   DOWNLOAD_MANUAL
-  AND
-  NOT
-  EXISTS
-  "${CMAKE_CURRENT_SOURCE_DIR}/res/Mixxx-Manual.pdf"
+  AND NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/res/Mixxx-Manual.pdf"
 )
   set(
     MANUAL_URL
@@ -3119,15 +3043,7 @@ if(UNIX AND NOT APPLE)
     OUTPUT_VARIABLE UNAME_R
     OUTPUT_STRIP_TRAILING_WHITESPACE
   )
-  if(
-    UNAME_R
-    MATCHES
-    ".*[Mm]icrosoft.*"
-    OR
-    UNAME_R
-    MATCHES
-    ".*WSL.*"
-  )
+  if(UNAME_R MATCHES ".*[Mm]icrosoft.*" OR UNAME_R MATCHES ".*WSL.*")
     message(
       FATAL_ERROR
       "Building on Windows Subsystem for Linux (WSL) is NOT supported. If you want to build Mixxx from command line on Windows, you need to use the \"x64 Native Tools Command Prompt for VS 2022\"!"
@@ -3155,16 +3071,7 @@ set(
 # Set a default build type if none was specified
 # See https://blog.kitware.com/cmake-AND-the-default-build-type/ for details.
 set(default_build_type "RelWithDebInfo")
-if(
-  EXISTS
-  "${CMAKE_CURRENT_SOURCE_DIR}/.git"
-  AND
-  NOT
-  WIN32
-  AND
-  NOT
-  ANDROID
-)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git" AND NOT WIN32 AND NOT ANDROID)
   # On Windows AND Android, Debug builds are linked to unoptimized libs
   # generating unusable slow Mixxx builds.
   set(default_build_type "Debug")
@@ -3314,10 +3221,10 @@ configure_file(src/version.h.in src/version.h @ONLY)
 if(
   GIT_COMMIT_DATE
   AND
-  NOT
-  GIT_COMMIT_DATE
-  MATCHES
-  "^[0-9]*-[0-9]*-[0-9]*T[0-9]*\\:[0-9]*\\:[0-9]*[+-][0-9]*\\:[0-9]*$"
+    NOT
+      GIT_COMMIT_DATE
+        MATCHES
+        "^[0-9]*-[0-9]*-[0-9]*T[0-9]*\\:[0-9]*\\:[0-9]*[+-][0-9]*\\:[0-9]*$"
 )
   message(
     FATAL_ERROR
@@ -3673,13 +3580,8 @@ add_library(FpClassify STATIC EXCLUDE_FROM_ALL src/util/fpclassify.cpp)
 set_target_properties(FpClassify PROPERTIES INTERPROCEDURAL_OPTIMIZATION OFF)
 
 if(
-  CMAKE_CXX_COMPILER_ID
-  MATCHES
-  "Clang"
-  AND
-  CMAKE_CXX_SIMULATE_ID
-  MATCHES
-  "MSVC"
+  CMAKE_CXX_COMPILER_ID MATCHES "Clang"
+  AND CMAKE_CXX_SIMULATE_ID MATCHES "MSVC"
 )
   target_compile_options(FpClassify PRIVATE /fp:precise)
 elseif(GNU_GCC OR LLVM_CLANG)
@@ -3836,7 +3738,10 @@ endif()
 add_subdirectory(src/proto)
 add_subdirectory(src/rendergraph)
 add_subdirectory(lib)
-target_link_libraries(mixxx-lib PUBLIC mixxx-proto rendergraph_gl qmdsp replaygain)
+target_link_libraries(
+  mixxx-lib
+  PUBLIC mixxx-proto rendergraph_gl qmdsp replaygain
+)
 
 # Rigtorp SPSC Queue
 # https://github.com/rigtorp/SPSCQueue
@@ -3862,10 +3767,7 @@ set(
   Widgets
   Xml
 )
-set(QT_EXTRA_COMPONENTS "")
-if(NETWORKAUTH)
-  list(APPEND QT_EXTRA_COMPONENTS "NetworkAuth")
-endif()
+
 if(NETWORKAUTH)
   target_compile_definitions(mixxx-lib PUBLIC NETWORKAUTH)
 
@@ -4016,118 +3918,40 @@ set(CPACK_DEBIAN_PACKAGE_SUGGESTS "pdf-viewer, pulseaudio-utils")
 set(CPACK_DEBIAN_PACKAGE_REPLACES "mixxx-data")
 
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "")
-list(
-      APPEND
-      CPACK_DEBIAN_PACKAGE_DEPENDS
-      "fonts-open-sans"
-    )
-list(
-      APPEND
-      CPACK_DEBIAN_PACKAGE_DEPENDS
-      "fonts-ubuntu"
-    )
+list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "fonts-open-sans")
+list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "fonts-ubuntu")
 if(QT6)
-  list(
-      APPEND
-      CPACK_DEBIAN_PACKAGE_DEPENDS
-      "libqt6sql6-sqlite"
-    )
-  list(
-      APPEND
-      CPACK_DEBIAN_PACKAGE_DEPENDS
-      "qt6-qpa-plugins"
-    )
+  list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "libqt6sql6-sqlite")
+  list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qt6-qpa-plugins")
   if(QT_VERSION VERSION_GREATER_EQUAL 6.8)
-    list(
-      APPEND
-      CPACK_DEBIAN_PACKAGE_DEPENDS
-      "qt6-svg-plugins"
-    )
+    list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qt6-svg-plugins")
   endif()
   if(QML)
     list(
-      APPEND
-      CPACK_DEBIAN_PACKAGE_DEPENDS
+      APPEND CPACK_DEBIAN_PACKAGE_DEPENDS
       "qml6-module-qt-labs-folderlistmodel"
     )
+    list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml6-module-qt-labs-qmlmodels")
     list(
-      APPEND
-      CPACK_DEBIAN_PACKAGE_DEPENDS
-      "qml6-module-qt-labs-qmlmodels"
-    )
-    list(
-      APPEND
-      CPACK_DEBIAN_PACKAGE_DEPENDS
+      APPEND CPACK_DEBIAN_PACKAGE_DEPENDS
       "qml6-module-qt5compat-graphicaleffects"
     )
-    list(
-      APPEND
-      CPACK_DEBIAN_PACKAGE_DEPENDS
-      "qml6-module-qtmultimedia"
-    )
-    list(
-      APPEND
-      CPACK_DEBIAN_PACKAGE_DEPENDS
-      "qml6-module-qtqml-workerscript"
-    )
-    list(
-      APPEND
-      CPACK_DEBIAN_PACKAGE_DEPENDS
-      "qml6-module-qtquick-controls"
-    )
-    list(
-      APPEND
-      CPACK_DEBIAN_PACKAGE_DEPENDS
-      "qml6-module-qtquick-dialogs"
-    )
-    list(
-      APPEND
-      CPACK_DEBIAN_PACKAGE_DEPENDS
-      "qml6-module-qtquick-layouts"
-    )
-    list(
-      APPEND
-      CPACK_DEBIAN_PACKAGE_DEPENDS
-      "qml6-module-qtquick-shapes"
-    )
-    list(
-      APPEND
-      CPACK_DEBIAN_PACKAGE_DEPENDS
-      "qml6-module-qtquick-templates"
-    )
-    list(
-      APPEND
-      CPACK_DEBIAN_PACKAGE_DEPENDS
-      "qml6-module-qtquick-window"
-    )
+    list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml6-module-qtmultimedia")
+    list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml6-module-qtqml-workerscript")
+    list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml6-module-qtquick-controls")
+    list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml6-module-qtquick-dialogs")
+    list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml6-module-qtquick-layouts")
+    list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml6-module-qtquick-shapes")
+    list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml6-module-qtquick-templates")
+    list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml6-module-qtquick-window")
   endif()
 else()
-  list(
-      APPEND
-      CPACK_DEBIAN_PACKAGE_DEPENDS
-      "libqt5sql5-sqlite"
-    )
+  list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "libqt5sql5-sqlite")
   if(QML)
-    list(
-      APPEND
-      CPACK_DEBIAN_PACKAGE_DEPENDS
-      "qml-module-qtquick-controls"
-    )
-    list(
-      APPEND
-      CPACK_DEBIAN_PACKAGE_DEPENDS
-      "qml-module-qtquick-controls2"
-    )
-    list(
-      APPEND
-      CPACK_DEBIAN_PACKAGE_DEPENDS
-      "qml-module-qt-labs-qmlmodels"
-    )
-    list(
-      APPEND
-      CPACK_DEBIAN_PACKAGE_DEPENDS
-      "qml-module-qtquick-shapes"
-    )
+    list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml-module-qtquick-controls")
+    list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml-module-qtquick-controls2")
+    list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml-module-qt-labs-qmlmodels")
+    list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml-module-qtquick-shapes")
   endif()
 endif()
 list(JOIN CPACK_DEBIAN_PACKAGE_DEPENDS ", " CPACK_DEBIAN_PACKAGE_DEPENDS)
@@ -4141,21 +3965,18 @@ set(
   "${CPACK_DEBIAN_PACKAGE_DESCRIPTION}"
 )
 string(
-  PREPEND
-  CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED
+  PREPEND CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED
   "${CPACK_PACKAGE_DESCRIPTION_SUMMARY}"
   "\n"
 )
 string(
-  REPLACE
-  "\n\n"
+  REPLACE "\n\n"
   "\n.\n"
   CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED
   "${CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED}"
 )
 string(
-  REPLACE
-  "\n"
+  REPLACE "\n"
   "\n "
   CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED
   "${CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED}"
