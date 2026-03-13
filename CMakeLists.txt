@@ -1,6 +1,47 @@
-include(FetchContent)
 cmake_minimum_required(VERSION 3.21)
+include(FetchContent)
+
 include(CMakeDependentOption)
+option(QT6 "Build with Qt6" ON)
+option(NETWORKAUTH "Enable Spotify and YouTube features" OFF)
+cmake_dependent_option(
+  QML
+  "Build with QML"
+  ON
+  "QT6"
+  OFF
+)
+
+if(QT6)
+  set(QOPENGL ON CACHE INTERNAL "Forced ON because QT6=ON")
+  set(QT_VERSION_MAJOR 6)
+
+else()
+  option(QOPENGL "Use QOpenGLWindow based widget instead of QGLWidget" ON)
+  set(QT_VERSION_MAJOR 5)
+
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Android")
+  if(VCPKG_TARGET_TRIPLET MATCHES "arm64")
+    set(ANDROID_ABI "arm64-v8a" CACHE STRING "" FORCE)
+    set(CMAKE_ANDROID_ARCH_ABI "arm64-v8a" CACHE STRING "" FORCE)
+    set(CMAKE_SYSTEM_PROCESSOR "aarch64" CACHE STRING "" FORCE)
+    set(QT_ANDROID_ABIS "arm64-v8a" CACHE STRING "" FORCE)
+  elseif(VCPKG_TARGET_TRIPLET MATCHES "x64")
+    set(ANDROID_ABI "x86_64" CACHE STRING "" FORCE)
+    set(CMAKE_ANDROID_ARCH_ABI "x86_64" CACHE STRING "" FORCE)
+  endif()
+endif()
+
+project(mixxx VERSION 2.7.0 LANGUAGES C CXX)
+
+set(MIXXX_VERSION_PRERELEASE "alpha")
+if(MIXXX_VERSION_PRERELEASE STREQUAL "")
+  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}")
+else()
+  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}-${MIXXX_VERSION_PRERELEASE}")
+endif()
 
 function(fatal_error_missing_env)
   if(WIN32)
@@ -140,9 +181,9 @@ if(
       message(
         STATUS
         "Downloading file "
-        ${BUILDENV_URL}
+        "${BUILDENV_URL}"
         " to "
-        ${BUILDENV_BASEPATH}
+        "${BUILDENV_BASEPATH}"
         " ..."
       )
       file(
@@ -160,8 +201,7 @@ if(
       message(
         STATUS
         "Verify SHA256 of downloaded file "
-        ${BUILDENV_BASEPATH}/${BUILDENV_NAME}
-        ".zip ..."
+        "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip ..."
       )
       file(SHA256 "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip" actual_sha256)
 
@@ -171,15 +211,14 @@ if(
           "SHA256 checksum mismatch:\nexpected: ${BUILDENV_SHA256}\n     got: ${actual_sha256}"
         )
       else()
-        message(STATUS "SHA256 " ${BUILDENV_SHA256} " is correct!")
+        message(STATUS "SHA256 ${BUILDENV_SHA256} is correct!")
       endif()
     endif()
 
     message(
       STATUS
       "Unpacking file "
-      ${BUILDENV_BASEPATH}/${BUILDENV_NAME}
-      ".zip ..."
+      "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip ..."
     )
     execute_process(
       COMMAND ${CMAKE_COMMAND} -E tar xzf "${BUILDENV_NAME}.zip"
@@ -245,28 +284,12 @@ endif()
 
 message(STATUS "Early CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
 message(STATUS "Early CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
-if(CMAKE_SYSTEM_NAME STREQUAL "Android")
-  if(VCPKG_TARGET_TRIPLET MATCHES "arm64")
-    set(ANDROID_ABI "arm64-v8a" CACHE STRING "" FORCE)
-    set(CMAKE_ANDROID_ARCH_ABI "arm64-v8a" CACHE STRING "" FORCE)
-    set(CMAKE_SYSTEM_PROCESSOR "aarch64" CACHE STRING "" FORCE)
-    set(QT_ANDROID_ABIS "arm64-v8a" CACHE STRING "" FORCE)
-  elseif(VCPKG_TARGET_TRIPLET MATCHES "x64")
-    set(ANDROID_ABI "x86_64" CACHE STRING "" FORCE)
-    set(CMAKE_ANDROID_ARCH_ABI "x86_64" CACHE STRING "" FORCE)
-  endif()
-endif()
 
-project(mixxx VERSION 2.7.0 LANGUAGES C CXX)
-option(QT6 "Build with Qt6" ON)
-option(NETWORKAUTH "Enable Spotify and YouTube features" OFF)
-cmake_dependent_option(
-  QML
-  "Build with QML"
-  ON
-  "QT6"
-  OFF
-)
+
+
+
+
+
 
 message(STATUS "MIXXX_VCPKG_ROOT: ${MIXXX_VCPKG_ROOT}")
 message(STATUS "VCPKG_TARGET_TRIPLET: ${VCPKG_TARGET_TRIPLET}")
@@ -315,12 +338,7 @@ endif()
 
 message(STATUS "Final CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")
 
-set(MIXXX_VERSION_PRERELEASE "alpha")
-if(MIXXX_VERSION_PRERELEASE STREQUAL "")
-  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}")
-else()
-  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}-${MIXXX_VERSION_PRERELEASE}")
-endif()
+
 
 # set to "alpha" "beta" or ""
 
@@ -1820,7 +1838,7 @@ target_include_directories(
   mixxx-lib
   PUBLIC src "${CMAKE_CURRENT_BINARY_DIR}/src"
 )
-if(UNIX AND NOT APPLE)
+if(UNIX AND NOT APPLE AND NOT ANDROID)
   set(MIXXX_SETTINGS_PATH ".mixxx/")
 endif()
 
@@ -2079,7 +2097,7 @@ endif()
 
 # The mixxx executable
 if(QT6)
-  set(QT_VERSION_MAJOR 6)
+
   set(
     QT_COMPONENTS
     Concurrent
@@ -2148,7 +2166,7 @@ if(QT6)
   endif()
   # qt_add_executable() is the recommended initial call for qt_finalize_target()
   # below that takes care of the correct object order in the resulting binary
-  # According to https://doc.qt.io/qt-6/qt-finalize-target.html it is importand for
+  # According to https://doc.qt.io/qt-6/qt-finalize-target.html it is important for
   # builds with Qt < 3.21
   if(ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
     target_compile_definitions(
@@ -2230,7 +2248,7 @@ if(QT6)
     qt_add_executable(mixxx WIN32 src/main.cpp MANUAL_FINALIZATION)
   endif()
 else()
-  set(QT_VERSION_MAJOR 5)
+
   set(
     QT_COMPONENTS
     Concurrent
@@ -2426,7 +2444,7 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/res/Mixxx-Manual.pdf")
 endif()
 
 # Additional Linux-only files
-if(UNIX AND NOT APPLE)
+if(UNIX AND NOT APPLE AND NOT ANDROID)
   # .desktop file for KDE/GNOME menu
   install(
     FILES "${CMAKE_CURRENT_SOURCE_DIR}/res/linux/org.mixxx.Mixxx.desktop"
@@ -2483,100 +2501,17 @@ if(UNIX AND NOT APPLE)
         DESTINATION "${MIXXX_UDEVDIR}/rules.d"
       )
       install(
-        CODE ""
-        message
-        (
-          STATUS
-          \"Important
-          Note:
-          Installation
-          of
-          udev
-          rules\n\"
-          \"The
-          udev
-          rule
-          file
-          for
-          USB
-          HID
-          and
-          Bulk
-          controller
-          permissions
-          have
-          been\n\"
-          \"installed
-          to:\n\"
-          \"
-          ${MIXXX_UDEVDIR}/rules.d.\n\"
-          \"If
-          you
-          are
-          installing
-          Mixxx
-          from
-          source
-          for
-          your
-          own
-          use,
-          copy\n\"
-          \"mixxx-usb-uaccess.rules
-          to
-          /etc/udev/rules.d/
-          and
-          run:\n\"
-          \"
-          udevadm
-          control
-          --reload-rules
-          &&
-          udevadm
-          trigger\n\"
-          \"as
-          root
-          to
-          load
-          the
-          rules.\n\"
-          \"If
-          you
-          are
-          building
-          a
-          package
-          for
-          a
-          distribution,
-          the
-          correct
-          directory
-          for\n\"
-          \"system
-          rules
-          is
-          either
-          /lib/udev/rules.d
-          (e.g. Debian, Fedora)
-          or\n\"
-          \"/usr/lib/udev/rules.d
-          (e.g. Arch Linux)
-          with
-          an
-          appropriate
-          priority
-          prefix.\n\"
-          \"Adjust
-          your
-          package
-          script
-          accordingly
-          and
-          set
-          -DINSTALL_USER_UDEV_RULES=OFF\"
-        )
-        ""
+        CODE "message(STATUS \"Important Note: Installation of udev rules\n\
+The udev rule file for USB HID and Bulk controller permissions have been\n\
+installed to: ${MIXXX_UDEVDIR}/rules.d.\n\n\
+If you are installing Mixxx from source for your own use, copy\n\
+mixxx-usb-uaccess.rules to /etc/udev/rules.d/ and run:\n\
+  udevadm control --reload-rules && udevadm trigger\n\
+as root to load the rules.\n\n\
+If you are building a package for a distribution, the correct directory for\n\
+system rules is either /lib/udev/rules.d (e.g. Debian, Fedora) or\n\
+/usr/lib/udev/rules.d (e.g. Arch Linux) with an appropriate priority prefix.\n\
+Adjust your package script accordingly and set -DINSTALL_USER_UDEV_RULES=OFF\")"
       )
     else()
       install(
@@ -2936,11 +2871,11 @@ if(
   )
   list(GET MANUAL_PDF_DOWNLOAD 0 MANUAL_PDF_DOWNLOAD_ERROR)
   if(NOT MANUAL_PDF_DOWNLOAD_ERROR EQUAL 0)
-    list(GET MANUAL_PDF_DOWNLOAD 1 MANUAL_PDF_DOWNLOAD_MESSGAE)
+    list(GET MANUAL_PDF_DOWNLOAD 1 MANUAL_PDF_DOWNLOAD_MESSAGE)
     message(
       FATAL_ERROR
       "Manual PDF download failed with: "
-      "${MANUAL_PDF_DOWNLOAD_MESSGAE} Code: ${MANUAL_PDF_DOWNLOAD_ERROR}. "
+      "${MANUAL_PDF_DOWNLOAD_MESSAGE} Code: ${MANUAL_PDF_DOWNLOAD_ERROR}. "
       "Either download it yourself and move it to "
       "'${CMAKE_CURRENT_SOURCE_DIR}/res/Mixxx-Manual.pdf' or "
       "reconfigure with -DDOWNLOAD_MANUAL=OFF to build without included "
@@ -2959,11 +2894,7 @@ if(BUILD_TESTING)
 endif()
 
 set(SOURCE_TARGET "mixxx")
-if(QT6)
-  set(QT_VERSION_MAJOR 6)
-else()
-  set(QT_VERSION_MAJOR 5)
-endif()
+
 
 # lint_cmake: -readability/wonkycase
 
@@ -3022,7 +2953,7 @@ endif()
 # Use this function to throw an error because the build environment is not set
 # up correctly.
 
-if(UNIX AND NOT APPLE)
+if(UNIX AND NOT APPLE AND NOT ANDROID)
   execute_process(
     COMMAND uname -r
     OUTPUT_VARIABLE UNAME_R
@@ -3088,11 +3019,7 @@ if(NOT CMAKE_CONFIGURATION_TYPES)
   endif()
 endif()
 
-if(QT6)
-  set(QOPENGL ON CACHE INTERNAL "Forced ON because QT6=ON")
-else()
-  option(QOPENGL "Use QOpenGLWindow based widget instead of QGLWidget" ON)
-endif()
+
 
 if(QOPENGL)
   add_compile_definitions(MIXXX_USE_QOPENGL)
