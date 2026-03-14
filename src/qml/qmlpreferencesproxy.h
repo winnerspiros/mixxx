@@ -46,7 +46,7 @@ class QmlControllerScreenElement : public QObject {
         return static_cast<int>(
                 1000000 / m_averageFrameDuration);
     }
-    #ifndef Q_OS_ANDROID
+#ifndef Q_OS_ANDROID
     Q_INVOKABLE void connectVideoSink(QVideoSink* videoSink) {
         connect(videoSink,
                 &QVideoSink::videoFrameChanged,

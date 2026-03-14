@@ -54,7 +54,7 @@ QmlApplication::QmlApplication(
           m_perfSession(nullptr),
 #endif
           m_autoReload() {
-    #ifdef MIXXX_USE_QML
+#ifdef MIXXX_USE_QML
     QQuickStyle::setStyle("Basic");
 #endif
 
