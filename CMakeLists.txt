@@ -74,6 +74,8 @@ endif()
 
 if(DEFINED ENV{MIXXX_VCPKG_ROOT} AND NOT DEFINED MIXXX_VCPKG_ROOT)
   set(MIXXX_VCPKG_ROOT "$ENV{MIXXX_VCPKG_ROOT}")
+  string(STRIP "${MIXXX_VCPKG_ROOT}" MIXXX_VCPKG_ROOT)
+  string(STRIP "${MIXXX_VCPKG_ROOT}" MIXXX_VCPKG_ROOT)
 endif()
 
 if(NOT DEFINED MIXXX_VCPKG_ROOT AND NOT DEFINED ENV{MIXXX_VCPKG_ROOT})
@@ -2087,8 +2089,8 @@ if(QT6)
   set(QT_VERSION_MAJOR 6)
   set(
     QT_COMPONENTS
-    Concurrent
     Core
+    Concurrent
     Gui
     Network
     OpenGL
@@ -2111,13 +2113,20 @@ if(QT6)
     list(APPEND QT_COMPONENTS PrintSupport Multimedia MultimediaWidgets)
   else()
     # Multimedia is missing from Android v2.7 bundle and unused
-    list(REMOVE_ITEM QT_COMPONENTS Multimedia MultimediaWidgets ShaderTools QmlIntegration SvgWidgets)
+    list(REMOVE_ITEM QT_COMPONENTS Multimedia MultimediaWidgets)
   endif()
 
   find_package(Qt6 COMPONENTS ${QT_COMPONENTS} QUIET)
   if(NOT Qt6_FOUND)
     # Try again without some potentially problematic or optional components
-    list(REMOVE_ITEM QT_COMPONENTS Multimedia MultimediaWidgets QmlIntegration ShaderTools SvgWidgets)
+    list(
+      REMOVE_ITEM QT_COMPONENTS
+      Multimedia
+      MultimediaWidgets
+      QmlIntegration
+      ShaderTools
+      SvgWidgets
+    )
     find_package(Qt6 COMPONENTS ${QT_COMPONENTS} QUIET)
   endif()
   if(NOT Qt6_FOUND AND MIXXX_VCPKG_ROOT)
@@ -2192,6 +2201,9 @@ if(QT6)
       mixxx-lib
       PUBLIC ANDROID_PACKAGE_NAME="org.mixxx"
     )
+    if(EXISTS "${Qt6Core_DIR}/Qt6AndroidMacros.cmake")
+      include("${Qt6Core_DIR}/Qt6AndroidMacros.cmake")
+    endif()
     qt_add_executable(mixxx src/main.cpp MANUAL_FINALIZATION)
     set_property(
       TARGET mixxx
@@ -3378,7 +3390,7 @@ if(ENGINEPRIME)
         -DCMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}
         -DCMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME}
         -DSYSTEM_SQLITE=${DJINTEROP_SYSTEM_SQLITE}
-      BUILD_COMMAND ${CMAKE_COMMAND} --build . --TARGET DjInterop
+      BUILD_COMMAND ${CMAKE_COMMAND} --build . --target DjInterop
       BUILD_BYPRODUCTS <INSTALL_DIR>/${DJINTEROP_LIBRARY}
       EXCLUDE_FROM_ALL TRUE
     )
