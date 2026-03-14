@@ -1393,6 +1393,7 @@ add_library(
   src/sources/soundsourceprovider.cpp
   src/sources/soundsourceproviderregistry.cpp
   src/sources/soundsourceproxy.cpp
+  src/sources/soundsourcestem.cpp
   src/sources/soundsourcesndfile.cpp
   src/track/albuminfo.cpp
   src/track/beatfactory.cpp
@@ -1513,6 +1514,23 @@ add_library(
   src/waveform/renderers/waveformrendermarkrange.cpp
   src/waveform/renderers/waveformsignalcolors.cpp
   src/waveform/renderers/waveformwidgetrenderer.cpp
+  src/waveform/renderers/allshader/digitsrenderer.cpp
+  src/waveform/renderers/allshader/matrixforwidgetgeometry.cpp
+  src/waveform/renderers/allshader/waveformrenderbackground.cpp
+  src/waveform/renderers/allshader/waveformrenderbeat.cpp
+  src/waveform/renderers/allshader/waveformrenderer.cpp
+  src/waveform/renderers/allshader/waveformrendererendoftrack.cpp
+  src/waveform/renderers/allshader/waveformrendererfiltered.cpp
+  src/waveform/renderers/allshader/waveformrendererhsv.cpp
+  src/waveform/renderers/allshader/waveformrendererpreroll.cpp
+  src/waveform/renderers/allshader/waveformrendererrgb.cpp
+  src/waveform/renderers/allshader/waveformrenderersignalbase.cpp
+  src/waveform/renderers/allshader/waveformrenderersimple.cpp
+  src/waveform/renderers/allshader/waveformrendererslipmode.cpp
+  src/waveform/renderers/allshader/waveformrendererstem.cpp
+  src/waveform/renderers/allshader/waveformrenderertextured.cpp
+  src/waveform/renderers/allshader/waveformrendermark.cpp
+  src/waveform/renderers/allshader/waveformrendermarkrange.cpp
   src/waveform/sharedglcontext.cpp
   src/waveform/visualplayposition.cpp
   src/waveform/visualsmanager.cpp
@@ -1629,6 +1647,7 @@ add_library(
   src/controllers/midi/portmidienumerator.cpp
   src/controllers/rendering/controllerrenderingengine.cpp
   src/library/export/libraryexporter.cpp
+  src/library/export/engineprimeexportjob.cpp
   src/qml/asyncimageprovider.cpp
   src/qml/qmlapplication.cpp
   src/qml/qmlmixxxcontrollerscreen.cpp
