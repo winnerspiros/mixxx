@@ -2178,6 +2178,73 @@ if(QT6)
   if(NOT Qt6_FOUND AND NOT ANDROID)
     fatal_error_missing_env()
   endif()
+  # qt_add_executable() is the recommended initial call for qt_finalize_target()
+  # below that takes care of the correct object order in the resulting binary
+  # According to https://doc.qt.io/qt-6/qt-finalize-target.html it is important for
+  # builds with Qt < 3.21
+  if(ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
+    target_compile_definitions(
+      mixxx-lib
+      PUBLIC __STDC_CONSTANT_MACROS __STDC_LIMIT_MACROS __STDC_FORMAT_MACROS
+    )
+    set_property(TARGET mixxx-lib PROPERTY ANDROID_ABIS "arm64-v8a")
+    target_compile_definitions(
+      mixxx-lib
+      PUBLIC ANDROID_PACKAGE_NAME="org.mixxx"
+    )
+    qt_add_executable(mixxx src/main.cpp MANUAL_FINALIZATION)
+    set_property(
+      TARGET mixxx
+      PROPERTY
+        QT_ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_SOURCE_DIR}/packaging/android"
+    )
+    set_target_properties(mixxx PROPERTIES QT_ANDROID_ABIS "${ANDROID_ABI}")
+    set_target_properties(mixxx PROPERTIES QT_ANDROID_PACKAGE_NAME "org.mixxx")
+    set_target_properties(
+      mixxx
+      PROPERTIES QT_ANDROID_VERSION_NAME "${MIXXX_VERSION}"
+    )
+    set_target_properties(
+      mixxx
+      PROPERTIES
+        QT_ANDROID_APPLICATION_ARGUMENTS "--log-level debug --developer"
+    )
+    qt_add_android_permission(mixxx NAME android.permission.ACCESS_NETWORK_STATE)
+    qt_add_android_permission(mixxx NAME android.permission.INTERNET)
+    qt_add_android_permission(mixxx NAME android.permission.MODIFY_AUDIO_SETTINGS)
+    qt_add_android_permission(mixxx NAME android.permission.RECORD_AUDIO)
+    qt_add_android_permission(mixxx NAME android.permission.WRITE_EXTERNAL_STORAGE)
+    qt_add_android_permission(mixxx NAME android.permission.MANAGE_EXTERNAL_STORAGE)
+    qt_add_android_permission(mixxx NAME android.permission.WAKE_LOCK)
+    qt_add_android_permission(mixxx NAME android.permission.USB_PERMISSION)
+    file(
+      GLOB OMP_LIB
+      "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/lib/clang/*/lib/linux/aarch64/libomp.so"
+    )
+    if(OMP_LIB)
+      list(GET OMP_LIB 0 OMP_LIB_PATH)
+      set_target_properties(
+        mixxx
+        PROPERTIES QT_ANDROID_EXTRA_LIBS "${OMP_LIB_PATH}"
+      )
+    endif()
+    add_custom_target(
+      copy-resource-android
+      COMMENT "Copy resources folder to Android build asset directory"
+      COMMAND
+        ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/packaging/android
+        ${CMAKE_CURRENT_BINARY_DIR}/android
+      COMMAND
+        ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/res
+        ${CMAKE_CURRENT_BINARY_DIR}/android-build/assets
+      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    )
+    add_dependencies(mixxx copy-resource-android)
+    find_package(OpenMP REQUIRED COMPONENTS CXX)
+    target_link_libraries(mixxx-lib PUBLIC OpenMP::OpenMP_CXX)
+  else()
+    qt_add_executable(mixxx WIN32 src/main.cpp MANUAL_FINALIZATION)
+  endif()
 else()
   set(QT_VERSION_MAJOR 5)
   set(
@@ -2218,6 +2285,7 @@ else()
   if(NOT Qt5_FOUND AND NOT ANDROID)
     fatal_error_missing_env()
   endif()
+  add_executable(mixxx WIN32 src/main.cpp)
 endif()
 
 set_target_properties(mixxx-lib PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY}")
@@ -3677,7 +3745,7 @@ add_subdirectory(src/rendergraph)
 add_subdirectory(lib)
 target_link_libraries(
   mixxx-lib
-  PUBLIC mixxx-proto rendergraph_gl qmdsp replaygain
+  PUBLIC mixxx-proto rendergraph_gl qmdsp replaygain reverb
 )
 
 # Rigtorp SPSC Queue

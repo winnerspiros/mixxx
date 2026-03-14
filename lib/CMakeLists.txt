@@ -11,3 +11,7 @@ target_compile_definitions(qmdsp PUBLIC kiss_fft_scalar=double)
 if(NOT MSVC)
     target_compile_options(qmdsp PRIVATE -Wno-float-conversion -Wno-sign-compare)
 endif()
+
+# Reverb
+add_library(reverb STATIC reverb/Reverb.cc)
+target_include_directories(reverb PUBLIC .)
