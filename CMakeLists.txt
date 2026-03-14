@@ -76,6 +76,7 @@ if(DEFINED ENV{MIXXX_VCPKG_ROOT} AND NOT DEFINED MIXXX_VCPKG_ROOT)
   set(MIXXX_VCPKG_ROOT "$ENV{MIXXX_VCPKG_ROOT}")
   string(STRIP "${MIXXX_VCPKG_ROOT}" MIXXX_VCPKG_ROOT)
   string(STRIP "${MIXXX_VCPKG_ROOT}" MIXXX_VCPKG_ROOT)
+  string(STRIP "${MIXXX_VCPKG_ROOT}" MIXXX_VCPKG_ROOT)
 endif()
 
 if(NOT DEFINED MIXXX_VCPKG_ROOT AND NOT DEFINED ENV{MIXXX_VCPKG_ROOT})
@@ -1026,7 +1027,6 @@ add_library(
   src/controllers/dlgprefcontrollersdlg.ui
   src/controllers/keyboard/keyboardeventfilter.cpp
   src/controllers/learningutils.cpp
-  src/controllers/legacycontrollermappingfilehandler.cpp
   src/controllers/midi/legacymidicontrollermapping.cpp
   src/controllers/midi/legacymidicontrollermappingfilehandler.cpp
   src/controllers/midi/midicontroller.cpp
@@ -1319,10 +1319,7 @@ add_library(
   src/network/networktask.cpp
   src/network/webtask.cpp
   src/preferences/colorpaletteeditor.cpp
-  src/preferences/colorpaletteeditor.cpp
   src/preferences/colorpaletteeditormodel.cpp
-  src/preferences/colorpaletteeditormodel.cpp
-  src/preferences/colorpalettesettings.cpp
   src/preferences/colorpalettesettings.cpp
   src/preferences/configobject.cpp
   src/preferences/constants.cpp
@@ -1458,7 +1455,6 @@ add_library(
   src/util/fileinfo.cpp
   src/util/filename.cpp
   src/util/font.cpp
-  src/util/imagefiledata.cpp
   src/util/imagefiledata.cpp
   src/util/imageutils.cpp
   src/util/indexrange.cpp
@@ -1659,9 +1655,20 @@ add_library(
   src/util/rlimit.cpp
   src/util/versionstore.cpp
   src/waveform/widgets/allshader/waveformwidget.cpp
+  src/shaders/endoftrackshader.cpp
+  src/shaders/patternshader.cpp
+  src/shaders/rgbashader.cpp
+  src/shaders/rgbshader.cpp
+  src/shaders/shader.cpp
+  src/shaders/slipmodeshader.cpp
+  src/shaders/textureshader.cpp
+  src/shaders/unicolorshader.cpp
+  src/shaders/vinylqualityshader.cpp
+  src/util/opengltexture2d.cpp
   src/widget/tooltipqopengl.cpp
   $<$<NOT:$<BOOL:${QT6}>>:src/widget/wglwidgetqglwidget.cpp>
   src/widget/wglwidgetqopengl.cpp
+  src/widget/openglwindow.cpp
   src/widget/wspinnyglsl.cpp
   src/widget/wstemlabel.cpp
   src/widget/wtrackstemmenu.cpp
@@ -2280,8 +2287,8 @@ else()
   set(QT_VERSION_MAJOR 5)
   set(
     QT_COMPONENTS
-    Concurrent
     Core
+    Concurrent
     Gui
     Network
     OpenGL

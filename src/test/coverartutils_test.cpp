@@ -90,7 +90,7 @@ TEST_F(CoverArtUtilTest, searchImage) {
             SoundSourceProxy(pTrack).updateTrackFromSource(
                     SoundSourceProxy::UpdateTrackFromSourceMode::Once,
                     SyncTrackMetadataParams{}));
-    CoverInfoRelative result = pTrack->getCoverInfoWithLocation();
+    CoverInfo result(pTrack->getCoverInfoWithLocation(), pTrack->getLocation());
     EXPECT_EQ(result.type, CoverInfo::METADATA);
     EXPECT_EQ(result.source, CoverInfo::GUESSED);
     EXPECT_EQ(result.coverLocation, QString());

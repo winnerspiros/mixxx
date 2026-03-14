@@ -22,7 +22,9 @@
 #endif
 
 Q_IMPORT_QML_PLUGIN(MixxxPlugin)
+#ifdef MIXXX_USE_QML
 Q_IMPORT_QML_PLUGIN(Mixxx_ControlsPlugin)
+#endif
 
 namespace {
 const QString kMainQmlFileName = QStringLiteral("qml/main.qml");
@@ -52,7 +54,9 @@ QmlApplication::QmlApplication(
           m_perfSession(nullptr),
 #endif
           m_autoReload() {
+    #ifdef MIXXX_USE_QML
     QQuickStyle::setStyle("Basic");
+#endif
 
     m_pCoreServices->initialize(app);
 

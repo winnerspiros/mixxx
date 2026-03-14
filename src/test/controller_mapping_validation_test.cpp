@@ -21,8 +21,6 @@ static std::vector<std::string> SplitMappings(const std::string& s) {
     return res;
 }
 
-
-TEST_P(MappingTestFixture, validateXml) {
     QString path = QString::fromStdString(GetParam());
     QFile file(path);
     ASSERT_TRUE(file.open(QIODevice::ReadOnly | QIODevice::Text));
