@@ -89,7 +89,7 @@ if(
     (APPLE AND NOT IOS)
     OR WIN32
     OR ANDROID
-    OR (CMAKE_SYSTEM_NAME STREQUAL "Android")
+    OR CMAKE_SYSTEM_NAME STREQUAL "Android"
   )
   AND NOT IS_DIRECTORY "${MIXXX_VCPKG_ROOT}"
 )
@@ -202,10 +202,7 @@ endif()
 
 if(DEFINED MIXXX_VCPKG_ROOT)
   file(TO_CMAKE_PATH "${MIXXX_VCPKG_ROOT}" MIXXX_VCPKG_ROOT)
-  if(
-    EXISTS "${MIXXX_VCPKG_ROOT}/overlay/ports"
-    OR NOT EXISTS "${MIXXX_VCPKG_ROOT}/ports"
-  )
+  if(IS_DIRECTORY "${MIXXX_VCPKG_ROOT}")
     message(STATUS "Using MIXXX_VCPKG_ROOT: ${MIXXX_VCPKG_ROOT}")
   else()
     message(
@@ -255,6 +252,7 @@ endif()
 message(STATUS "Early CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
 
 project(mixxx VERSION 2.7.0 LANGUAGES C CXX)
+add_compile_definitions(kiss_fft_scalar=double)
 
 option(QT6 "Build with Qt6" ON)
 option(NETWORKAUTH "Enable Spotify AND YouTube features" OFF)
@@ -296,7 +294,7 @@ if(DEFINED MIXXX_VCPKG_ROOT AND DEFINED VCPKG_TARGET_TRIPLET)
       "${VCPKG_INSTALLED_PATH}/share"
       ${CMAKE_PREFIX_PATH}
     )
-    if(ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
+    if(ANDROID OR CMAKE_SYSTEM_NAME STREQUAL "Android")
       list(
         APPEND CMAKE_FIND_ROOT_PATH
         "${VCPKG_INSTALLED_PATH}"
@@ -2072,7 +2070,7 @@ if(WIN32)
 elseif(UNIX)
   if(APPLE)
     target_compile_definitions(mixxx-lib PUBLIC __APPLE__)
-  elseif(ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
+  elseif(ANDROID OR CMAKE_SYSTEM_NAME STREQUAL "Android")
     target_compile_definitions(mixxx-lib PUBLIC __ANDROID__)
   else()
     target_compile_definitions(mixxx-lib PUBLIC __UNIX__)
@@ -2089,12 +2087,11 @@ if(QT6)
   set(QT_VERSION_MAJOR 6)
   set(
     QT_COMPONENTS
-    Core
     Concurrent
+    Core
     Gui
     Network
     OpenGL
-    PrintSupport
     Qml
     Quick
     Sql
@@ -2103,19 +2100,26 @@ if(QT6)
     Widgets
     Xml
     SvgWidgets
-    Multimedia
-    MultimediaWidgets
     Core5Compat
     ShaderTools
     QmlIntegration
   )
   if(NOT APPLE AND NOT WIN32 AND NOT ANDROID)
     list(APPEND QT_COMPONENTS DBus)
+  endif()
+  if(NOT ANDROID)
+    list(APPEND QT_COMPONENTS PrintSupport Multimedia MultimediaWidgets)
   else()
-    list(REMOVE_ITEM QT_COMPONENTS PrintSupport MultimediaWidgets)
+    # Multimedia is missing from Android v2.7 bundle and unused
+    list(REMOVE_ITEM QT_COMPONENTS Multimedia MultimediaWidgets ShaderTools QmlIntegration SvgWidgets)
   endif()
 
-  find_package(Qt6 COMPONENTS ${QT_COMPONENTS})
+  find_package(Qt6 COMPONENTS ${QT_COMPONENTS} QUIET)
+  if(NOT Qt6_FOUND)
+    # Try again without some potentially problematic or optional components
+    list(REMOVE_ITEM QT_COMPONENTS Multimedia MultimediaWidgets QmlIntegration ShaderTools SvgWidgets)
+    find_package(Qt6 COMPONENTS ${QT_COMPONENTS} QUIET)
+  endif()
   if(NOT Qt6_FOUND AND MIXXX_VCPKG_ROOT)
     message(
       STATUS
@@ -2146,7 +2150,9 @@ if(QT6)
     endif()
   endif()
   foreach(component ${QT_COMPONENTS})
-    target_link_libraries(mixxx-lib PUBLIC Qt6::${component})
+    if(TARGET Qt6::${component})
+      target_link_libraries(mixxx-lib PUBLIC Qt6::${component})
+    endif()
   endforeach()
   if(NETWORKAUTH)
     find_package(Qt${QT_VERSION_MAJOR} COMPONENTS NetworkAuth QUIET)
@@ -2169,105 +2175,18 @@ if(QT6)
   endif()
 
   # This is the first package form the environment, if this fails give hints how to install the environment
-  if(NOT Qt6_FOUND)
+  if(NOT Qt6_FOUND AND NOT ANDROID)
     fatal_error_missing_env()
-  endif()
-  # qt_add_executable() is the recommended initial call for qt_finalize_target()
-  # below that takes care of the correct object order in the resulting binary
-  # According to https://doc.qt.io/qt-6/qt-finalize-TARGET.html it is importand for
-  # builds with Qt < 3.21
-  if(ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
-    find_package(Qt6 COMPONENTS Core REQUIRED)
-    target_compile_definitions(
-      mixxx-lib
-      PUBLIC __STDC_CONSTANT_MACROS __STDC_LIMIT_MACROS __STDC_FORMAT_MACROS
-    )
-    set_property(TARGET mixxx-lib PROPERTY ANDROID_ABIS "arm64-v8a")
-    target_compile_definitions(
-      mixxx-lib
-      PUBLIC ANDROID_PACKAGE_NAME="org.mixxx"
-    )
-    qt_add_executable(mixxx src/main.cpp MANUAL_FINALIZATION)
-    set_property(
-      TARGET mixxx
-      PROPERTY
-        QT_ANDROID_PACKAGE_SOURCE_DIR
-          "${CMAKE_CURRENT_SOURCE_DIR}/packaging/android"
-    )
-    set_target_properties(mixxx PROPERTIES QT_ANDROID_ABIS "${ANDROID_ABI}")
-    set_target_properties(mixxx PROPERTIES QT_ANDROID_PACKAGE_NAME "org.mixxx")
-    set_target_properties(
-      mixxx
-      PROPERTIES QT_ANDROID_VERSION_NAME "${MIXXX_VERSION}"
-    )
-    set_target_properties(
-      mixxx
-      PROPERTIES
-        QT_ANDROID_APPLICATION_ARGUMENTS "--log-level debug --developer"
-    )
-    qt_add_android_permission(mixxx
-    NAME android.permission.ACCESS_NETWORK_STATE
-    )
-    qt_add_android_permission(mixxx
-    NAME android.permission.INTERNET
-    )
-    qt_add_android_permission(mixxx
-    NAME android.permission.MODIFY_AUDIO_SETTINGS
-    )
-    qt_add_android_permission(mixxx
-    NAME android.permission.RECORD_AUDIO
-    )
-    qt_add_android_permission(mixxx
-    NAME android.permission.WRITE_EXTERNAL_STORAGE
-    )
-    qt_add_android_permission(mixxx
-    NAME android.permission.MANAGE_EXTERNAL_STORAGE
-    )
-    qt_add_android_permission(mixxx
-    NAME android.permission.WAKE_LOCK
-    )
-    qt_add_android_permission(mixxx
-    NAME android.permission.USB_PERMISSION
-    )
-    file(
-      GLOB OMP_LIB
-      "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/lib/clang/*/lib/linux/aarch64/libomp.so"
-    )
-    if(OMP_LIB)
-      list(GET OMP_LIB 0 OMP_LIB_PATH)
-      set_target_properties(
-        mixxx
-        PROPERTIES QT_ANDROID_EXTRA_LIBS "${OMP_LIB_PATH}"
-      )
-    endif()
-    add_custom_target(
-      copy-resource-android
-      COMMENT "Copy resources folder to Android build asset directory"
-      COMMAND
-        ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_CURRENT_SOURCE_DIR}/packaging/android
-        ${CMAKE_CURRENT_BINARY_DIR}/android
-      COMMAND
-        ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/res
-        ${CMAKE_CURRENT_BINARY_DIR}/android-build/assets
-      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-    )
-    add_dependencies(mixxx copy-resource-android)
-    find_package(OpenMP REQUIRED COMPONENTS CXX)
-    target_link_libraries(mixxx-lib PUBLIC OpenMP::OpenMP_CXX)
-  else()
-    qt_add_executable(mixxx WIN32 src/main.cpp MANUAL_FINALIZATION)
   endif()
 else()
   set(QT_VERSION_MAJOR 5)
   set(
     QT_COMPONENTS
-    Core
     Concurrent
+    Core
     Gui
     Network
     OpenGL
-    PrintSupport
     Qml
     Quick
     Sql
@@ -2276,27 +2195,29 @@ else()
     Widgets
     Xml
     SvgWidgets
-    Multimedia
-    MultimediaWidgets
     Core5Compat
-    ShaderTools
-    QmlIntegration
   )
   if(NOT APPLE AND NOT WIN32 AND NOT ANDROID)
     list(APPEND QT_COMPONENTS DBus)
-  else()
-    list(REMOVE_ITEM QT_COMPONENTS PrintSupport MultimediaWidgets)
+  endif()
+  if(NOT ANDROID)
+    list(APPEND QT_COMPONENTS PrintSupport Multimedia MultimediaWidgets)
   endif()
 
-  find_package(Qt5 COMPONENTS ${QT_COMPONENTS} REQUIRED)
+  find_package(Qt5 COMPONENTS ${QT_COMPONENTS} QUIET)
+  if(NOT Qt5_FOUND)
+    list(REMOVE_ITEM QT_COMPONENTS Multimedia MultimediaWidgets SvgWidgets)
+    find_package(Qt5 COMPONENTS ${QT_COMPONENTS} QUIET)
+  endif()
   foreach(component ${QT_COMPONENTS})
-    target_link_libraries(mixxx-lib PUBLIC Qt5::${component})
+    if(TARGET Qt5::${component})
+      target_link_libraries(mixxx-lib PUBLIC Qt5::${component})
+    endif()
   endforeach()
   # This is the first package form the environment, if this fails give hints how to install the environment
-  if(NOT Qt5_FOUND)
+  if(NOT Qt5_FOUND AND NOT ANDROID)
     fatal_error_missing_env()
   endif()
-  add_executable(mixxx WIN32 src/main.cpp)
 endif()
 
 set_target_properties(mixxx-lib PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY}")
@@ -2753,140 +2674,140 @@ endif()
 if(BUILD_TESTING)
   set(
     src-mixxx-TEST
-    src/TEST/analyserwaveformtest.cpp
-    src/TEST/analyzersilence_test.cpp
-    src/TEST/audiotaperpot_test.cpp
-    src/TEST/autodjprocessor_test.cpp
-    src/TEST/beatgridtest.cpp
-    src/TEST/beatmaptest.cpp
-    src/TEST/beatstest.cpp
-    src/TEST/beatstranslatetest.cpp
-    src/TEST/borrowabletest.cpp
-    src/TEST/bpmtest.cpp
-    src/TEST/bpmcontrol_test.cpp
-    src/TEST/broadcastprofile_test.cpp
-    src/TEST/broadcastsettings_test.cpp
-    src/TEST/cache_test.cpp
-    src/TEST/channelhandle_test.cpp
-    src/TEST/chrono_clock_resolution_test.cpp
-    src/TEST/colorconfig_test.cpp
-    src/TEST/colormapperjsproxy_test.cpp
-    src/TEST/colorpalette_test.cpp
-    src/TEST/configobject_test.cpp
-    src/TEST/controller_mapping_validation_test.cpp
-    src/TEST/controller_mapping_settings_test.cpp
-    src/TEST/controllers/controller_columnid_regression_test.cpp
-    src/TEST/controllerscriptenginelegacy_test.cpp
-    src/TEST/controlobjecttest.cpp
-    src/TEST/controlobjectaliastest.cpp
-    src/TEST/controlobjectscripttest.cpp
-    src/TEST/controlpotmetertest.cpp
-    src/TEST/coreservicestest.cpp
-    src/TEST/coverartcache_test.cpp
-    src/TEST/coverartutils_test.cpp
-    src/TEST/cratestorage_test.cpp
-    src/TEST/cue_test.cpp
-    src/TEST/cuecontrol_test.cpp
-    src/TEST/dbconnectionpool_test.cpp
-    src/TEST/dbidtest.cpp
-    src/TEST/directorydaotest.cpp
-    src/TEST/duration_test.cpp
-    src/TEST/durationutiltest.cpp
+    src/test/analyserwaveformtest.cpp
+    src/test/analyzersilence_test.cpp
+    src/test/audiotaperpot_test.cpp
+    src/test/autodjprocessor_test.cpp
+    src/test/beatgridtest.cpp
+    src/test/beatmaptest.cpp
+    src/test/beatstest.cpp
+    src/test/beatstranslatetest.cpp
+    src/test/borrowabletest.cpp
+    src/test/bpmtest.cpp
+    src/test/bpmcontrol_test.cpp
+    src/test/broadcastprofile_test.cpp
+    src/test/broadcastsettings_test.cpp
+    src/test/cache_test.cpp
+    src/test/channelhandle_test.cpp
+    src/test/chrono_clock_resolution_test.cpp
+    src/test/colorconfig_test.cpp
+    src/test/colormapperjsproxy_test.cpp
+    src/test/colorpalette_test.cpp
+    src/test/configobject_test.cpp
+    src/test/controller_mapping_validation_test.cpp
+    src/test/controller_mapping_settings_test.cpp
+    src/test/controllers/controller_columnid_regression_test.cpp
+    src/test/controllerscriptenginelegacy_test.cpp
+    src/test/controlobjecttest.cpp
+    src/test/controlobjectaliastest.cpp
+    src/test/controlobjectscripttest.cpp
+    src/test/controlpotmetertest.cpp
+    src/test/coreservicestest.cpp
+    src/test/coverartcache_test.cpp
+    src/test/coverartutils_test.cpp
+    src/test/cratestorage_test.cpp
+    src/test/cue_test.cpp
+    src/test/cuecontrol_test.cpp
+    src/test/dbconnectionpool_test.cpp
+    src/test/dbidtest.cpp
+    src/test/directorydaotest.cpp
+    src/test/duration_test.cpp
+    src/test/durationutiltest.cpp
     #TODO: write useful tests for refactored effects system
-    #src/TEST/effectchainslottest.cpp
-    src/TEST/enginebufferscalelineartest.cpp
-    src/TEST/enginebuffertest.cpp
-    src/TEST/enginefilterbiquadtest.cpp
-    src/TEST/enginemixertest.cpp
-    src/TEST/enginemicrophonetest.cpp
-    src/TEST/enginesynctest.cpp
-    src/TEST/fileinfo_test.cpp
-    src/TEST/frametest.cpp
-    src/TEST/globaltrackcache_test.cpp
-    src/TEST/hotcuecontrol_test.cpp
-    src/TEST/hotcueorderbyposition_test.cpp
-    src/TEST/imageutils_test.cpp
-    src/TEST/indexrange_test.cpp
-    src/TEST/itunesxmlimportertest.cpp
-    src/TEST/keyfactorytest.cpp
-    src/TEST/keyutilstest.cpp
-    src/TEST/lcstest.cpp
-    src/TEST/learningutilstest.cpp
-    src/TEST/libraryscannertest.cpp
-    src/TEST/librarytest.cpp
-    src/TEST/looping_control_test.cpp
-    src/TEST/main.cpp
-    src/TEST/mathutiltest.cpp
-    src/TEST/metadatatest.cpp
+    #src/test/effectchainslottest.cpp
+    src/test/enginebufferscalelineartest.cpp
+    src/test/enginebuffertest.cpp
+    src/test/enginefilterbiquadtest.cpp
+    src/test/enginemixertest.cpp
+    src/test/enginemicrophonetest.cpp
+    src/test/enginesynctest.cpp
+    src/test/fileinfo_test.cpp
+    src/test/frametest.cpp
+    src/test/globaltrackcache_test.cpp
+    src/test/hotcuecontrol_test.cpp
+    src/test/hotcueorderbyposition_test.cpp
+    src/test/imageutils_test.cpp
+    src/test/indexrange_test.cpp
+    src/test/itunesxmlimportertest.cpp
+    src/test/keyfactorytest.cpp
+    src/test/keyutilstest.cpp
+    src/test/lcstest.cpp
+    src/test/learningutilstest.cpp
+    src/test/libraryscannertest.cpp
+    src/test/librarytest.cpp
+    src/test/looping_control_test.cpp
+    src/test/main.cpp
+    src/test/mathutiltest.cpp
+    src/test/metadatatest.cpp
     #TODO: make this build again
-    #src/TEST/metaknob_link_test.cpp
-    src/TEST/midicontrollertest.cpp
-    src/TEST/mixxxtest.cpp
-    src/TEST/mock_networkaccessmanager.cpp
-    src/TEST/musicbrainzrecordingstasktest.cpp
-    src/TEST/performancetimer_test.cpp
-    src/TEST/playcountertest.cpp
-    src/TEST/playermanagertest.cpp
-    src/TEST/playlisttest.cpp
-    src/TEST/portmidicontroller_test.cpp
-    src/TEST/portmidienumeratortest.cpp
-    src/TEST/queryutiltest.cpp
-    src/TEST/rangelist_test.cpp
-    src/TEST/readaheadmanager_test.cpp
-    src/TEST/replaygaintest.cpp
-    src/TEST/rescalertest.cpp
-    src/TEST/rgbcolor_test.cpp
-    src/TEST/rotary_test.cpp
-    src/TEST/samplebuffertest.cpp
-    src/TEST/schemamanager_test.cpp
-    src/TEST/searchqueryparsertest.cpp
-    src/TEST/seratobeatgridtest.cpp
-    src/TEST/seratomarkerstest.cpp
-    src/TEST/seratomarkers2test.cpp
-    src/TEST/seratotagstest.cpp
-    src/TEST/signalpathtest.cpp
-    src/TEST/skincontext_test.cpp
-    src/TEST/softtakeover_test.cpp
-    src/TEST/soundproxy_test.cpp
-    src/TEST/soundsourceproviderregistrytest.cpp
-    src/TEST/sqliteliketest.cpp
-    src/TEST/synccontroltest.cpp
-    src/TEST/synctrackmetadatatest.cpp
-    src/TEST/tableview_test.cpp
-    src/TEST/taglibtest.cpp
-    src/TEST/trackdao_test.cpp
-    src/TEST/trackexport_test.cpp
-    src/TEST/trackmetadata_test.cpp
-    src/TEST/trackmetadataexport_test.cpp
-    src/TEST/tracknumberstest.cpp
-    src/TEST/trackreftest.cpp
-    src/TEST/trackupdate_test.cpp
-    src/TEST/uuid_test.cpp
-    src/TEST/wbatterytest.cpp
-    src/TEST/wpushbutton_test.cpp
-    src/TEST/wwidgetstack_test.cpp
+    #src/test/metaknob_link_test.cpp
+    src/test/midicontrollertest.cpp
+    src/test/mixxxtest.cpp
+    src/test/mock_networkaccessmanager.cpp
+    src/test/musicbrainzrecordingstasktest.cpp
+    src/test/performancetimer_test.cpp
+    src/test/playcountertest.cpp
+    src/test/playermanagertest.cpp
+    src/test/playlisttest.cpp
+    src/test/portmidicontroller_test.cpp
+    src/test/portmidienumeratortest.cpp
+    src/test/queryutiltest.cpp
+    src/test/rangelist_test.cpp
+    src/test/readaheadmanager_test.cpp
+    src/test/replaygaintest.cpp
+    src/test/rescalertest.cpp
+    src/test/rgbcolor_test.cpp
+    src/test/rotary_test.cpp
+    src/test/samplebuffertest.cpp
+    src/test/schemamanager_test.cpp
+    src/test/searchqueryparsertest.cpp
+    src/test/seratobeatgridtest.cpp
+    src/test/seratomarkerstest.cpp
+    src/test/seratomarkers2test.cpp
+    src/test/seratotagstest.cpp
+    src/test/signalpathtest.cpp
+    src/test/skincontext_test.cpp
+    src/test/softtakeover_test.cpp
+    src/test/soundproxy_test.cpp
+    src/test/soundsourceproviderregistrytest.cpp
+    src/test/sqliteliketest.cpp
+    src/test/synccontroltest.cpp
+    src/test/synctrackmetadatatest.cpp
+    src/test/tableview_test.cpp
+    src/test/taglibtest.cpp
+    src/test/trackdao_test.cpp
+    src/test/trackexport_test.cpp
+    src/test/trackmetadata_test.cpp
+    src/test/trackmetadataexport_test.cpp
+    src/test/tracknumberstest.cpp
+    src/test/trackreftest.cpp
+    src/test/trackupdate_test.cpp
+    src/test/uuid_test.cpp
+    src/test/wbatterytest.cpp
+    src/test/wpushbutton_test.cpp
+    src/test/wwidgetstack_test.cpp
     src/util/moc_included_test.cpp
-    src/TEST/helpers/log_test.cpp
+    src/test/helpers/log_test.cpp
   )
   if(STEM)
     set(
       src-mixxx-TEST
       ${src-mixxx-TEST}
-      src/TEST/stemtest.cpp
-      src/TEST/steminfotest.cpp
-      src/TEST/stemcontrolobjecttest.cpp
+      src/test/stemtest.cpp
+      src/test/steminfotest.cpp
+      src/test/stemcontrolobjecttest.cpp
     )
   endif()
   if(BUILD_BENCH)
     set(
       src-mixxx-TEST
       ${src-mixxx-TEST}
-      src/TEST/engineeffectsdelay_test.cpp
-      src/TEST/movinginterquartilemean_test.cpp
-      src/TEST/nativeeffects_test.cpp
-      src/TEST/ringdelaybuffer_test.cpp
-      src/TEST/sampleutiltest.cpp
-      src/TEST/waveform_upgrade_test.cpp
+      src/test/engineeffectsdelay_test.cpp
+      src/test/movinginterquartilemean_test.cpp
+      src/test/nativeeffects_test.cpp
+      src/test/ringdelaybuffer_test.cpp
+      src/test/sampleutiltest.cpp
+      src/test/waveform_upgrade_test.cpp
     )
   endif()
 
@@ -3690,7 +3611,7 @@ else()
       mixxx-lib
       PUBLIC -sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2 -sFULL_ES2=1
     )
-  elseif(ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
+  elseif(ANDROID OR CMAKE_SYSTEM_NAME STREQUAL "Android")
     find_library(GLESv2_LIBRARY GLESv2)
     target_link_libraries(mixxx-lib PRIVATE "${GLESv2_LIBRARY}")
     target_compile_definitions(mixxx-lib PUBLIC QT_OPENGL_ES_2)
@@ -3726,7 +3647,7 @@ target_link_libraries(
 find_package(PortAudio REQUIRED)
 target_link_libraries(mixxx-lib PUBLIC PortAudio::PortAudio)
 
-if(ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
+if(ANDROID OR CMAKE_SYSTEM_NAME STREQUAL "Android")
   target_link_libraries(mixxx-lib PUBLIC OpenSLES android)
   target_compile_definitions(mixxx-lib PUBLIC PA_USE_OBOE)
 endif()
