@@ -1016,6 +1016,7 @@ add_library(
   src/control/controlproxy.cpp
   src/control/controlpushbutton.cpp
   src/control/controlttrotary.cpp
+  src/control/controlmodel.cpp
   src/controllers/controller.cpp
   src/controllers/controllerenumerator.cpp
   src/controllers/controllerinputmappingtablemodel.cpp
@@ -1046,6 +1047,7 @@ add_library(
   src/controllers/midi/legacymidicontrollermapping.cpp
   src/controllers/midi/legacymidicontrollermappingfilehandler.cpp
   src/controllers/midi/midicontroller.cpp
+  src/controllers/midi/portmidicontroller.cpp
   src/controllers/midi/midienumerator.cpp
   src/controllers/midi/midimessage.cpp
   src/controllers/midi/midioutputhandler.cpp
@@ -1653,9 +1655,12 @@ add_library(
   src/controllers/midi/portmidienumerator.cpp
   src/controllers/rendering/controllerrenderingengine.cpp
   src/library/export/libraryexporter.cpp
+  src/library/export/dlglibraryexport.cpp
   src/library/export/engineprimeexportjob.cpp
   src/qml/asyncimageprovider.cpp
   src/qml/qmlapplication.cpp
+  src/qml/qmlautoreload.cpp
+  src/qml/qmldlgpreferencesproxy.cpp
   src/qml/qmlmixxxcontrollerscreen.cpp
   src/sources/soundsourceffmpeg.cpp
   src/sources/soundsourcewv.cpp
@@ -1683,11 +1688,6 @@ add_library(
   src/widget/wstemlabel.cpp
   src/widget/wtrackstemmenu.cpp
   src/widget/wvumeterglsl.cpp
-  src/control/controlmodel.cpp
-  src/controllers/midi/portmidicontroller.cpp
-  src/library/export/dlglibraryexport.cpp
-  src/qml/qmlautoreload.cpp
-  src/qml/qmldlgpreferencesproxy.cpp
 )
 set(MIXXX_COMMON_PRECOMPILED_HEADER src/util/assert.h)
 set(

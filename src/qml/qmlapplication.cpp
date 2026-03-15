@@ -1,7 +1,9 @@
 #include "qmlapplication.h"
 
 #include <QQmlEngineExtensionPlugin>
+#ifndef Q_OS_ANDROID
 #include <QtQuickControls2/QQuickStyle>
+#endif
 #include <QQuickWindow>
 #include <QTextDocument>
 
@@ -55,7 +57,9 @@ QmlApplication::QmlApplication(
 #endif
           m_autoReload() {
 #ifdef MIXXX_USE_QML
+#ifndef Q_OS_ANDROID
     QQuickStyle::setStyle("Basic");
+#endif
 #endif
 
     m_pCoreServices->initialize(app);

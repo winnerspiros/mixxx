@@ -4,7 +4,9 @@
 #include <qhash.h>
 #include <qqmlengine.h>
 #include <qstringliteral.h>
+#ifndef Q_OS_ANDROID
 #include <qvideosink.h>
+#endif
 
 #include <QVideoFrame>
 #include <QVideoFrameFormat>
