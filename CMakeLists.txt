@@ -1047,7 +1047,6 @@ add_library(
   src/controllers/midi/legacymidicontrollermapping.cpp
   src/controllers/midi/legacymidicontrollermappingfilehandler.cpp
   src/controllers/midi/midicontroller.cpp
-  src/controllers/midi/portmidicontroller.cpp
   src/controllers/midi/midienumerator.cpp
   src/controllers/midi/midimessage.cpp
   src/controllers/midi/midioutputhandler.cpp
@@ -1652,7 +1651,6 @@ add_library(
   src/control/controlsortfiltermodel.cpp
   src/controllers/controllerenginethreadcontrol.cpp
   src/controllers/controllerscreenpreview.cpp
-  src/controllers/midi/portmidienumerator.cpp
   src/controllers/rendering/controllerrenderingengine.cpp
   src/library/export/libraryexporter.cpp
   src/library/export/dlglibraryexport.cpp
@@ -2880,8 +2878,6 @@ if(BUILD_TESTING)
     src/test/playcountertest.cpp
     src/test/playermanagertest.cpp
     src/test/playlisttest.cpp
-    src/test/portmidicontroller_test.cpp
-    src/test/portmidienumeratortest.cpp
     src/test/queryutiltest.cpp
     src/test/rangelist_test.cpp
     src/test/readaheadmanager_test.cpp
@@ -3798,10 +3794,22 @@ target_link_libraries(mixxx-lib PRIVATE PortAudioRingBuffer)
 # PortMidi
 default_option(PORTMIDI "Enable the PortMidi backend for MIDI controllers" "NOT ANDROID")
 if(PORTMIDI)
+  target_sources(
+    mixxx-lib
+    PRIVATE
+      src/controllers/midi/portmidicontroller.cpp
+      src/controllers/midi/portmidienumerator.cpp
+  )
   target_compile_definitions(mixxx-lib PUBLIC __PORTMIDI__)
   find_package(PortMidi REQUIRED)
   target_include_directories(mixxx-lib SYSTEM PUBLIC ${PortMidi_INCLUDE_DIRS})
   target_link_libraries(mixxx-lib PRIVATE ${PortMidi_LIBRARIES})
+  target_sources(
+    mixxx-lib
+    PRIVATE
+      src/test/portmidicontroller_test.cpp
+      src/test/portmidienumeratortest.cpp
+  )
 endif()
 
 # Protobuf

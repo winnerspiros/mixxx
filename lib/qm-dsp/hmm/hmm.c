@@ -1,3 +1,6 @@
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 /* -*- c-basic-offset: 4 indent-tabs-mode: nil -*-  vi:set ts=8 sts=4 sw=4: */
 /*
  *  hmm.c

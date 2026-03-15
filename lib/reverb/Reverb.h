@@ -56,6 +56,11 @@
 #include "dsp/Sine.h"
 #include "dsp/util.h"
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+
 /* both reverbs use this */
 class Lattice
 : public DSP::Delay

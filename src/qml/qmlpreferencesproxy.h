@@ -1,11 +1,14 @@
 #pragma once
 
-#include <QDialog>
+#include <QImage>
+#include <QList>
 #include <QObject>
-#include <QQmlEngine>
-#ifndef Q_OS_ANDROID
-#include <QVideoSink>
-#endif
+#include <QSize>
+#include <QString>
+#include <QUrl>
+#include <QtQml>
+#include <chrono>
+#include <limits>
 #include <memory>
 #include <optional>
 
@@ -28,8 +31,13 @@ class QmlControllerScreenElement : public QObject {
     Q_PROPERTY(QString identifier READ identifier CONSTANT)
     Q_PROPERTY(QSize size READ size CONSTANT)
     Q_PROPERTY(int targetFps READ targetFps CONSTANT)
-    Q_PROPERTY(int currentFps READ fps NOTIFY fpsChanged)
-    QML_ANONYMOUS
+    Q_PROPERTY(int fps READ fps NOTIFY fpsChanged)
+#ifndef Q_OS_ANDROID
+    Q_PROPERTY(QObject* videoSink READ getVideoSink WRITE connectVideoSink NOTIFY videoSinkChanged)
+#endif
+    QML_NAMED_ELEMENT(ControllerScreen)
+    QML_UNCREATABLE("Use Mixxx.ControllerMapping to get screens")
+
   public:
     explicit QmlControllerScreenElement(
             QObject* parent, const LegacyControllerMapping::ScreenInfo& screen);
@@ -47,17 +55,17 @@ class QmlControllerScreenElement : public QObject {
                 1000000 / m_averageFrameDuration);
     }
 #ifndef Q_OS_ANDROID
-    Q_INVOKABLE void connectVideoSink(QVideoSink* videoSink) {
-        connect(videoSink,
-                &QVideoSink::videoFrameChanged,
-                this,
-                &QVideoSink::setVideoFrame);
+    Q_INVOKABLE void connectVideoSink(QObject* videoSink);
+    QObject* getVideoSink() const {
+        return nullptr;
     }
 #endif
   signals:
     void fpsChanged();
+#ifndef Q_OS_ANDROID
     void videoSinkChanged();
     void videoFrameAvailable(const QVideoFrame& videoFrame);
+#endif
   public slots:
     void updateFrame(const LegacyControllerMapping::ScreenInfo& screen, const QImage& frame);
     void clear() {
@@ -74,57 +82,51 @@ class QmlControllerScreenElement : public QObject {
 
 class QmlControllerSettingElement : public QObject {
     Q_OBJECT
-    Q_PROPERTY(QList<QmlControllerSettingElement*> children MEMBER m_pChildren CONSTANT)
     Q_PROPERTY(QString type READ getType CONSTANT)
-    Q_PROPERTY(bool dirty READ isDirty NOTIFY dirtyChanged)
-    QML_ANONYMOUS
+    QML_NAMED_ELEMENT(ControllerSettingElement)
+    QML_UNCREATABLE("Use Mixxx.ControllerMapping to get settings")
   public:
-    explicit QmlControllerSettingElement(
-            const LegacyControllerSettingsLayoutElement* pInternal,
-            QObject* parent);
+    explicit QmlControllerSettingElement(QObject* parent)
+            : QObject(parent) {
+    }
     virtual QString getType() const = 0;
-    virtual bool isDirty() const;
-
-    static QmlControllerSettingElement* build(
-            LegacyControllerSettingsLayoutElement* element, QObject* parent);
-
-  signals:
-    void dirtyChanged();
-
-  protected:
-    QList<QmlControllerSettingElement*> m_pChildren;
 };
 
 class QmlControllerSettingItem : public QmlControllerSettingElement {
     Q_OBJECT
-    Q_PROPERTY(AbstractLegacyControllerSetting* properties READ getSetting CONSTANT)
-    Q_PROPERTY(LegacyControllerSettingsLayoutContainer::Disposition
-                    preferredOrientation READ preferredOrientation CONSTANT)
+    Q_PROPERTY(QString label READ label CONSTANT)
+    Q_PROPERTY(QString description READ description CONSTANT)
+    Q_PROPERTY(QVariant value READ value WRITE setValue NOTIFY valueChanged)
+    Q_PROPERTY(QVariant defaultValue READ defaultValue CONSTANT)
+    Q_PROPERTY(QVariantList possibleValues READ possibleValues CONSTANT)
     QML_ANONYMOUS
     QML_UNCREATABLE("Use Mixxx.ControllerSettingElement to get devices")
   public:
     explicit QmlControllerSettingItem(
-            const LegacyControllerSettingsLayoutItem* pInternal,
-            QObject* parent);
+            std::shared_ptr<AbstractLegacyControllerSetting> pInternal, QObject* parent);
     QString getType() const override {
         return QStringLiteral("item");
     }
-    bool isDirty() const override;
-    AbstractLegacyControllerSetting* getSetting() const;
-    LegacyControllerSettingsLayoutContainer::Disposition preferredOrientation() const {
-        return m_pInternal->preferredOrientation();
-    }
+    QString label() const;
+    QString description() const;
+    QVariant value() const;
+    void setValue(const QVariant& value);
+    QVariant defaultValue() const;
+    QVariantList possibleValues() const;
+
+  signals:
+    void valueChanged();
 
   private:
-    const LegacyControllerSettingsLayoutItem* m_pInternal;
+    std::shared_ptr<AbstractLegacyControllerSetting> m_pInternal;
 };
 
 class QmlControllerSettingContainer : public QmlControllerSettingElement {
     Q_OBJECT
-    Q_PROPERTY(LegacyControllerSettingsLayoutContainer::Disposition disposition
-                    READ disposition CONSTANT)
-    Q_PROPERTY(LegacyControllerSettingsLayoutContainer::Disposition
-                    widgetOrientation READ widgetOrientation CONSTANT)
+    Q_PROPERTY(LegacyControllerSettingsLayoutContainer::Disposition disposition READ
+                    disposition CONSTANT)
+    Q_PROPERTY(LegacyControllerSettingsLayoutContainer::Disposition widgetOrientation READ
+                    widgetOrientation CONSTANT)
     QML_ANONYMOUS
     QML_UNCREATABLE("Use Mixxx.ControllerSettingElement to get devices")
   public:
@@ -174,7 +176,7 @@ class QmlControllerMappingProxy : public QObject {
     Q_PROPERTY(QUrl wikiLink READ getWikiLink CONSTANT)
     Q_PROPERTY(bool hasSettings READ hasSettings CONSTANT)
     Q_PROPERTY(bool hasScreens READ hasScreens CONSTANT)
-    QML_NAMED_ELEMENT(SoundDevice)
+    QML_NAMED_ELEMENT(ControllerMapping)
     QML_UNCREATABLE("Use Mixxx.ControllerManager to get devices")
   public:
     enum class Type {
@@ -266,9 +268,9 @@ class QmlControllerDeviceProxy : public QObject {
     bool getEnabled() const;
     void setEnabled(bool state);
     void setEdited() {
-        bool changed = !m_edited;
+        bool changed = m_edited;
         m_edited = true;
-        if (changed) {
+        if (!changed) {
             emit editedChanged();
         }
     }
