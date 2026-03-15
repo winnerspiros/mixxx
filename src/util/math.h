@@ -45,8 +45,8 @@ constexpr bool math_isbetween(T value, T min, T max) {
 #endif
 
 template<typename T>
-requires std::is_floating_point_v<T>
-        CMATH_CONSTEXPR T ratio2db(T a) {
+    requires std::is_floating_point_v<T>
+CMATH_CONSTEXPR T ratio2db(T a) {
     if (a <= 0) {
         return static_cast<T>(-1000);
     }
@@ -54,8 +54,8 @@ requires std::is_floating_point_v<T>
 }
 
 template<typename T>
-requires std::is_floating_point_v<T>
-        CMATH_CONSTEXPR T db2ratio(T a) {
+    requires std::is_floating_point_v<T>
+CMATH_CONSTEXPR T db2ratio(T a) {
     return static_cast<T>(pow(10, a / 20));
 }
 
@@ -63,7 +63,7 @@ requires std::is_floating_point_v<T>
 
 /// https://en.wikipedia.org/wiki/Sign_function
 template<typename T>
-requires std::is_arithmetic_v<T>
+    requires std::is_arithmetic_v<T>
 constexpr T sgn(const T a) {
     // silence -Wtype-limits
     if constexpr (std::is_unsigned_v<T>) {

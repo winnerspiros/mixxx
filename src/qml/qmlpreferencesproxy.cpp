@@ -6,6 +6,7 @@
 #include <qstringliteral.h>
 #ifndef Q_OS_ANDROID
 #include <qvideosink.h>
+
 #include <QVideoFrame>
 #include <QVideoFrameFormat>
 #endif
@@ -88,7 +89,8 @@ void QmlControllerScreenElement::connectVideoSink(QObject* videoSinkObject) {
 
 QmlControllerSettingItem::QmlControllerSettingItem(
         std::shared_ptr<AbstractLegacyControllerSetting> pInternal, QObject* parent)
-        : QmlControllerSettingElement(parent), m_pInternal(pInternal) {
+        : QmlControllerSettingElement(parent),
+          m_pInternal(pInternal) {
     connect(m_pInternal.get(),
             &AbstractLegacyControllerSetting::valueChanged,
             this,
@@ -121,17 +123,20 @@ QVariantList QmlControllerSettingItem::possibleValues() const {
 
 QmlControllerSettingContainer::QmlControllerSettingContainer(
         const LegacyControllerSettingsLayoutContainer* pInternal, QObject* parent)
-        : QmlControllerSettingElement(parent), m_pInternal(pInternal) {
+        : QmlControllerSettingElement(parent),
+          m_pInternal(pInternal) {
 }
 
 QmlControllerSettingGroup::QmlControllerSettingGroup(
         const LegacyControllerSettingsGroup* pInternal, QObject* parent)
-        : QmlControllerSettingElement(parent), m_pInternal(pInternal) {
+        : QmlControllerSettingElement(parent),
+          m_pInternal(pInternal) {
 }
 
 QmlControllerMappingProxy::QmlControllerMappingProxy(
         const MappingInfo& mapping, QObject* parent)
-        : QObject(parent), m_mappingDefinition(mapping) {
+        : QObject(parent),
+          m_mappingDefinition(mapping) {
 }
 
 mixxx::qml::QmlControllerSettingElement* QmlControllerMappingProxy::loadSettings(
@@ -364,7 +369,8 @@ void QmlControllerDeviceProxy::setInstanceFor(const QString& mappingPath,
 
 QmlControllerManagerProxy::QmlControllerManagerProxy(
         std::shared_ptr<ControllerManager> pControllerManager, QObject* parent)
-        : QObject(parent), m_pControllerManager(pControllerManager) {
+        : QObject(parent),
+          m_pControllerManager(pControllerManager) {
 }
 
 QQmlListProperty<QmlControllerDeviceProxy> QmlControllerManagerProxy::knownDevices() {

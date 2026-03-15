@@ -2,22 +2,22 @@
 
 #include <QDir>
 #include <QFile>
-#include <QXmlStreamReader>
 #include <QFileInfo>
+#include <QXmlStreamReader>
+#include <algorithm>
+#include <sstream>
+#include <string>
+#include <vector>
 
 #include "test/mixxxtest.h"
-
-#include <vector>
-#include <string>
-#include <sstream>
-#include <algorithm>
 
 static std::vector<std::string> SplitMappings(const std::string& s) {
     std::vector<std::string> res;
     std::stringstream ss(s);
     std::string item;
     while (std::getline(ss, item, '|')) {
-        if (!item.empty()) res.push_back(item);
+        if (!item.empty())
+            res.push_back(item);
     }
     return res;
 }
