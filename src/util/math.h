@@ -1,5 +1,9 @@
 #pragma once
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 #include <algorithm>
 #include <cmath>
 #include <type_traits>
@@ -28,52 +32,25 @@ constexpr T math_clamp(T value, T min, T max) {
     return std::clamp(value, min, max);
 }
 
-// NOTE(rryan): It is an error to call even() on a floating point number. Do not
-// hack this to support floating point values! The programmer should be required
-// to manually convert so they are aware of the conversion.
+// Check if value is between min and max.
 template<typename T>
-// since we also want to this to work on size_t and ptrdiff_t, is_integer would be too strict.
-requires(std::is_arithmetic_v<T> && !std::is_floating_point_v<T>) constexpr bool even(T value) {
-    return value % 2 == 0;
+constexpr bool math_isbetween(T value, T min, T max) {
+    return value >= min && value <= max;
 }
 
-#ifdef _MSC_VER
-// Ask VC++ to emit an intrinsic for fabs instead of calling std::fabs.
-#pragma intrinsic(fabs)
-#endif
-
-// return value of 0 indicates failure (no greater power possible)
-constexpr unsigned int roundUpToPowerOf2(unsigned int v) {
-#if (defined(__cpp_lib_int_pow2) && __cpp_lib_int_pow2 >= 202002L)
-    return std::bit_ceil(v);
+#if defined(_MSC_VER) && _MSC_VER < 1928
+#define CMATH_CONSTEXPR
 #else
-    unsigned int power = 1;
-    while (power < v && power > 0) {
-        power *= 2;
-    }
-    return power;
-#endif
-}
-
-// Obsolete with C++23
-#if defined(__cpp_lib_constexpr_cmath) && __cpp_lib_constexpr_cmath >= 202202L
 #define CMATH_CONSTEXPR constexpr
-#else
-#define CMATH_CONSTEXPR inline
 #endif
-
-CMATH_CONSTEXPR double
-roundToFraction(double value, int denominator) {
-    double wholePart;
-    double fractionPart = std::modf(value, &wholePart);
-    double numerator = std::round(fractionPart * denominator);
-    return wholePart + (numerator / denominator);
-}
 
 template<typename T>
 requires std::is_floating_point_v<T>
         CMATH_CONSTEXPR T ratio2db(T a) {
-    return static_cast<T>(log10(a) * 20);
+    if (a <= 0) {
+        return static_cast<T>(-1000);
+    }
+    return static_cast<T>(20 * log10(a));
 }
 
 template<typename T>

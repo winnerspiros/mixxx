@@ -3,6 +3,7 @@
 #include <QDir>
 #include <QFile>
 #include <QXmlStreamReader>
+#include <QFileInfo>
 
 #include "test/mixxxtest.h"
 
@@ -21,6 +22,10 @@ static std::vector<std::string> SplitMappings(const std::string& s) {
     return res;
 }
 
+class MappingTestFixture : public MixxxTest, public ::testing::WithParamInterface<std::string> {
+};
+
+TEST_P(MappingTestFixture, ValidateXml) {
     QString path = QString::fromStdString(GetParam());
     QFile file(path);
     ASSERT_TRUE(file.open(QIODevice::ReadOnly | QIODevice::Text));
@@ -62,4 +67,5 @@ INSTANTIATE_TEST_SUITE_P(MidiMappings,
         PrintMappingName);
 #endif
 #endif
+
 #include "moc_controller_mapping_validation_test.cpp"

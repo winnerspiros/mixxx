@@ -12,6 +12,9 @@
     COPYING included with this distribution for more information.
 */
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 #ifndef QM_DSP_WINDOW_H
 #define QM_DSP_WINDOW_H
 
