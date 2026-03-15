@@ -1646,12 +1646,6 @@ add_library(
   src/widget/wwidgetgroup.cpp
   src/widget/wwidgetstack.cpp
   src/controllers/scripting/javascriptplayerproxy.cpp
-  src/controllers/scripting/javascriptplayerproxy.h
-  lib/qm-dsp/base/Pitch.cpp
-  lib/qm-dsp/dsp/keydetection/GetKeyMode.cpp
-  lib/qm-dsp/dsp/onsets/DetectionFunction.cpp
-  lib/qm-dsp/dsp/tempotracking/TempoTrackV2.cpp
-  lib/qm-dsp/maths/MathUtilities.cpp
   src/analyzer/plugins/analyzerkeyfinder.cpp
   src/control/controlsortfiltermodel.cpp
   src/controllers/controllerenginethreadcontrol.cpp
