@@ -1783,7 +1783,6 @@ set(
   src/util/font.h
   src/util/fpclassify.h
   src/util/gitinfostore.h
-  src/util/gitinfostore.cpp
   src/util/imagefiledata.h
   src/util/imageutils.h
   src/util/indexrange.h
