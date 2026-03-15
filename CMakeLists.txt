@@ -2159,7 +2159,7 @@ if(QT6)
   endif()
 
   find_package(Qt6 COMPONENTS ${QT_COMPONENTS} QUIET)
-  if(NOT Qt6_FOUND)
+  if(NOT TARGET Qt6::Core)
     # Try again without some potentially problematic or optional components
     list(
       REMOVE_ITEM
@@ -2169,10 +2169,12 @@ if(QT6)
       QmlIntegration
       ShaderTools
       SvgWidgets
+      Core5Compat
+      PrintSupport
     )
     find_package(Qt6 COMPONENTS ${QT_COMPONENTS} QUIET)
   endif()
-  if(NOT Qt6_FOUND AND MIXXX_VCPKG_ROOT)
+  if(NOT TARGET Qt6::Core AND MIXXX_VCPKG_ROOT)
     message(
       STATUS
       "Qt6 NOT found. Searching manually in ${MIXXX_VCPKG_ROOT}..."
@@ -2201,21 +2203,23 @@ if(QT6)
       find_package(Qt6 COMPONENTS ${QT_COMPONENTS} REQUIRED)
     endif()
   endif()
+
+  if(TARGET Qt6::Core)
+    set(Qt6_FOUND TRUE)
+  endif()
+
   foreach(component ${QT_COMPONENTS})
     if(TARGET Qt6::${component})
       target_link_libraries(mixxx-lib PUBLIC Qt6::${component})
     endif()
   endforeach()
   if(NETWORKAUTH)
-    find_package(Qt${QT_VERSION_MAJOR} COMPONENTS NetworkAuth QUIET)
-    if(Qt${QT_VERSION_MAJOR}NetworkAuth_FOUND)
-      message(STATUS "Found Qt${QT_VERSION_MAJOR}NetworkAuth")
-      target_link_libraries(mixxx-lib PUBLIC Qt${QT_VERSION_MAJOR}::NetworkAuth)
+    find_package(Qt6 COMPONENTS NetworkAuth QUIET)
+    if(Qt6NetworkAuth_FOUND OR TARGET Qt6::NetworkAuth)
+      message(STATUS "Found Qt6 NetworkAuth")
+      target_link_libraries(mixxx-lib PUBLIC Qt6::NetworkAuth)
     else()
-      message(
-        WARNING
-        "Qt${QT_VERSION_MAJOR}NetworkAuth NOT found. Disabling NETWORKAUTH."
-      )
+      message(WARNING "Qt6 NetworkAuth NOT found. Disabling NETWORKAUTH.")
       set(
         NETWORKAUTH
         OFF
@@ -2227,7 +2231,7 @@ if(QT6)
   endif()
 
   # This is the first package form the environment, if this fails give hints how to install the environment
-  if(NOT Qt6_FOUND AND NOT ANDROID)
+  if(NOT TARGET Qt6::Core AND NOT ANDROID)
     fatal_error_missing_env()
   endif()
   # qt_add_executable() is the recommended initial call for qt_finalize_target()
@@ -2318,6 +2322,8 @@ else()
     Xml
     SvgWidgets
     Core5Compat
+    PrintSupport
+    Core5Compat
   )
   if(NOT APPLE AND NOT WIN32 AND NOT ANDROID)
     list(APPEND QT_COMPONENTS DBus)
@@ -2328,7 +2334,15 @@ else()
 
   find_package(Qt5 COMPONENTS ${QT_COMPONENTS} QUIET)
   if(NOT Qt5_FOUND)
-    list(REMOVE_ITEM QT_COMPONENTS Multimedia MultimediaWidgets SvgWidgets)
+    list(
+      REMOVE_ITEM
+      QT_COMPONENTS
+      Multimedia
+      MultimediaWidgets
+      SvgWidgets
+      Core5Compat
+      PrintSupport
+    )
     find_package(Qt5 COMPONENTS ${QT_COMPONENTS} QUIET)
   endif()
   foreach(component ${QT_COMPONENTS})
