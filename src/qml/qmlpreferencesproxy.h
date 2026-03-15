@@ -3,11 +3,11 @@
 #include <QImage>
 #include <QList>
 #include <QObject>
+#include <QQmlEngine>
+#include <QQmlListProperty>
 #include <QSize>
 #include <QString>
 #include <QUrl>
-#include <QQmlEngine>
-#include <QQmlListProperty>
 #include <QtQmlIntegration>
 #ifndef Q_OS_ANDROID
 #include <QVideoFrame>
