@@ -106,4 +106,16 @@ TEST_F(MathUtilTest, DoubleValues) {
     // EXPECT_EQ(int_value, 0x7FF0000000000000);
 }
 
+TEST_F(MathUtilTest, RoundUpToPowerOf2) {
+    EXPECT_EQ(1, roundUpToPowerOf2(0));
+    EXPECT_EQ(1, roundUpToPowerOf2(1));
+    EXPECT_EQ(2, roundUpToPowerOf2(2));
+    EXPECT_EQ(4, roundUpToPowerOf2(3));
+    EXPECT_EQ(4, roundUpToPowerOf2(4));
+    EXPECT_EQ(8, roundUpToPowerOf2(5));
+    EXPECT_EQ(1024, roundUpToPowerOf2(1023));
+    EXPECT_EQ(1024, roundUpToPowerOf2(1024));
+    EXPECT_EQ(2048, roundUpToPowerOf2(1025));
+}
+
 }  // namespace

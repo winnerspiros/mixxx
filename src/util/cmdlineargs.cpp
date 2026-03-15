@@ -69,7 +69,7 @@ CmdlineArgs::CmdlineArgs()
           m_logFlushLevel(mixxx::kLogFlushLevelDefault),
           m_logMaxFileSize(mixxx::kLogMaxFileSizeDefault),
           m_parseForUserFeedbackRequired(false) {
-// We are not ready to switch to XDG folders under Linux, so keeping $HOME/.mixxx as preferences folder. see #8090
+// We are not ready to switch to XDG folders under Linux, so keeping /home/jules/.mixxx as preferences folder. see #8090
 #if defined(__LINUX__) || defined(__BSD__)
 #ifdef MIXXX_SETTINGS_PATH
     m_settingsPath = QDir::homePath().append("/").append(MIXXX_SETTINGS_PATH);
