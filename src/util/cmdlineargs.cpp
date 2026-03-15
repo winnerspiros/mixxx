@@ -6,9 +6,11 @@
 #include <unistd.h>
 #else
 #include <io.h>
+#endif
 
 #include <QCommandLineParser>
 #include <QCoreApplication>
+#include <QDir>
 #include <QProcessEnvironment>
 #include <QStandardPaths>
 #include <QStyleFactory>
@@ -48,43 +50,44 @@ bool calcUseColorsAuto() {
 } // namespace
 
 CmdlineArgs::CmdlineArgs()
-        : m_startInFullscreen(false), // Initialize vars
+        : m_qml(false),
+          m_awareOfRisk(false),
+          m_startInFullscreen(false),
           m_startAutoDJ(false),
           m_rescanLibrary(false),
+          m_settingsPathSet(false),
+          m_useLegacyVuMeter(false),
+          m_useLegacySpinny(false),
           m_controllerDebug(false),
           m_controllerPreviewScreens(false),
           m_controllerAbortOnWarning(false),
           m_developer(false),
-          m_qml(false),
-          m_awareOfRisk(false),
           m_safeMode(false),
-          m_useLegacyVuMeter(false),
-          m_useLegacySpinny(false),
-          m_debugAssertBreak(false),
-          m_settingsPathSet(false),
           m_useColors(calcUseColorsAuto()),
-          m_parseForUserFeedbackRequired(false),
+          m_debugAssertBreak(false),
           m_logLevel(mixxx::kLogLevelDefault),
           m_logFlushLevel(mixxx::kLogFlushLevelDefault),
-          m_logMaxFileSize(mixxx::kLogMaxFileSizeDefault) {
+          m_logMaxFileSize(mixxx::kLogMaxFileSizeDefault),
+          m_parseForUserFeedbackRequired(false) {
 // We are not ready to switch to XDG folders under Linux, so keeping $HOME/.mixxx as preferences folder. see #8090
 #if defined(__LINUX__) || defined(__BSD__)
 #ifdef MIXXX_SETTINGS_PATH
-          m_settingsPath = QDir::homePath().append("/").append(MIXXX_SETTINGS_PATH);
+    m_settingsPath = QDir::homePath().append("/").append(MIXXX_SETTINGS_PATH);
 #else
 #error "MIXXX_SETTINGS_PATH NOT defined"
 #endif
 #elif defined(Q_OS_IOS)
-          m_settingsPath =
-                  QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)
-                          .append("/Library/Application Support/Mixxx");
+    m_settingsPath =
+            QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)
+                    .append("/Library/Application Support/Mixxx");
 #else
-          m_settingsPath =
-                  QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)
-                          .append("/");
+    m_settingsPath =
+            QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)
+                    .append("/");
 #endif
 }
-bool parseLogLevel(
+
+bool CmdlineArgs::parseLogLevel(
         const QString& logLevel,
         mixxx::LogLevel* pLogLevel) {
     if (logLevel.compare(QLatin1String("trace"), Qt::CaseInsensitive) == 0) {
@@ -102,7 +105,6 @@ bool parseLogLevel(
     }
     return true;
 }
-} // namespace
 
 bool CmdlineArgs::parse(int argc, char** argv) {
     // Some command line parameters needs to be evaluated before
@@ -405,6 +407,7 @@ bool CmdlineArgs::parse(const QStringList& arguments, CmdlineArgs::ParseMode mod
             parser.isSet(helpOption)
 #if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
             || parser.isSet(QStringLiteral("help-all"))
+#endif
     ) {
         m_parseForUserFeedbackRequired = true;
     }

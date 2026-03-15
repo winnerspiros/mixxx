@@ -5,14 +5,14 @@
 #include <QStringList>
 #include <QUrl>
 
-#include "util/log.h"
+#include "util/logging.h"
 #include "util/singleton.h"
 
 class CmdlineArgs : public mixxx::Singleton<CmdlineArgs> {
   public:
     enum class ParseMode {
         Initial,
-        UserFeedback,
+        ForUserFeedback,
     };
 
     CmdlineArgs();
@@ -90,7 +90,9 @@ class CmdlineArgs : public mixxx::Singleton<CmdlineArgs> {
         return m_styleName;
     }
 
-    bool parse(ParseMode mode, const QStringList& arguments);
+    bool parse(int argc, char** argv);
+    void parseForUserFeedback();
+    bool parse(const QStringList& arguments, ParseMode mode);
 
     bool isParseForUserFeedbackRequired() const {
         return m_parseForUserFeedbackRequired;
