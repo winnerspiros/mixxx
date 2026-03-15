@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QCommandLineParser>
+#include <QDir>
 #include <QString>
 #include <QStringList>
 #include <QUrl>
@@ -8,7 +9,7 @@
 #include "util/logging.h"
 #include "util/singleton.h"
 
-class CmdlineArgs : public mixxx::Singleton<CmdlineArgs> {
+class CmdlineArgs : public Singleton<CmdlineArgs> {
   public:
     enum class ParseMode {
         Initial,

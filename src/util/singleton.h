@@ -25,6 +25,10 @@ class Singleton {
         return m_instance;
     }
 
+    static T& Instance() {
+        return *instance();
+    }
+
     static void destroy() {
         VERIFY_OR_DEBUG_ASSERT(m_instance) {
             qWarning() << "Singleton class has already been destroyed!";

@@ -72,3 +72,21 @@ constexpr T sgn(const T a) {
         return static_cast<T>(a > T(0)) - static_cast<T>(a < T(0));
     }
 }
+
+template<typename T>
+    requires std::is_integral_v<T>
+constexpr T roundUpToPowerOf2(T n) {
+    if (n <= 0) {
+        return 1;
+    }
+    n--;
+    n |= n >> 1;
+    n |= n >> 2;
+    n |= n >> 4;
+    n |= n >> 8;
+    n |= n >> 16;
+    if constexpr (sizeof(T) > 4) {
+        n |= n >> 32;
+    }
+    return n + 1;
+}
