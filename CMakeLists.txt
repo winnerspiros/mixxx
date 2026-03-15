@@ -74,6 +74,9 @@ endif()
 
 if(DEFINED ENV{MIXXX_VCPKG_ROOT} AND NOT DEFINED MIXXX_VCPKG_ROOT)
   set(MIXXX_VCPKG_ROOT "$ENV{MIXXX_VCPKG_ROOT}")
+  string(STRIP "${MIXXX_VCPKG_ROOT}" MIXXX_VCPKG_ROOT)
+  string(STRIP "${MIXXX_VCPKG_ROOT}" MIXXX_VCPKG_ROOT)
+  string(STRIP "${MIXXX_VCPKG_ROOT}" MIXXX_VCPKG_ROOT)
 endif()
 
 if(NOT DEFINED MIXXX_VCPKG_ROOT AND NOT DEFINED ENV{MIXXX_VCPKG_ROOT})
@@ -114,7 +117,8 @@ if(
 
   # Remove the extension from the filename (note that our buildenv names contain two dots)
   string(
-    REGEX REPLACE "\\.[^.]*$"
+    REGEX REPLACE
+    "\\.[^.]*$"
     ""
     BUILDENV_NAME
     "${FILENAME_WITH_EXTENSION}"
@@ -144,8 +148,7 @@ if(
         " ..."
       )
       file(
-        DOWNLOAD "${BUILDENV_URL}"
-        "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip"
+        DOWNLOAD "${BUILDENV_URL}" "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip"
         SHOW_PROGRESS
         TLS_VERIFY ON
       )
@@ -296,7 +299,8 @@ if(DEFINED MIXXX_VCPKG_ROOT AND DEFINED VCPKG_TARGET_TRIPLET)
     )
     if(ANDROID OR CMAKE_SYSTEM_NAME STREQUAL "Android")
       list(
-        APPEND CMAKE_FIND_ROOT_PATH
+        APPEND
+        CMAKE_FIND_ROOT_PATH
         "${VCPKG_INSTALLED_PATH}"
         "${VCPKG_INSTALLED_PATH}/share"
       )
@@ -503,7 +507,8 @@ if(MSVC)
     string(REPLACE "/Zi" "/Z7" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
   elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
     string(
-      REPLACE "/Zi"
+      REPLACE
+      "/Zi"
       "/Z7"
       CMAKE_CXX_FLAGS_RELEASE
       "${CMAKE_CXX_FLAGS_RELEASE}"
@@ -511,13 +516,15 @@ if(MSVC)
     string(REPLACE "/Zi" "/Z7" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
   elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
     string(
-      REPLACE "/Zi"
+      REPLACE
+      "/Zi"
       "/Z7"
       CMAKE_CXX_FLAGS_RELWITHDEBINFO
       "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
     )
     string(
-      REPLACE "/Zi"
+      REPLACE
+      "/Zi"
       "/Z7"
       CMAKE_C_FLAGS_RELWITHDEBINFO
       "${CMAKE_C_FLAGS_RELWITHDEBINFO}"
@@ -549,7 +556,8 @@ if(MSVC)
       add_compile_options(/O2) # this implies /Od2
       # Remove /RTC1 flag set by CMAKE by default (conflicts with /O2)
       string(
-        REPLACE "/RTC1"
+        REPLACE
+        "/RTC1"
         ""
         CMAKE_CXX_FLAGS_DEBUG
         "${CMAKE_CXX_FLAGS_DEBUG}"
@@ -559,13 +567,15 @@ if(MSVC)
       # For some reasons cmake uses /Ob1 in RelWithDebInfo https://gitlab.kitware.com/cmake/cmake/-/issues/20812
       # /O2 is applied by CMake AND this implies /Od2
       string(
-        REPLACE "/Ob1"
+        REPLACE
+        "/Ob1"
         ""
         CMAKE_CXX_FLAGS_RELWITHDEBINFO
         "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
       )
       string(
-        REPLACE "/Ob1"
+        REPLACE
+        "/Ob1"
         ""
         CMAKE_C_FLAGS_RELWITHDEBINFO
         "${CMAKE_C_FLAGS_RELWITHDEBINFO}"
@@ -580,7 +590,8 @@ if(MSVC)
       # The CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO can be DEFINED by the user in the GUI OR in CMakeSettings.json,
       # therefore we can't rely on the default.
       string(
-        FIND CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO
+        FIND
+        CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO
         "/INCREMENTAL:NO"
         INCREMENTAL_NO_POSITION
       )
@@ -590,7 +601,8 @@ if(MSVC)
           "Overwriting /INCREMENTAL by /INCREMENTAL:NO to allow link time code optimization"
         )
         string(
-          REPLACE "/INCREMENTAL"
+          REPLACE
+          "/INCREMENTAL"
           "/INCREMENTAL:NO"
           CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO
           "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO}"
@@ -646,14 +658,16 @@ if(MSVC)
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
       # Remove optimize flags set by cmake defaults
       string(
-        REPLACE "/O2"
+        REPLACE
+        "/O2"
         ""
         CMAKE_CXX_FLAGS_RELEASE
         "${CMAKE_CXX_FLAGS_RELEASE}"
       )
       string(REPLACE "/O2" "" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
       string(
-        REPLACE "/Ob2"
+        REPLACE
+        "/Ob2"
         ""
         CMAKE_CXX_FLAGS_RELEASE
         "${CMAKE_CXX_FLAGS_RELEASE}"
@@ -664,26 +678,30 @@ if(MSVC)
     elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
       # Remove optimize flags set by cmake defaults
       string(
-        REPLACE "/O2"
+        REPLACE
+        "/O2"
         ""
         CMAKE_CXX_FLAGS_RELWITHDEBINFO
         "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
       )
       string(
-        REPLACE "/O2"
+        REPLACE
+        "/O2"
         ""
         CMAKE_C_FLAGS_RELWITHDEBINFO
         "${CMAKE_C_FLAGS_RELWITHDEBINFO}"
       )
       # For some reasons cmake uses /Ob1 in RelWithDebInfo https://gitlab.kitware.com/cmake/cmake/-/issues/20812
       string(
-        REPLACE "/Ob1"
+        REPLACE
+        "/Ob1"
         ""
         CMAKE_CXX_FLAGS_RELWITHDEBINFO
         "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
       )
       string(
-        REPLACE "/Ob1"
+        REPLACE
+        "/Ob1"
         ""
         CMAKE_C_FLAGS_RELWITHDEBINFO
         "${CMAKE_C_FLAGS_RELWITHDEBINFO}"
@@ -916,7 +934,8 @@ if(NOT MSVC)
     )
     if(LLD_VERSION_STRING)
       string(
-        REGEX MATCH "LLD ([0-9]+\\.[0-9]+\\.[0-9]+)"
+        REGEX MATCH
+        "LLD ([0-9]+\\.[0-9]+\\.[0-9]+)"
         LLD_VERSION_MATCH
         "${LLD_VERSION_STRING}"
       )
@@ -997,6 +1016,7 @@ add_library(
   src/control/controlproxy.cpp
   src/control/controlpushbutton.cpp
   src/control/controlttrotary.cpp
+  src/control/controlmodel.cpp
   src/controllers/controller.cpp
   src/controllers/controllerenumerator.cpp
   src/controllers/controllerinputmappingtablemodel.cpp
@@ -1024,10 +1044,10 @@ add_library(
   src/controllers/dlgprefcontrollersdlg.ui
   src/controllers/keyboard/keyboardeventfilter.cpp
   src/controllers/learningutils.cpp
-  src/controllers/legacycontrollermappingfilehandler.cpp
   src/controllers/midi/legacymidicontrollermapping.cpp
   src/controllers/midi/legacymidicontrollermappingfilehandler.cpp
   src/controllers/midi/midicontroller.cpp
+  src/controllers/midi/portmidicontroller.cpp
   src/controllers/midi/midienumerator.cpp
   src/controllers/midi/midimessage.cpp
   src/controllers/midi/midioutputhandler.cpp
@@ -1317,10 +1337,7 @@ add_library(
   src/network/networktask.cpp
   src/network/webtask.cpp
   src/preferences/colorpaletteeditor.cpp
-  src/preferences/colorpaletteeditor.cpp
   src/preferences/colorpaletteeditormodel.cpp
-  src/preferences/colorpaletteeditormodel.cpp
-  src/preferences/colorpalettesettings.cpp
   src/preferences/colorpalettesettings.cpp
   src/preferences/configobject.cpp
   src/preferences/constants.cpp
@@ -1391,6 +1408,7 @@ add_library(
   src/sources/soundsourceprovider.cpp
   src/sources/soundsourceproviderregistry.cpp
   src/sources/soundsourceproxy.cpp
+  src/sources/soundsourcestem.cpp
   src/sources/soundsourcesndfile.cpp
   src/track/albuminfo.cpp
   src/track/beatfactory.cpp
@@ -1456,7 +1474,6 @@ add_library(
   src/util/filename.cpp
   src/util/font.cpp
   src/util/imagefiledata.cpp
-  src/util/imagefiledata.cpp
   src/util/imageutils.cpp
   src/util/indexrange.cpp
   src/util/logger.cpp
@@ -1511,6 +1528,23 @@ add_library(
   src/waveform/renderers/waveformrendermarkrange.cpp
   src/waveform/renderers/waveformsignalcolors.cpp
   src/waveform/renderers/waveformwidgetrenderer.cpp
+  src/waveform/renderers/allshader/digitsrenderer.cpp
+  src/waveform/renderers/allshader/matrixforwidgetgeometry.cpp
+  src/waveform/renderers/allshader/waveformrenderbackground.cpp
+  src/waveform/renderers/allshader/waveformrenderbeat.cpp
+  src/waveform/renderers/allshader/waveformrenderer.cpp
+  src/waveform/renderers/allshader/waveformrendererendoftrack.cpp
+  src/waveform/renderers/allshader/waveformrendererfiltered.cpp
+  src/waveform/renderers/allshader/waveformrendererhsv.cpp
+  src/waveform/renderers/allshader/waveformrendererpreroll.cpp
+  src/waveform/renderers/allshader/waveformrendererrgb.cpp
+  src/waveform/renderers/allshader/waveformrenderersignalbase.cpp
+  src/waveform/renderers/allshader/waveformrenderersimple.cpp
+  src/waveform/renderers/allshader/waveformrendererslipmode.cpp
+  src/waveform/renderers/allshader/waveformrendererstem.cpp
+  src/waveform/renderers/allshader/waveformrenderertextured.cpp
+  src/waveform/renderers/allshader/waveformrendermark.cpp
+  src/waveform/renderers/allshader/waveformrendermarkrange.cpp
   src/waveform/sharedglcontext.cpp
   src/waveform/visualplayposition.cpp
   src/waveform/visualsmanager.cpp
@@ -1614,12 +1648,6 @@ add_library(
   src/widget/wwidgetgroup.cpp
   src/widget/wwidgetstack.cpp
   src/controllers/scripting/javascriptplayerproxy.cpp
-  src/controllers/scripting/javascriptplayerproxy.h
-  lib/qm-dsp/base/Pitch.cpp
-  lib/qm-dsp/dsp/keydetection/GetKeyMode.cpp
-  lib/qm-dsp/dsp/onsets/DetectionFunction.cpp
-  lib/qm-dsp/dsp/tempotracking/TempoTrackV2.cpp
-  lib/qm-dsp/maths/MathUtilities.cpp
   src/analyzer/plugins/analyzerkeyfinder.cpp
   src/control/controlsortfiltermodel.cpp
   src/controllers/controllerenginethreadcontrol.cpp
@@ -1627,8 +1655,12 @@ add_library(
   src/controllers/midi/portmidienumerator.cpp
   src/controllers/rendering/controllerrenderingengine.cpp
   src/library/export/libraryexporter.cpp
+  src/library/export/dlglibraryexport.cpp
+  src/library/export/engineprimeexportjob.cpp
   src/qml/asyncimageprovider.cpp
   src/qml/qmlapplication.cpp
+  src/qml/qmlautoreload.cpp
+  src/qml/qmldlgpreferencesproxy.cpp
   src/qml/qmlmixxxcontrollerscreen.cpp
   src/sources/soundsourceffmpeg.cpp
   src/sources/soundsourcewv.cpp
@@ -1638,18 +1670,24 @@ add_library(
   src/util/rlimit.cpp
   src/util/versionstore.cpp
   src/waveform/widgets/allshader/waveformwidget.cpp
+  src/shaders/endoftrackshader.cpp
+  src/shaders/patternshader.cpp
+  src/shaders/rgbashader.cpp
+  src/shaders/rgbshader.cpp
+  src/shaders/shader.cpp
+  src/shaders/slipmodeshader.cpp
+  src/shaders/textureshader.cpp
+  src/shaders/unicolorshader.cpp
+  src/shaders/vinylqualityshader.cpp
+  src/util/opengltexture2d.cpp
   src/widget/tooltipqopengl.cpp
   $<$<NOT:$<BOOL:${QT6}>>:src/widget/wglwidgetqglwidget.cpp>
   src/widget/wglwidgetqopengl.cpp
+  src/widget/openglwindow.cpp
   src/widget/wspinnyglsl.cpp
   src/widget/wstemlabel.cpp
   src/widget/wtrackstemmenu.cpp
   src/widget/wvumeterglsl.cpp
-  src/control/controlmodel.cpp
-  src/controllers/midi/portmidicontroller.cpp
-  src/library/export/dlglibraryexport.cpp
-  src/qml/qmlautoreload.cpp
-  src/qml/qmldlgpreferencesproxy.cpp
 )
 set(MIXXX_COMMON_PRECOMPILED_HEADER src/util/assert.h)
 set(
@@ -2087,8 +2125,8 @@ if(QT6)
   set(QT_VERSION_MAJOR 6)
   set(
     QT_COMPONENTS
-    Concurrent
     Core
+    Concurrent
     Gui
     Network
     OpenGL
@@ -2111,16 +2149,26 @@ if(QT6)
     list(APPEND QT_COMPONENTS PrintSupport Multimedia MultimediaWidgets)
   else()
     # Multimedia is missing from Android v2.7 bundle and unused
-    list(REMOVE_ITEM QT_COMPONENTS Multimedia MultimediaWidgets ShaderTools QmlIntegration SvgWidgets)
+    list(REMOVE_ITEM QT_COMPONENTS Multimedia MultimediaWidgets)
   endif()
 
   find_package(Qt6 COMPONENTS ${QT_COMPONENTS} QUIET)
-  if(NOT Qt6_FOUND)
+  if(NOT TARGET Qt6::Core)
     # Try again without some potentially problematic or optional components
-    list(REMOVE_ITEM QT_COMPONENTS Multimedia MultimediaWidgets QmlIntegration ShaderTools SvgWidgets)
+    list(
+      REMOVE_ITEM
+      QT_COMPONENTS
+      Multimedia
+      MultimediaWidgets
+      QmlIntegration
+      ShaderTools
+      SvgWidgets
+      Core5Compat
+      PrintSupport
+    )
     find_package(Qt6 COMPONENTS ${QT_COMPONENTS} QUIET)
   endif()
-  if(NOT Qt6_FOUND AND MIXXX_VCPKG_ROOT)
+  if(NOT TARGET Qt6::Core AND MIXXX_VCPKG_ROOT)
     message(
       STATUS
       "Qt6 NOT found. Searching manually in ${MIXXX_VCPKG_ROOT}..."
@@ -2149,21 +2197,23 @@ if(QT6)
       find_package(Qt6 COMPONENTS ${QT_COMPONENTS} REQUIRED)
     endif()
   endif()
+
+  if(TARGET Qt6::Core)
+    set(Qt6_FOUND TRUE)
+  endif()
+
   foreach(component ${QT_COMPONENTS})
     if(TARGET Qt6::${component})
       target_link_libraries(mixxx-lib PUBLIC Qt6::${component})
     endif()
   endforeach()
   if(NETWORKAUTH)
-    find_package(Qt${QT_VERSION_MAJOR} COMPONENTS NetworkAuth QUIET)
-    if(Qt${QT_VERSION_MAJOR}NetworkAuth_FOUND)
-      message(STATUS "Found Qt${QT_VERSION_MAJOR}NetworkAuth")
-      target_link_libraries(mixxx-lib PUBLIC Qt${QT_VERSION_MAJOR}::NetworkAuth)
+    find_package(Qt6 COMPONENTS NetworkAuth QUIET)
+    if(Qt6NetworkAuth_FOUND OR TARGET Qt6::NetworkAuth)
+      message(STATUS "Found Qt6 NetworkAuth")
+      target_link_libraries(mixxx-lib PUBLIC Qt6::NetworkAuth)
     else()
-      message(
-        WARNING
-        "Qt${QT_VERSION_MAJOR}NetworkAuth NOT found. Disabling NETWORKAUTH."
-      )
+      message(WARNING "Qt6 NetworkAuth NOT found. Disabling NETWORKAUTH.")
       set(
         NETWORKAUTH
         OFF
@@ -2175,15 +2225,85 @@ if(QT6)
   endif()
 
   # This is the first package form the environment, if this fails give hints how to install the environment
-  if(NOT Qt6_FOUND AND NOT ANDROID)
+  if(NOT TARGET Qt6::Core AND NOT ANDROID)
     fatal_error_missing_env()
+  endif()
+  # qt_add_executable() is the recommended initial call for qt_finalize_target()
+  # below that takes care of the correct object order in the resulting binary
+  # According to https://doc.qt.io/qt-6/qt-finalize-target.html it is important for
+  # builds with Qt < 3.21
+  if(ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
+    target_compile_definitions(
+      mixxx-lib
+      PUBLIC __STDC_CONSTANT_MACROS __STDC_LIMIT_MACROS __STDC_FORMAT_MACROS
+    )
+    set_property(TARGET mixxx-lib PROPERTY ANDROID_ABIS "arm64-v8a")
+    target_compile_definitions(
+      mixxx-lib
+      PUBLIC ANDROID_PACKAGE_NAME="org.mixxx"
+    )
+    if(EXISTS "${Qt6Core_DIR}/Qt6AndroidMacros.cmake")
+      include("${Qt6Core_DIR}/Qt6AndroidMacros.cmake")
+    endif()
+    qt_add_executable(mixxx src/main.cpp MANUAL_FINALIZATION)
+    set_property(
+      TARGET mixxx
+      PROPERTY
+        QT_ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_SOURCE_DIR}/packaging/android"
+    )
+    set_target_properties(mixxx PROPERTIES QT_ANDROID_ABIS "${ANDROID_ABI}")
+    set_target_properties(mixxx PROPERTIES QT_ANDROID_PACKAGE_NAME "org.mixxx")
+    set_target_properties(
+      mixxx
+      PROPERTIES QT_ANDROID_VERSION_NAME "${MIXXX_VERSION}"
+    )
+    set_target_properties(
+      mixxx
+      PROPERTIES
+        QT_ANDROID_APPLICATION_ARGUMENTS "--log-level debug --developer"
+    )
+    qt_add_android_permission(mixxx NAME android.permission.ACCESS_NETWORK_STATE)
+    qt_add_android_permission(mixxx NAME android.permission.INTERNET)
+    qt_add_android_permission(mixxx NAME android.permission.MODIFY_AUDIO_SETTINGS)
+    qt_add_android_permission(mixxx NAME android.permission.RECORD_AUDIO)
+    qt_add_android_permission(mixxx NAME android.permission.WRITE_EXTERNAL_STORAGE)
+    qt_add_android_permission(mixxx NAME android.permission.MANAGE_EXTERNAL_STORAGE)
+    qt_add_android_permission(mixxx NAME android.permission.WAKE_LOCK)
+    qt_add_android_permission(mixxx NAME android.permission.USB_PERMISSION)
+    file(
+      GLOB OMP_LIB
+      "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/lib/clang/*/lib/linux/aarch64/libomp.so"
+    )
+    if(OMP_LIB)
+      list(GET OMP_LIB 0 OMP_LIB_PATH)
+      set_target_properties(
+        mixxx
+        PROPERTIES QT_ANDROID_EXTRA_LIBS "${OMP_LIB_PATH}"
+      )
+    endif()
+    add_custom_target(
+      copy-resource-android
+      COMMENT "Copy resources folder to Android build asset directory"
+      COMMAND
+        ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/packaging/android
+        ${CMAKE_CURRENT_BINARY_DIR}/android
+      COMMAND
+        ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/res
+        ${CMAKE_CURRENT_BINARY_DIR}/android-build/assets
+      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    )
+    add_dependencies(mixxx copy-resource-android)
+    find_package(OpenMP REQUIRED COMPONENTS CXX)
+    target_link_libraries(mixxx-lib PUBLIC OpenMP::OpenMP_CXX)
+  else()
+    qt_add_executable(mixxx WIN32 src/main.cpp MANUAL_FINALIZATION)
   endif()
 else()
   set(QT_VERSION_MAJOR 5)
   set(
     QT_COMPONENTS
-    Concurrent
     Core
+    Concurrent
     Gui
     Network
     OpenGL
@@ -2196,6 +2316,8 @@ else()
     Xml
     SvgWidgets
     Core5Compat
+    PrintSupport
+    Core5Compat
   )
   if(NOT APPLE AND NOT WIN32 AND NOT ANDROID)
     list(APPEND QT_COMPONENTS DBus)
@@ -2206,7 +2328,15 @@ else()
 
   find_package(Qt5 COMPONENTS ${QT_COMPONENTS} QUIET)
   if(NOT Qt5_FOUND)
-    list(REMOVE_ITEM QT_COMPONENTS Multimedia MultimediaWidgets SvgWidgets)
+    list(
+      REMOVE_ITEM
+      QT_COMPONENTS
+      Multimedia
+      MultimediaWidgets
+      SvgWidgets
+      Core5Compat
+      PrintSupport
+    )
     find_package(Qt5 COMPONENTS ${QT_COMPONENTS} QUIET)
   endif()
   foreach(component ${QT_COMPONENTS})
@@ -2218,6 +2348,7 @@ else()
   if(NOT Qt5_FOUND AND NOT ANDROID)
     fatal_error_missing_env()
   endif()
+  add_executable(mixxx WIN32 src/main.cpp)
 endif()
 
 set_target_properties(mixxx-lib PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY}")
@@ -2880,8 +3011,7 @@ if(
   )
   message(STATUS "Downloading manual from ${MANUAL_URL}...")
   file(
-    DOWNLOAD "${MANUAL_URL}"
-    "${CMAKE_CURRENT_BINARY_DIR}/res/Mixxx-Manual.pdf"
+    DOWNLOAD "${MANUAL_URL}" "${CMAKE_CURRENT_BINARY_DIR}/res/Mixxx-Manual.pdf"
     SHOW_PROGRESS
     STATUS MANUAL_PDF_DOWNLOAD
     TLS_VERIFY ON
@@ -2900,7 +3030,8 @@ if(
     )
   endif()
   file(
-    RENAME "${CMAKE_CURRENT_BINARY_DIR}/res/Mixxx-Manual.pdf"
+    RENAME
+    "${CMAKE_CURRENT_BINARY_DIR}/res/Mixxx-Manual.pdf"
     "${CMAKE_CURRENT_SOURCE_DIR}/res/Mixxx-Manual.pdf"
   )
 endif()
@@ -3269,7 +3400,8 @@ if(ENGINEPRIME)
     # CMake does NOT pass lists of paths properly to external projects.
     # This is worked around by changing the list separator.
     string(
-      REPLACE ";"
+      REPLACE
+      ";"
       "|"
       PIPE_DELIMITED_CMAKE_PREFIX_PATH
       "${CMAKE_PREFIX_PATH}"
@@ -3310,7 +3442,7 @@ if(ENGINEPRIME)
         -DCMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}
         -DCMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME}
         -DSYSTEM_SQLITE=${DJINTEROP_SYSTEM_SQLITE}
-      BUILD_COMMAND ${CMAKE_COMMAND} --build . --TARGET DjInterop
+      BUILD_COMMAND ${CMAKE_COMMAND} --build . --target DjInterop
       BUILD_BYPRODUCTS <INSTALL_DIR>/${DJINTEROP_LIBRARY}
       EXCLUDE_FROM_ALL TRUE
     )
@@ -3425,7 +3557,8 @@ if(KEYFINDER)
     # CMake does NOT pass lists of paths properly to external projects.
     # This is worked around by changing the list separator.
     string(
-      REPLACE ";"
+      REPLACE
+      ";"
       "|"
       PIPE_DELIMITED_CMAKE_PREFIX_PATH
       "${CMAKE_PREFIX_PATH}"
@@ -3677,7 +3810,7 @@ add_subdirectory(src/rendergraph)
 add_subdirectory(lib)
 target_link_libraries(
   mixxx-lib
-  PUBLIC mixxx-proto rendergraph_gl qmdsp replaygain
+  PUBLIC mixxx-proto rendergraph_gl qmdsp replaygain reverb
 )
 
 # Rigtorp SPSC Queue
@@ -3722,32 +3855,37 @@ if(NETWORKAUTH)
   if(NOT EXISTS "${librespot-cpp_SOURCE_DIR}/lib/spdlog/CMakeLists.txt")
     file(MAKE_DIRECTORY "${librespot-cpp_SOURCE_DIR}/lib/spdlog")
     file(
-      WRITE "${librespot-cpp_SOURCE_DIR}/lib/spdlog/CMakeLists.txt"
+      WRITE
+      "${librespot-cpp_SOURCE_DIR}/lib/spdlog/CMakeLists.txt"
       "if(NOT TARGET spdlog)\n  add_library(spdlog INTERFACE)\nendif()"
     )
   endif()
   # Patch librespot-cpp to avoid TARGET name collision AND link signature mismatch
   file(READ "${librespot-cpp_SOURCE_DIR}/CMakeLists.txt" LIBRESPOT_CMAKELISTS)
   string(
-    REPLACE "project(mixxx)"
+    REPLACE
+    "project(mixxx)"
     "project(librespot-cpp)"
     LIBRESPOT_CMAKELISTS
     "${LIBRESPOT_CMAKELISTS}"
   )
   string(
-    REPLACE "add_executable(mixxx"
+    REPLACE
+    "add_executable(mixxx"
     "add_library(librespot-cpp-lib STATIC"
     LIBRESPOT_CMAKELISTS
     "${LIBRESPOT_CMAKELISTS}"
   )
   string(
-    REPLACE "target_link_libraries(mixxx"
+    REPLACE
+    "target_link_libraries(mixxx"
     "target_link_libraries(librespot-cpp-lib PRIVATE"
     LIBRESPOT_CMAKELISTS
     "${LIBRESPOT_CMAKELISTS}"
   )
   file(
-    WRITE "${librespot-cpp_SOURCE_DIR}/CMakeLists.txt"
+    WRITE
+    "${librespot-cpp_SOURCE_DIR}/CMakeLists.txt"
     "${LIBRESPOT_CMAKELISTS}"
   )
 
@@ -3866,12 +4004,14 @@ if(QT6)
   endif()
   if(QML)
     list(
-      APPEND CPACK_DEBIAN_PACKAGE_DEPENDS
+      APPEND
+      CPACK_DEBIAN_PACKAGE_DEPENDS
       "qml6-module-qt-labs-folderlistmodel"
     )
     list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml6-module-qt-labs-qmlmodels")
     list(
-      APPEND CPACK_DEBIAN_PACKAGE_DEPENDS
+      APPEND
+      CPACK_DEBIAN_PACKAGE_DEPENDS
       "qml6-module-qt5compat-graphicaleffects"
     )
     list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml6-module-qtmultimedia")
@@ -3903,18 +4043,21 @@ set(
   "${CPACK_DEBIAN_PACKAGE_DESCRIPTION}"
 )
 string(
-  PREPEND CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED
+  PREPEND
+  CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED
   "${CPACK_PACKAGE_DESCRIPTION_SUMMARY}"
   "\n"
 )
 string(
-  REPLACE "\n\n"
+  REPLACE
+  "\n\n"
   "\n.\n"
   CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED
   "${CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED}"
 )
 string(
-  REPLACE "\n"
+  REPLACE
+  "\n"
   "\n "
   CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED
   "${CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED}"

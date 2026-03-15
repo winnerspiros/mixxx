@@ -3,7 +3,9 @@
 #include <QDialog>
 #include <QObject>
 #include <QQmlEngine>
+#ifndef Q_OS_ANDROID
 #include <QVideoSink>
+#endif
 #include <memory>
 #include <optional>
 
@@ -44,13 +46,14 @@ class QmlControllerScreenElement : public QObject {
         return static_cast<int>(
                 1000000 / m_averageFrameDuration);
     }
+#ifndef Q_OS_ANDROID
     Q_INVOKABLE void connectVideoSink(QVideoSink* videoSink) {
-        disconnect(videoSink);
-        connect(this,
-                &QmlControllerScreenElement::videoFrameAvailable,
-                videoSink,
+        connect(videoSink,
+                &QVideoSink::videoFrameChanged,
+                this,
                 &QVideoSink::setVideoFrame);
     }
+#endif
   signals:
     void fpsChanged();
     void videoSinkChanged();

@@ -1,7 +1,9 @@
 #include "qmlapplication.h"
 
 #include <QQmlEngineExtensionPlugin>
+#ifndef Q_OS_ANDROID
 #include <QtQuickControls2/QQuickStyle>
+#endif
 #include <QQuickWindow>
 #include <QTextDocument>
 
@@ -22,7 +24,9 @@
 #endif
 
 Q_IMPORT_QML_PLUGIN(MixxxPlugin)
+#ifdef MIXXX_USE_QML
 Q_IMPORT_QML_PLUGIN(Mixxx_ControlsPlugin)
+#endif
 
 namespace {
 const QString kMainQmlFileName = QStringLiteral("qml/main.qml");
@@ -52,7 +56,11 @@ QmlApplication::QmlApplication(
           m_perfSession(nullptr),
 #endif
           m_autoReload() {
+#ifdef MIXXX_USE_QML
+#ifndef Q_OS_ANDROID
     QQuickStyle::setStyle("Basic");
+#endif
+#endif
 
     m_pCoreServices->initialize(app);
 
