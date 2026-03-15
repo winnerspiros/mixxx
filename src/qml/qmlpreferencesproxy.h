@@ -6,7 +6,10 @@
 #include <QSize>
 #include <QString>
 #include <QUrl>
-#include <QtQml>
+#include <QQmlEngine>
+#include <QQmlListProperty>
+#include <QtQmlIntegration>
+#include <QVideoFrame>
 #include <chrono>
 #include <limits>
 #include <memory>

@@ -90,3 +90,11 @@ constexpr T sgn(const T a) {
         return static_cast<T>(a > T(0)) - static_cast<T>(a < T(0));
     }
 }
+template<typename T, typename U>
+    requires std::is_floating_point_v<T> && std::is_arithmetic_v<U>
+inline T roundToFraction(T value, U fraction) {
+    if (fraction == 0) {
+        return value;
+    }
+    return std::round(value * static_cast<T>(fraction)) / static_cast<T>(fraction);
+}

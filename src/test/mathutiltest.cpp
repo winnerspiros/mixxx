@@ -118,4 +118,12 @@ TEST_F(MathUtilTest, RoundUpToPowerOf2) {
     EXPECT_EQ(2048, roundUpToPowerOf2(1025));
 }
 
+TEST_F(MathUtilTest, RoundToFraction) {
+    EXPECT_DOUBLE_EQ(1.0, roundToFraction(1.1, 1));
+    EXPECT_DOUBLE_EQ(1.5, roundToFraction(1.4, 2));
+    EXPECT_DOUBLE_EQ(1.5, roundToFraction(1.6, 2));
+    EXPECT_DOUBLE_EQ(1.25, roundToFraction(1.2, 4));
+    EXPECT_DOUBLE_EQ(1.375, roundToFraction(1.4, 8));
+}
+
 }  // namespace
