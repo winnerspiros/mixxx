@@ -1593,8 +1593,12 @@ bool MixxxMainWindow::confirmExit() {
         }
     }
     if (m_pPrefDlg && m_pPrefDlg->isVisible()) {
-        QMessageBox::StandardButton btn = QMessageBox::question(
-                this, tr("Confirm Exit"), tr("The preferences window is still open.") + "<br>" + tr("Discard any changes and exit Mixxx?"), QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+        QMessageBox::StandardButton btn = QMessageBox::question(this,
+                tr("Confirm Exit"),
+                tr("The preferences window is still open.") + "<br>" +
+                        tr("Discard any changes and exit Mixxx?"),
+                QMessageBox::Yes | QMessageBox::No,
+                QMessageBox::No);
         if (btn == QMessageBox::No) {
             return false;
         } else {

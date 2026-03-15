@@ -81,9 +81,12 @@ void QmlControllerScreenElement::connectVideoSink(QObject* videoSinkObject) {
     if (!videoSink) {
         return;
     }
-    connect(this, &QmlControllerScreenElement::videoFrameAvailable, videoSink, [videoSink](const QVideoFrame& frame) {
-        videoSink->setVideoFrame(frame);
-    });
+    connect(this,
+            &QmlControllerScreenElement::videoFrameAvailable,
+            videoSink,
+            [videoSink](const QVideoFrame& frame) {
+                videoSink->setVideoFrame(frame);
+            });
 }
 #endif
 
