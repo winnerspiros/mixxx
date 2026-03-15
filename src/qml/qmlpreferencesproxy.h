@@ -49,9 +49,9 @@ class QmlControllerScreenElement : public QObject {
     }
 #ifndef Q_OS_ANDROID
     Q_INVOKABLE void connectVideoSink(QVideoSink* videoSink) {
-        connect(videoSink,
-                &QVideoSink::videoFrameChanged,
-                this,
+        connect(this,
+                &QmlControllerScreenElement::videoFrameAvailable,
+                videoSink,
                 &QVideoSink::setVideoFrame);
     }
 #endif

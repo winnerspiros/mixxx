@@ -68,7 +68,6 @@
 #endif
 
 namespace {
-#ifdef __LINUX__
 // Detect if the desktop supports a global menu to decide whether we need to rebuild
 // and reconnect the menu bar when switching to/from fullscreen mode.
 // Compared to QMenuBar::isNativeMenuBar() (requires a set menu bar) and
@@ -77,17 +76,16 @@ namespace {
 // while Mixxx is running.
 // This is a reimplementation of QGenericUnixTheme > checkDBusGlobalMenuAvailable()
 inline bool supportsGlobalMenu() {
-#if defined(Q_OS_ANDROID) || defined(QT_NO_DBUS) || !defined(__LINUX__)
-    return false;
-#else
+#if defined(__LINUX__) && !defined(__ANDROID__) && !defined(QT_NO_DBUS)
     QDBusConnection conn = QDBusConnection::sessionBus();
     if (const auto* pIface = conn.interface()) {
         return pIface->isServiceRegistered("com.canonical.AppMenu.Registrar");
     }
     return false;
+#else
+    return false;
 #endif
 }
-#endif
 
 const ConfigKey kHideMenuBarConfigKey = ConfigKey("[Config]", "hide_menubar");
 const ConfigKey kMenuBarHintConfigKey = ConfigKey("[Config]", "show_menubar_hint");

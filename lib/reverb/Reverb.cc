@@ -435,6 +435,11 @@ Descriptor<PlateX2>::setup()
 
 
 #include <util/rampingvalue.h>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 // (timrae) we have our left / right samples interleaved in the same array, so use slightly modified version of PlateX2::cycle
 void MixxxPlateX2::processBuffer(const sample_t* in, sample_t* out, const uint frames,
                                  const sample_t bandwidthParam,
@@ -461,4 +466,3 @@ void MixxxPlateX2::processBuffer(const sample_t* in, sample_t* out, const uint f
         PlateStub::process(mono_sample, decay, &out[i], &out[i+1]);
     }
  }
-
