@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QtDebug>
+#include <utility>
 
 #include "util/assert.h"
 
@@ -23,6 +24,10 @@ class Singleton {
             qWarning() << "Singleton class has not been created yet, returning nullptr";
         }
         return m_instance;
+    }
+
+    static T& Instance() {
+        return *instance();
     }
 
     static void destroy() {

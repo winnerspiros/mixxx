@@ -3,10 +3,15 @@
 #include <QImage>
 #include <QList>
 #include <QObject>
+#include <QQmlEngine>
+#include <QQmlListProperty>
 #include <QSize>
 #include <QString>
 #include <QUrl>
-#include <QtQml>
+#include <QtQmlIntegration>
+#ifndef Q_OS_ANDROID
+#include <QVideoFrame>
+#endif
 #include <chrono>
 #include <limits>
 #include <memory>
