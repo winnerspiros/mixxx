@@ -9,7 +9,9 @@
 #include <QQmlEngine>
 #include <QQmlListProperty>
 #include <QtQmlIntegration>
+#ifndef Q_OS_ANDROID
 #include <QVideoFrame>
+#endif
 #include <chrono>
 #include <limits>
 #include <memory>
