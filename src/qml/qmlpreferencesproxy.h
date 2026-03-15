@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QQmlEngine>
 #ifndef Q_OS_ANDROID
+#include <QVideoFrame>
 #include <QVideoSink>
 #endif
 #include <memory>
@@ -56,8 +57,10 @@ class QmlControllerScreenElement : public QObject {
 #endif
   signals:
     void fpsChanged();
+#ifndef Q_OS_ANDROID
     void videoSinkChanged();
     void videoFrameAvailable(const QVideoFrame& videoFrame);
+#endif
   public slots:
     void updateFrame(const LegacyControllerMapping::ScreenInfo& screen, const QImage& frame);
     void clear() {

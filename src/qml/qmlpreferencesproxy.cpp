@@ -8,8 +8,10 @@
 #include <qvideosink.h>
 #endif
 
+#ifndef Q_OS_ANDROID
 #include <QVideoFrame>
 #include <QVideoFrameFormat>
+#endif
 #include <algorithm>
 #include <cstdint>
 #include <limits>
@@ -155,6 +157,7 @@ void QmlControllerScreenElement::updateFrame(
     } else {
         m_averageFrameDuration = averageFrameDuration;
     }
+#ifndef Q_OS_ANDROID
 #if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
     emit videoFrameAvailable(QVideoFrame(frame));
 #else
@@ -170,6 +173,7 @@ void QmlControllerScreenElement::updateFrame(
     std::memcpy(videoFrame.bits(0), frame.bits(), frame.sizeInBytes());
     videoFrame.unmap();
     emit videoFrameAvailable(videoFrame);
+#endif
 #endif
 }
 
