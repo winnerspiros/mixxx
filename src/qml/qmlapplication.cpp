@@ -4,6 +4,7 @@
 #ifndef Q_OS_ANDROID
 #include <QtQuickControls2/QQuickStyle>
 #endif
+#include <QMessageBox>
 #include <QQuickWindow>
 #include <QTextDocument>
 
@@ -21,6 +22,7 @@
 #include <android/api-level.h>
 #include <android/log.h>
 #include <android/performance_hint.h>
+#include <unistd.h>
 #endif
 
 Q_IMPORT_QML_PLUGIN(MixxxPlugin)
@@ -52,8 +54,10 @@ QmlApplication::QmlApplication(
           m_visualsManager(std::make_unique<VisualsManager>()),
           m_mainFilePath(m_pCoreServices->getSettings()->getResourcePath() + kMainQmlFileName),
           m_pAppEngine(nullptr),
-          m_autoReload(),
+          m_autoReload()
 #if defined(Q_OS_ANDROID)
+          ,
+          m_frameTimer(),
           m_perfSession(nullptr)
 #endif
 {
@@ -141,7 +145,8 @@ QmlApplication::QmlApplication(
                 loadQml(m_mainFilePath);
             });
 
-#if defined(Q_OS_ANDROID) && __ANDROID_API__ >= 33
+#if defined(Q_OS_ANDROID)
+#if __ANDROID_API__ >= 33
     APerformanceHintManager* manager = APerformanceHint_getManager();
     if (manager) {
         int32_t thread32 = gettid();
@@ -157,16 +162,19 @@ QmlApplication::QmlApplication(
         }
     }
 #endif
+#endif
 }
 
+#if defined(Q_OS_ANDROID)
 void QmlApplication::slotWindowChanged(QQuickWindow* window) {
     if (window) {
         connect(window, &QQuickWindow::afterFrameEnd, this, &QmlApplication::slotFrameSwapped);
     }
     m_frameTimer.restart();
 }
+
 void QmlApplication::slotFrameSwapped() {
-#if defined(Q_OS_ANDROID) && __ANDROID_API__ >= 33
+#if __ANDROID_API__ >= 33
     if (m_perfSession) {
         auto lastFrameDurationNs = m_frameTimer.elapsed().toIntegerNanos();
         APerformanceHint_reportActualWorkDuration(m_perfSession,
@@ -175,6 +183,7 @@ void QmlApplication::slotFrameSwapped() {
     m_frameTimer.restart();
 #endif
 }
+#endif
 
 QmlApplication::~QmlApplication() {
     // Delete all the QML singletons in order to prevent leak detection in CoreService
