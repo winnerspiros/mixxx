@@ -20,8 +20,8 @@ using std::fabs;
 
 #define math_max std::max
 #define math_min std::min
-#define math_max3(a, b, c) std::max({a, b, c});
-#define math_min3(a, b, c) std::min({a, b, c});
+#define math_max3(a, b, c) std::max({(a), (b), (c)})
+#define math_min3(a, b, c) std::min({(a), (b), (c)})
 
 template<typename T>
     requires std::is_integral_v<T>
