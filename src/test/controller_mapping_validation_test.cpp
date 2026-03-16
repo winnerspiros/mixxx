@@ -10,8 +10,6 @@
 #include <vector>
 
 #include "test/mixxxtest.h"
-class MappingTestFixtureCpp : public MixxxTest, public ::testing::WithParamInterface<std::string> {
-};
 
 static std::vector<std::string> SplitMappings(const std::string& s) {
     std::vector<std::string> res;
@@ -23,6 +21,9 @@ static std::vector<std::string> SplitMappings(const std::string& s) {
     }
     return res;
 }
+
+class MappingTestFixtureCpp : public MixxxTest, public ::testing::WithParamInterface<std::string> {
+};
 
 TEST_P(MappingTestFixtureCpp, ValidateXml) {
     QString path = QString::fromStdString(GetParam());
