@@ -1,5 +1,7 @@
 #pragma once
 
+#include <qqmlregistration.h>
+
 #include <QImage>
 #include <QList>
 #include <QObject>
@@ -8,7 +10,6 @@
 #include <QSize>
 #include <QString>
 #include <QUrl>
-#include <QtQmlIntegration>
 #ifndef Q_OS_ANDROID
 #include <QVideoFrame>
 #endif

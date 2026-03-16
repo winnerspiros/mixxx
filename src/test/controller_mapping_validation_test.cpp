@@ -1,4 +1,4 @@
-#include <gtest/gtest.h>
+#include "controller_mapping_validation_test.h"
 
 #include <QDir>
 #include <QFile>
@@ -21,9 +21,6 @@ static std::vector<std::string> SplitMappings(const std::string& s) {
     }
     return res;
 }
-
-class MappingTestFixture : public MixxxTest, public ::testing::WithParamInterface<std::string> {
-};
 
 TEST_P(MappingTestFixture, ValidateXml) {
     QString path = QString::fromStdString(GetParam());
