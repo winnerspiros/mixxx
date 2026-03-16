@@ -1,7 +1,5 @@
 #pragma once
 
-#include <qqmlregistration.h>
-
 #include <QImage>
 #include <QList>
 #include <QObject>
@@ -46,7 +44,7 @@ class QmlControllerScreenElement : public QObject {
 
   public:
     explicit QmlControllerScreenElement(
-            QObject* parent, const LegacyControllerMapping::ScreenInfo& screen);
+            QObject* parent, const ::LegacyControllerMapping::ScreenInfo& screen);
     const QString& identifier() const {
         return m_screenInfo.identifier;
     }

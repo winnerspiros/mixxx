@@ -2822,6 +2822,7 @@ if(BUILD_TESTING)
     src/test/colormapperjsproxy_test.cpp
     src/test/colorpalette_test.cpp
     src/test/configobject_test.cpp
+    src/test/controller_mapping_validation_test.h
     src/test/controller_mapping_validation_test.cpp
     src/test/controller_mapping_settings_test.cpp
     src/test/controllers/controller_columnid_regression_test.cpp

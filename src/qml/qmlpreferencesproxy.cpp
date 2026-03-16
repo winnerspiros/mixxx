@@ -37,14 +37,14 @@ namespace mixxx {
 namespace qml {
 
 QmlControllerScreenElement::QmlControllerScreenElement(
-        QObject* parent, const LegacyControllerMapping::ScreenInfo& screen)
+        QObject* parent, const ::LegacyControllerMapping::ScreenInfo& screen)
         : QObject(parent),
           m_screenInfo(screen),
           m_averageFrameDuration(std::numeric_limits<double>::max()) {
 }
 
 void QmlControllerScreenElement::updateFrame(
-        const LegacyControllerMapping::ScreenInfo& screen, const QImage& frame) {
+        const ::LegacyControllerMapping::ScreenInfo& screen, const QImage& frame) {
     if (m_screenInfo.identifier != screen.identifier) {
         return;
     }
