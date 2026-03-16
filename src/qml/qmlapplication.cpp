@@ -18,6 +18,7 @@
 #include "util/versionstore.h"
 #include "waveform/visualsmanager.h"
 #include "waveform/waveformwidgetfactory.h"
+
 #if defined(Q_OS_ANDROID)
 #include <android/api-level.h>
 #include <android/log.h>
