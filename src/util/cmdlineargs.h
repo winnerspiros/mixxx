@@ -9,6 +9,8 @@
 #include "util/logging.h"
 #include "util/singleton.h"
 
+namespace mixxx {
+
 class CmdlineArgs : public Singleton<CmdlineArgs> {
   public:
     enum class ParseMode {
@@ -148,3 +150,5 @@ class CmdlineArgs : public Singleton<CmdlineArgs> {
 
     bool m_parseForUserFeedbackRequired;
 };
+
+} // namespace mixxx

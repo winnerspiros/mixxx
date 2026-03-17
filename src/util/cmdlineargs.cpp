@@ -23,6 +23,8 @@
 
 namespace {
 
+namespace mixxx {
+
 bool calcUseColorsAuto() {
     // see https://no-color.org/
     if (QProcessEnvironment::systemEnvironment().contains(QLatin1String("NO_COLOR"))) {
@@ -43,9 +45,14 @@ bool calcUseColorsAuto() {
             term.startsWith("vt100") || term.startsWith("rxvt") ||
             term.endsWith("color");
 #endif
+    return false;
 }
 
 } // namespace
+
+} // namespace mixxx
+
+namespace mixxx {
 
 CmdlineArgs::CmdlineArgs()
         : m_qml(false),
@@ -528,3 +535,5 @@ bool CmdlineArgs::parse(const QStringList& arguments, CmdlineArgs::ParseMode mod
 
     return true;
 }
+
+} // namespace mixxx
