@@ -4219,7 +4219,7 @@ if(WIN32)
   configure_file("src/mixxx.rc.include.in" "src/mixxx.rc.include" @ONLY)
   configure_file("src/mixxx.rc" "mixxx.rc" @ONLY)
 
-  target_sources(mixxx PRIVATE mixxx.rc "/src/gitinfo.h")
+  target_sources(mixxx PRIVATE mixxx.rc "${CMAKE_CURRENT_BINARY_DIR}/src/gitinfo.h")
   target_include_directories(mixxx PRIVATE "")
   add_dependencies(mixxx mixxx-gitinfo)
 endif()

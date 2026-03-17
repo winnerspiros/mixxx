@@ -152,3 +152,5 @@ class CmdlineArgs : public Singleton<CmdlineArgs> {
 };
 
 } // namespace mixxx
+
+using CmdlineArgs = mixxx::CmdlineArgs;
