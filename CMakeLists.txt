@@ -4219,20 +4219,13 @@ if(WIN32)
     set(MIXXX_PRERELEASE 1)
   endif()
 
-  configure_file("src/mixxx.rc.include.in" "src/mixxx.rc.include" @ONLY)
-  configure_file("src/mixxx.rc" "mixxx.rc" @ONLY)
 
   target_sources(
     mixxx
     PRIVATE
-      mixxx.rc
-      src/mixxx.rc
-      "${CMAKE_CURRENT_BINARY_DIR}/src/mixxx.rc.include"
       "${CMAKE_CURRENT_BINARY_DIR}/src/gitinfo.h"
   )
   target_include_directories(mixxx PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-  add_dependencies(mixxx mixxx-gitinfo)
-endif()
 
 if(QT6)
   qt_finalize_target(mixxx)
