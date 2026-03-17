@@ -89,10 +89,10 @@ class CmdlineArgs : public Singleton<CmdlineArgs> {
     const QStringList& getMusicFiles() const {
         return m_musicFiles;
     }
-    mixxx::LogLevel getLogLevel() const {
+    LogLevel getLogLevel() const {
         return m_logLevel;
     }
-    mixxx::LogLevel getLogFlushLevel() const {
+    LogLevel getLogFlushLevel() const {
         return m_logFlushLevel;
     }
     qint64 getLogMaxFileSize() const {
@@ -120,7 +120,7 @@ class CmdlineArgs : public Singleton<CmdlineArgs> {
     }
 
   private:
-    bool parseLogLevel(const QString& value, mixxx::LogLevel* pLogLevel);
+    bool parseLogLevel(const QString& value, LogLevel* pLogLevel);
 
     bool m_qml;
     bool m_awareOfRisk;
@@ -142,8 +142,8 @@ class CmdlineArgs : public Singleton<CmdlineArgs> {
     bool m_useColors;
     bool m_debugAssertBreak;
     QStringList m_musicFiles;
-    mixxx::LogLevel m_logLevel;
-    mixxx::LogLevel m_logFlushLevel;
+    LogLevel m_logLevel;
+    LogLevel m_logFlushLevel;
     qint64 m_logMaxFileSize;
     QString m_styleName;
     double m_scaleFactor;

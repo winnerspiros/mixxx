@@ -40,10 +40,10 @@ bool calcUseColorsAuto() {
 
     // Check if terminal is known to support ANSI colors
     QString term = QProcessEnvironment::systemEnvironment().value("TERM");
-    return term == "alacritty" || term == "ansi" || term == "cygwin" || term == "linux" ||
-            term.startsWith("screen") || term.startsWith("xterm") ||
-            term.startsWith("vt100") || term.startsWith("rxvt") ||
-            term.endsWith("color");
+    return term == u"alacritty"_s || term == u"ansi"_s || term == u"cygwin"_s || term == u"linux"_s ||
+            term.startsWith(u"screen"_s) || term.startsWith(u"xterm"_s) ||
+            term.startsWith(u"vt100"_s) || term.startsWith(u"rxvt"_s) ||
+            term.endsWith(u"color"_s);
 #endif
     return false;
 }
@@ -107,25 +107,25 @@ void CmdlineArgs::parseForUserFeedback() {
     parse(QCoreApplication::arguments(), ParseMode::ForUserFeedback);
 }
 
-bool CmdlineArgs::parseLogLevel(const QString& value, mixxx::LogLevel* pLogLevel) {
+bool CmdlineArgs::parseLogLevel(const QString& value, LogLevel* pLogLevel) {
     if (value == QLatin1String("critical")) {
-        *pLogLevel = mixxx::LogLevel::Critical;
+        *pLogLevel = LogLevel::Critical;
     } else if (value == QLatin1String("warning")) {
-        *pLogLevel = mixxx::LogLevel::Warning;
+        *pLogLevel = LogLevel::Warning;
     } else if (value == QLatin1String("info")) {
-        *pLogLevel = mixxx::LogLevel::Info;
+        *pLogLevel = LogLevel::Info;
     } else if (value == QLatin1String("debug")) {
-        *pLogLevel = mixxx::LogLevel::Debug;
+        *pLogLevel = LogLevel::Debug;
     } else if (value == QLatin1String("trace")) {
-        *pLogLevel = mixxx::LogLevel::Trace;
+        *pLogLevel = LogLevel::Trace;
     } else {
-        *pLogLevel = mixxx::LogLevel::Warning;
+        *pLogLevel = LogLevel::Warning;
         return false;
     }
     return true;
 }
 
-bool CmdlineArgs::parse(const QStringList& arguments, CmdlineArgs::ParseMode mode) {
+bool CmdlineArgs::parse(const QStringList& arguments, ParseMode mode) {
     const bool forUserFeedback = mode == ParseMode::ForUserFeedback;
     QCommandLineParser parser;
 
@@ -250,7 +250,7 @@ bool CmdlineArgs::parse(const QStringList& arguments, CmdlineArgs::ParseMode mod
             QStringLiteral("auto/always/never"));
     parser.addOption(color);
 
-    const QCommandLineOption logLevel(QStringLiteral("log-level"),
+    const QCommandLineOption logLevelOption(QStringLiteral("log-level"),
             forUserFeedback ? QCoreApplication::translate("CmdlineArgs",
                                       "Sets the logging level.\n"
                                       "trace    - Above + Profiling messages\n"
@@ -260,10 +260,10 @@ bool CmdlineArgs::parse(const QStringList& arguments, CmdlineArgs::ParseMode mod
                                       "critical - Critical/Fatal only")
                             : QString(),
             QStringLiteral("level"));
-    QCommandLineOption logLevelDeprecated(QStringLiteral("logLevel"), logLevel.description());
+    QCommandLineOption logLevelDeprecated(QStringLiteral("logLevel"), logLevelOption.description());
     logLevelDeprecated.setFlags(QCommandLineOption::HiddenFromHelp);
-    logLevelDeprecated.setValueName(logLevel.valueName());
-    parser.addOption(logLevel);
+    logLevelDeprecated.setValueName(logLevelOption.valueName());
+    parser.addOption(logLevelOption);
     parser.addOption(logLevelDeprecated);
 
     const QCommandLineOption logFlushLevel(QStringLiteral("log-flush-level"),
@@ -274,7 +274,7 @@ bool CmdlineArgs::parse(const QStringList& arguments, CmdlineArgs::ParseMode mod
                             : QString(),
             QStringLiteral("level"));
     QCommandLineOption logFlushLevelDeprecated(
-            QStringLiteral("logFlushLevel"), logLevel.description());
+            QStringLiteral("logFlushLevel"), logLevelOption.description());
     logFlushLevelDeprecated.setFlags(QCommandLineOption::HiddenFromHelp);
     logFlushLevelDeprecated.setValueName(logFlushLevel.valueName());
     parser.addOption(logFlushLevel);
@@ -414,8 +414,8 @@ bool CmdlineArgs::parse(const QStringList& arguments, CmdlineArgs::ParseMode mod
 
     m_musicFiles = parser.positionalArguments();
 
-    if (parser.isSet(logLevel)) {
-        if (!parseLogLevel(parser.value(logLevel), &m_logLevel)) {
+    if (parser.isSet(logLevelOption)) {
+        if (!parseLogLevel(parser.value(logLevelOption), &m_logLevel)) {
             fputs("\nlog-level wasn't 'trace', 'debug', 'info', 'warning', or 'critical'!\n"
                   "Mixxx will only print warnings and critical messages to the console.\n",
                     stdout);
@@ -428,7 +428,7 @@ bool CmdlineArgs::parse(const QStringList& arguments, CmdlineArgs::ParseMode mod
         }
     } else {
         if (m_developer) {
-            m_logLevel = mixxx::LogLevel::Debug;
+            m_logLevel = LogLevel::Debug;
         }
     }
 
