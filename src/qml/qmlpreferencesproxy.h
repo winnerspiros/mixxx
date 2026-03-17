@@ -79,7 +79,7 @@ class QmlControllerScreenElement : public QObject {
     }
 
   private:
-    :: ::LegacyControllerMapping::ScreenInfo m_screenInfo;
+    ::LegacyControllerMapping::ScreenInfo m_screenInfo;
 
     double m_averageFrameDuration;
     using Clock = std::chrono::steady_clock;

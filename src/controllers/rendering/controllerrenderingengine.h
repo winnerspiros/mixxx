@@ -86,7 +86,7 @@ class ControllerRenderingEngine : public QObject {
 
     std::chrono::time_point<std::chrono::steady_clock> m_nextFrameStart;
 
-    :: ::LegacyControllerMapping::ScreenInfo m_screenInfo;
+    ::LegacyControllerMapping::ScreenInfo m_screenInfo;
 
     std::unique_ptr<QThread> m_pThread;
 
