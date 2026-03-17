@@ -4201,11 +4201,8 @@ add_custom_target(
 if(WIN32)
   string(TIMESTAMP MIXXX_YEAR "%Y")
 
-  set(
-    MIXXX_FILEVERSION
-    "${CMAKE_PROJECT_VERSION_MAJOR},${CMAKE_PROJECT_VERSION_MINOR},${CMAKE_PROJECT_VERSION_PATCH}"
-  )
-  set(MIXXX_PRODUCTVERSION "${MIXXX_FILEVERSION}")
+  set(MIXXX_FILEVERSION ",,")
+  set(MIXXX_PRODUCTVERSION "")
 
   if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(MIXXX_DEBUG 1)
@@ -4219,16 +4216,12 @@ if(WIN32)
     set(MIXXX_PRERELEASE 1)
   endif()
 
+  configure_file("src/mixxx.rc.include.in" "src/mixxx.rc.include" @ONLY)
+  configure_file("src/mixxx.rc" "mixxx.rc" @ONLY)
 
-  target_sources(
-    mixxx
-    PRIVATE
-      "${CMAKE_CURRENT_BINARY_DIR}/src/gitinfo.h"
-  )
-  target_include_directories(mixxx PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-
-if(QT6)
-  qt_finalize_target(mixxx)
+  target_sources(mixxx PRIVATE mixxx.rc "/src/gitinfo.h")
+  target_include_directories(mixxx PRIVATE "")
+  add_dependencies(mixxx mixxx-gitinfo)
 endif()
 
 # ReplayGain
