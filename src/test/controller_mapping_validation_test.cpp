@@ -1,4 +1,4 @@
-#include <gtest/gtest.h>
+#include "controller_mapping_validation_test.h"
 
 #include <QDir>
 #include <QFile>
@@ -22,10 +22,10 @@ static std::vector<std::string> SplitMappings(const std::string& s) {
     return res;
 }
 
-class MappingTestFixture : public MixxxTest, public ::testing::WithParamInterface<std::string> {
+class MappingTestFixtureCpp : public MixxxTest, public ::testing::WithParamInterface<std::string> {
 };
 
-TEST_P(MappingTestFixture, ValidateXml) {
+TEST_P(MappingTestFixtureCpp, ValidateXml) {
     QString path = QString::fromStdString(GetParam());
     QFile file(path);
     ASSERT_TRUE(file.open(QIODevice::ReadOnly | QIODevice::Text));
@@ -48,21 +48,21 @@ static std::string PrintMappingName(const ::testing::TestParamInfo<std::string>&
 #if !defined(__ANDROID__)
 #ifdef CONTROLLER_BULK_MAPPINGS
 INSTANTIATE_TEST_SUITE_P(BulkMappings,
-        MappingTestFixture,
+        MappingTestFixtureCpp,
         ::testing::ValuesIn(SplitMappings(CONTROLLER_BULK_MAPPINGS)),
         PrintMappingName);
 #endif
 
 #ifdef CONTROLLER_HID_MAPPINGS
 INSTANTIATE_TEST_SUITE_P(HidMappings,
-        MappingTestFixture,
+        MappingTestFixtureCpp,
         ::testing::ValuesIn(SplitMappings(CONTROLLER_HID_MAPPINGS)),
         PrintMappingName);
 #endif
 
 #ifdef CONTROLLER_MIDI_MAPPINGS
 INSTANTIATE_TEST_SUITE_P(MidiMappings,
-        MappingTestFixture,
+        MappingTestFixtureCpp,
         ::testing::ValuesIn(SplitMappings(CONTROLLER_MIDI_MAPPINGS)),
         PrintMappingName);
 #endif

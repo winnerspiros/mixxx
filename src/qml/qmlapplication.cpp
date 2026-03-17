@@ -4,6 +4,7 @@
 #ifndef Q_OS_ANDROID
 #include <QtQuickControls2/QQuickStyle>
 #endif
+#include <QMessageBox>
 #include <QQuickWindow>
 #include <QTextDocument>
 
@@ -17,10 +18,12 @@
 #include "util/versionstore.h"
 #include "waveform/visualsmanager.h"
 #include "waveform/waveformwidgetfactory.h"
+
 #if defined(Q_OS_ANDROID)
 #include <android/api-level.h>
 #include <android/log.h>
 #include <android/performance_hint.h>
+#include <unistd.h>
 #endif
 
 Q_IMPORT_QML_PLUGIN(MixxxPlugin)
@@ -52,10 +55,13 @@ QmlApplication::QmlApplication(
           m_visualsManager(std::make_unique<VisualsManager>()),
           m_mainFilePath(m_pCoreServices->getSettings()->getResourcePath() + kMainQmlFileName),
           m_pAppEngine(nullptr),
+          m_autoReload()
 #if defined(Q_OS_ANDROID)
-          m_perfSession(nullptr),
+          ,
+          m_frameTimer(),
+          m_perfSession(nullptr)
 #endif
-          m_autoReload() {
+{
 #ifdef MIXXX_USE_QML
 #ifndef Q_OS_ANDROID
     QQuickStyle::setStyle("Basic");
@@ -141,21 +147,26 @@ QmlApplication::QmlApplication(
             });
 
 #if defined(Q_OS_ANDROID)
+#if __ANDROID_API__ >= 33
     APerformanceHintManager* manager = APerformanceHint_getManager();
-    VERIFY_OR_DEBUG_ASSERT(manager) {
-        return;
+    if (manager) {
+        int32_t thread32 = gettid();
+        m_perfSession = APerformanceHint_createSession(
+                manager, &thread32, 1, static_cast<int64_t>(1e9 / 60));
+        if (m_perfSession) {
+#if __ANDROID_API__ >= 35
+            APerformanceHint_setPreferPowerEfficiency(m_perfSession, false);
+#endif
+            __android_log_print(ANDROID_LOG_VERBOSE, "mixxx", "ADPF session ready");
+        } else {
+            __android_log_print(ANDROID_LOG_WARN, "mixxx", "unable to create a ADPF session!");
+        }
     }
-    int32_t thread32 = gettid();
-    m_perfSession = APerformanceHint_createSession(manager, &thread32, 1, 1e9 / 60);
-    VERIFY_OR_DEBUG_ASSERT(m_perfSession) {
-        __android_log_print(ANDROID_LOG_WARN, "mixxx", "unable to create a ADPF session!");
-    }
-    else {
-        APerformanceHint_setPreferPowerEfficiency(m_perfSession, false);
-        __android_log_print(ANDROID_LOG_VERBOSE, "mixxx", "ADPF session ready");
-    }
+#endif
+#endif
 }
 
+#if defined(Q_OS_ANDROID)
 void QmlApplication::slotWindowChanged(QQuickWindow* window) {
     if (window) {
         connect(window, &QQuickWindow::afterFrameEnd, this, &QmlApplication::slotFrameSwapped);
@@ -164,16 +175,16 @@ void QmlApplication::slotWindowChanged(QQuickWindow* window) {
 }
 
 void QmlApplication::slotFrameSwapped() {
-    VERIFY_OR_DEBUG_ASSERT(m_perfSession) {
-        return;
+#if __ANDROID_API__ >= 33
+    if (m_perfSession) {
+        auto lastFrameDurationNs = m_frameTimer.elapsed().toIntegerNanos();
+        APerformanceHint_reportActualWorkDuration(m_perfSession,
+                lastFrameDurationNs);
     }
-    auto lastFrameDurationNs = m_frameTimer.elapsed().toIntegerNanos();
-    auto t = std::chrono::steady_clock::now() - std::chrono::steady_clock::time_point{};
-    APerformanceHint_reportActualWorkDuration(m_perfSession,
-            lastFrameDurationNs);
     m_frameTimer.restart();
 #endif
 }
+#endif
 
 QmlApplication::~QmlApplication() {
     // Delete all the QML singletons in order to prevent leak detection in CoreService

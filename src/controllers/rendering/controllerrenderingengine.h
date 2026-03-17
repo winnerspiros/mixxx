@@ -25,7 +25,7 @@ class QThread;
 class ControllerRenderingEngine : public QObject {
     Q_OBJECT
   public:
-    ControllerRenderingEngine(const LegacyControllerMapping::ScreenInfo& info,
+    ControllerRenderingEngine(const ::LegacyControllerMapping::ScreenInfo& info,
             gsl::not_null<ControllerEngineThreadControl*> engineThreadControl);
     // Destructor will wait for the ControllerRenderingEngine's thread to
     // complete. It should be called from the Controller thread.
@@ -48,7 +48,7 @@ class ControllerRenderingEngine : public QObject {
         return m_quickWindow.get();
     }
 
-    const LegacyControllerMapping::ScreenInfo& info() const {
+    const ::LegacyControllerMapping::ScreenInfo& info() const {
         return m_screenInfo;
     }
 
@@ -72,7 +72,7 @@ class ControllerRenderingEngine : public QObject {
     void send(Controller* controller, const QByteArray& frame);
 
   signals:
-    void frameRendered(const LegacyControllerMapping::ScreenInfo& screeninfo,
+    void frameRendered(const ::LegacyControllerMapping::ScreenInfo& screeninfo,
             QImage frame,
             const QDateTime& timestamp);
     void stopping();
@@ -86,7 +86,7 @@ class ControllerRenderingEngine : public QObject {
 
     std::chrono::time_point<std::chrono::steady_clock> m_nextFrameStart;
 
-    LegacyControllerMapping::ScreenInfo m_screenInfo;
+    ::LegacyControllerMapping::ScreenInfo m_screenInfo;
 
     std::unique_ptr<QThread> m_pThread;
 

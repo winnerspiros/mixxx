@@ -1783,7 +1783,6 @@ set(
   src/util/font.h
   src/util/fpclassify.h
   src/util/gitinfostore.h
-  src/util/gitinfostore.cpp
   src/util/imagefiledata.h
   src/util/imageutils.h
   src/util/indexrange.h
@@ -2823,6 +2822,7 @@ if(BUILD_TESTING)
     src/test/colormapperjsproxy_test.cpp
     src/test/colorpalette_test.cpp
     src/test/configobject_test.cpp
+    src/test/controller_mapping_validation_test.h
     src/test/controller_mapping_validation_test.cpp
     src/test/controller_mapping_settings_test.cpp
     src/test/controllers/controller_columnid_regression_test.cpp
@@ -4201,11 +4201,8 @@ add_custom_target(
 if(WIN32)
   string(TIMESTAMP MIXXX_YEAR "%Y")
 
-  set(
-    MIXXX_FILEVERSION
-    "${CMAKE_PROJECT_VERSION_MAJOR},${CMAKE_PROJECT_VERSION_MINOR},${CMAKE_PROJECT_VERSION_PATCH}"
-  )
-  set(MIXXX_PRODUCTVERSION "${MIXXX_FILEVERSION}")
+  set(MIXXX_FILEVERSION ",,")
+  set(MIXXX_PRODUCTVERSION "")
 
   if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(MIXXX_DEBUG 1)
@@ -4222,20 +4219,9 @@ if(WIN32)
   configure_file("src/mixxx.rc.include.in" "src/mixxx.rc.include" @ONLY)
   configure_file("src/mixxx.rc" "mixxx.rc" @ONLY)
 
-  target_sources(
-    mixxx
-    PRIVATE
-      mixxx.rc
-      src/mixxx.rc
-      "${CMAKE_CURRENT_BINARY_DIR}/src/mixxx.rc.include"
-      "${CMAKE_CURRENT_BINARY_DIR}/src/gitinfo.h"
-  )
-  target_include_directories(mixxx PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+  target_sources(mixxx PRIVATE mixxx.rc "/src/gitinfo.h")
+  target_include_directories(mixxx PRIVATE "")
   add_dependencies(mixxx mixxx-gitinfo)
-endif()
-
-if(QT6)
-  qt_finalize_target(mixxx)
 endif()
 
 # ReplayGain

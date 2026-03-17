@@ -1,18 +1,19 @@
 #pragma once
 
 #include <QCommandLineParser>
+#include <QDir>
 #include <QString>
 #include <QStringList>
 #include <QUrl>
 
-#include "util/log.h"
+#include "util/logging.h"
 #include "util/singleton.h"
 
-class CmdlineArgs : public mixxx::Singleton<CmdlineArgs> {
+class CmdlineArgs : public Singleton<CmdlineArgs> {
   public:
     enum class ParseMode {
         Initial,
-        UserFeedback,
+        ForUserFeedback,
     };
 
     CmdlineArgs();
@@ -38,8 +39,17 @@ class CmdlineArgs : public mixxx::Singleton<CmdlineArgs> {
     const QString& getSettingsPath() const {
         return m_settingsPath;
     }
+    void setSettingsPath(const QString& path) {
+        m_settingsPath = path;
+        if (!m_settingsPath.endsWith("/")) {
+            m_settingsPath.append("/");
+        }
+    }
     bool getSettingsPathSet() const {
         return m_settingsPathSet;
+    }
+    bool getTimelineEnabled() const {
+        return !m_timelinePath.isEmpty();
     }
     const QString& getResourcePath() const {
         return m_resourcePath;
@@ -86,11 +96,22 @@ class CmdlineArgs : public mixxx::Singleton<CmdlineArgs> {
     qint64 getLogMaxFileSize() const {
         return m_logMaxFileSize;
     }
+    double getScaleFactor() const {
+        return m_scaleFactor;
+    }
+    void setScaleFactor(double scaleFactor) {
+        m_scaleFactor = scaleFactor;
+    }
+    QString getStyle() const {
+        return m_styleName;
+    }
     const QString& getStyleName() const {
         return m_styleName;
     }
 
-    bool parse(ParseMode mode, const QStringList& arguments);
+    bool parse(int argc, char** argv);
+    void parseForUserFeedback();
+    bool parse(const QStringList& arguments, ParseMode mode);
 
     bool isParseForUserFeedbackRequired() const {
         return m_parseForUserFeedbackRequired;
@@ -123,6 +144,7 @@ class CmdlineArgs : public mixxx::Singleton<CmdlineArgs> {
     mixxx::LogLevel m_logFlushLevel;
     qint64 m_logMaxFileSize;
     QString m_styleName;
+    double m_scaleFactor;
 
     bool m_parseForUserFeedbackRequired;
 };

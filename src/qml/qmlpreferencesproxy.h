@@ -1,12 +1,18 @@
 #pragma once
 
+#include <QtQml/qqml.h>
+
 #include <QImage>
 #include <QList>
 #include <QObject>
+#include <QQmlEngine>
+#include <QQmlListProperty>
 #include <QSize>
 #include <QString>
 #include <QUrl>
-#include <QtQml>
+#ifndef Q_OS_ANDROID
+#include <QVideoFrame>
+#endif
 #include <chrono>
 #include <limits>
 #include <memory>
@@ -40,7 +46,7 @@ class QmlControllerScreenElement : public QObject {
 
   public:
     explicit QmlControllerScreenElement(
-            QObject* parent, const LegacyControllerMapping::ScreenInfo& screen);
+            QObject* parent, const ::LegacyControllerMapping::ScreenInfo& screen);
     const QString& identifier() const {
         return m_screenInfo.identifier;
     }
@@ -67,13 +73,13 @@ class QmlControllerScreenElement : public QObject {
     void videoFrameAvailable(const QVideoFrame& videoFrame);
 #endif
   public slots:
-    void updateFrame(const LegacyControllerMapping::ScreenInfo& screen, const QImage& frame);
+    void updateFrame(const ::LegacyControllerMapping::ScreenInfo& screen, const QImage& frame);
     void clear() {
         m_averageFrameDuration = std::numeric_limits<double>::max();
     }
 
   private:
-    LegacyControllerMapping::ScreenInfo m_screenInfo;
+    ::LegacyControllerMapping::ScreenInfo m_screenInfo;
 
     double m_averageFrameDuration;
     using Clock = std::chrono::steady_clock;
