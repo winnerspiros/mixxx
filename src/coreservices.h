@@ -48,8 +48,16 @@ class CoreServices : public QObject {
         return m_pKbdConfig;
     }
 
-    std::shared_ptr<mixxx::ControlIndicatorTimer> getControlIndicatorTimer() const {
-        return m_pControlIndicatorTimer;
+    std::shared_ptr<ConfigObject<ConfigValueKbd>> getKeyboardConfigEmpty() const {
+        return m_pKbdConfigEmpty;
+    }
+
+    std::shared_ptr<EffectsManager> getEffectsManager() const {
+        return m_pEffectsManager;
+    }
+
+    std::shared_ptr<EngineMixer> getEngine() const {
+        return m_pEngine;
     }
 
     std::shared_ptr<SoundManager> getSoundManager() const {
@@ -78,31 +86,37 @@ class CoreServices : public QObject {
         return m_pVCManager;
     }
 
-    std::shared_ptr<EffectsManager> getEffectsManager() const {
-        return m_pEffectsManager;
+    std::shared_ptr<TrackCollectionManager> getTrackCollectionManager() const {
+        return m_pTrackCollectionManager;
     }
 
     std::shared_ptr<Library> getLibrary() const {
         return m_pLibrary;
     }
 
-    std::shared_ptr<TrackCollectionManager> getTrackCollectionManager() const {
-        return m_pTrackCollectionManager;
-    }
-
-    std::shared_ptr<SettingsManager> getSettingsManager() const {
-        return m_pSettingsManager;
-    }
-
-    UserSettingsPointer getSettings() const {
-        return m_pSettingsManager->settings();
-    }
-
-    std::shared_ptr<ScreensaverManager> getScreensaverManager() const {
+    std::shared_ptr<mixxx::ScreensaverManager> getScreensaverManager() const {
         return m_pScreensaverManager;
     }
 
-    std::shared_ptr<QDialog> makeDlgPreferences() const;
+    gsl::not_null<SkinControls*> getSkinControls() const {
+        return m_pSkinControls.get();
+    }
+
+    std::shared_ptr<ControlPushButton> getTouchShift() const {
+        return m_pTouchShift;
+    }
+
+    std::shared_ptr<UserSettingsPointer> getSettings() const {
+        return m_pSettings;
+    }
+
+    std::shared_ptr<DbConnectionPool> getDbConnectionPool() const {
+        return m_pDbConnectionPool;
+    }
+
+    std::shared_ptr<ControlIndicatorTimer> getControlIndicatorTimer() const {
+        return m_pControlIndicatorTimer;
+    }
 
   signals:
     void initializationProgressUpdate(int progress, const QString& serviceName);
@@ -121,11 +135,14 @@ class CoreServices : public QObject {
     void initializeQMLSingletons();
 #endif
 
-    /// Tear down CoreServices that were previously initialized by `initialize()`.
-    void finalize();
+    std::shared_ptr<UserSettingsPointer> m_pSettings;
 
-    std::shared_ptr<SettingsManager> m_pSettingsManager;
     std::shared_ptr<mixxx::ControlIndicatorTimer> m_pControlIndicatorTimer;
+
+    std::shared_ptr<KeyboardEventFilter> m_pKeyboardEventFilter;
+    std::shared_ptr<ConfigObject<ConfigValueKbd>> m_pKbdConfig;
+    std::shared_ptr<ConfigObject<ConfigValueKbd>> m_pKbdConfigEmpty;
+
     std::shared_ptr<EffectsManager> m_pEffectsManager;
     std::shared_ptr<EngineMixer> m_pEngine;
     std::shared_ptr<SoundManager> m_pSoundManager;
@@ -141,10 +158,6 @@ class CoreServices : public QObject {
     std::shared_ptr<DbConnectionPool> m_pDbConnectionPool;
     std::shared_ptr<TrackCollectionManager> m_pTrackCollectionManager;
     std::shared_ptr<Library> m_pLibrary;
-
-    std::shared_ptr<KeyboardEventFilter> m_pKeyboardEventFilter;
-    std::shared_ptr<ConfigObject<ConfigValueKbd>> m_pKbdConfig;
-    std::shared_ptr<ConfigObject<ConfigValueKbd>> m_pKbdConfigEmpty;
 
     std::shared_ptr<mixxx::ScreensaverManager> m_pScreensaverManager;
 
