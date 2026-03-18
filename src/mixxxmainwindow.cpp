@@ -1,4 +1,16 @@
 #include "mixxxmainwindow.h"
+#if defined(__LINUX__) && !defined(__ANDROID__)
+#if defined(__LINUX__) && !defined(__ANDROID__)
+#if defined(__LINUX__) && !defined(__ANDROID__)
+#include <QDBusConnection>
+#endif
+#endif
+#if defined(__LINUX__) && !defined(__ANDROID__)
+#if defined(__LINUX__) && !defined(__ANDROID__)
+#include <QDBusConnectionInterface>
+#endif
+#endif
+#endif
 
 #include <QCheckBox>
 #include <QCloseEvent>
@@ -14,10 +26,12 @@
 
 #if defined(__LINUX__) && !defined(__ANDROID__)
 #if defined(__LINUX__) && !defined(__ANDROID__)
-#include <QDBusConnection>
+#if defined(__LINUX__) && !defined(__ANDROID__)
+#endif
 #endif
 #if defined(__LINUX__) && !defined(__ANDROID__)
-#include <QDBusConnectionInterface>
+#if defined(__LINUX__) && !defined(__ANDROID__)
+#endif
 #endif
 #endif
 

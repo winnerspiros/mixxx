@@ -40,10 +40,10 @@ bool calcUseColorsAuto() {
 
     // Check if terminal is known to support ANSI colors
     QString term = QProcessEnvironment::systemEnvironment().value("TERM");
-    return term == u"alacritty"_s || term == u"ansi"_s || term == u"cygwin"_s || term == u"linux"_s ||
-            term.startsWith(u"screen"_s) || term.startsWith(u"xterm"_s) ||
-            term.startsWith(u"vt100"_s) || term.startsWith(u"rxvt"_s) ||
-            term.endsWith(u"color"_s);
+    return term == u"alacritty"_s || term == u"ansi"_s || term == u"cygwin"_s ||
+            term == u"linux"_s || term.startsWith(u"screen"_s) ||
+            term.startsWith(u"xterm"_s) || term.startsWith(u"vt100"_s) ||
+            term.startsWith(u"rxvt"_s) || term.endsWith(u"color"_s);
 #endif
     return false;
 }

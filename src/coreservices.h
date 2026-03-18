@@ -26,9 +26,6 @@ struct LibraryScanResultSummary;
 namespace mixxx {
 class CmdlineArgs;
 
-
-
-
 class ControlIndicatorTimer;
 class DbConnectionPool;
 class ScreensaverManager;
@@ -158,5 +155,4 @@ class CoreServices : public QObject {
     const CmdlineArgs& m_cmdlineArgs;
     bool m_isInitialized;
 };
-
 } // namespace mixxx

@@ -4201,7 +4201,10 @@ add_custom_target(
 if(WIN32)
   string(TIMESTAMP MIXXX_YEAR "%Y")
 
-  set(MIXXX_FILEVERSION "${PROJECT_VERSION_MAJOR},${PROJECT_VERSION_MINOR},${PROJECT_VERSION_PATCH}")
+  set(
+    MIXXX_FILEVERSION
+    "${PROJECT_VERSION_MAJOR},${PROJECT_VERSION_MINOR},${PROJECT_VERSION_PATCH}"
+  )
   set(MIXXX_PRODUCTVERSION "${MIXXX_FILEVERSION}")
 
   if(CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -4219,7 +4222,10 @@ if(WIN32)
   configure_file("src/mixxx.rc.include.in" "src/mixxx.rc.include" @ONLY)
   configure_file("src/mixxx.rc" "mixxx.rc" @ONLY)
 
-  target_sources(mixxx PRIVATE mixxx.rc "${CMAKE_CURRENT_BINARY_DIR}/src/gitinfo.h")
+  target_sources(
+    mixxx
+    PRIVATE mixxx.rc "${CMAKE_CURRENT_BINARY_DIR}/src/gitinfo.h"
+  )
   target_include_directories(mixxx PRIVATE "")
   add_dependencies(mixxx mixxx-gitinfo)
 endif()
