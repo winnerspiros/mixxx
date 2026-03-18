@@ -11,6 +11,7 @@
 
 namespace mixxx {
 
+namespace mixxx {
 class CmdlineArgs : public Singleton<CmdlineArgs> {
   public:
     enum class ParseMode {
@@ -150,6 +151,10 @@ class CmdlineArgs : public Singleton<CmdlineArgs> {
 
     bool m_parseForUserFeedbackRequired;
 };
+
+} // namespace mixxx
+
+using CmdlineArgs = mixxx::CmdlineArgs;
 
 } // namespace mixxx
 

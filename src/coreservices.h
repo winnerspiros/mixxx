@@ -24,8 +24,10 @@ class ControlPushButton;
 struct LibraryScanResultSummary;
 
 namespace mixxx {
-
 class CmdlineArgs;
+
+
+
 
 class ControlIndicatorTimer;
 class DbConnectionPool;
