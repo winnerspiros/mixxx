@@ -135,117 +135,154 @@ bool CmdlineArgs::parse(const QStringList& arguments, ParseMode mode) {
     }
 
     const QCommandLineOption fullScreen(QStringLiteral("fullScreen"),
-            forUserFeedback ? QCoreApplication::translate("CmdlineArgs", "Starts Mixxx in full-screen mode")
+            forUserFeedback ? QCoreApplication::translate("CmdlineArgs",
+                                      "Starts Mixxx in full-screen mode")
                             : QString());
     const QCommandLineOption fullScreenDeprecated(QStringLiteral("f"),
-            forUserFeedback ? QCoreApplication::translate("CmdlineArgs", "Starts Mixxx in full-screen mode")
+            forUserFeedback ? QCoreApplication::translate("CmdlineArgs",
+                                      "Starts Mixxx in full-screen mode")
                             : QString());
     parser.addOption(fullScreen);
     parser.addOption(fullScreenDeprecated);
 
     const QCommandLineOption locale(QStringLiteral("locale"),
-            forUserFeedback ? QCoreApplication::translate("CmdlineArgs", "Use a specific locale for GUI (e.g. de_DE)")
-                            : QString(),
+            forUserFeedback
+                    ? QCoreApplication::translate("CmdlineArgs",
+                              "Use a specific locale for GUI (e.g. de_DE)")
+                    : QString(),
             QStringLiteral("LOCALE"));
     parser.addOption(locale);
 
     const QCommandLineOption startAutoDJ(QStringLiteral("startAutoDJ"),
-            forUserFeedback ? QCoreApplication::translate("CmdlineArgs", "Starts AutoDJ on start-up")
+            forUserFeedback ? QCoreApplication::translate("CmdlineArgs",
+                                      "Starts AutoDJ on start-up")
                             : QString());
     parser.addOption(startAutoDJ);
 
     const QCommandLineOption rescanLibrary(QStringLiteral("rescan-library"),
-            forUserFeedback ? QCoreApplication::translate("CmdlineArgs", "Rescan library on start-up")
+            forUserFeedback ? QCoreApplication::translate("CmdlineArgs",
+                                      "Rescan library on start-up")
                             : QString());
     parser.addOption(rescanLibrary);
 
     const QCommandLineOption settingsPath(QStringLiteral("settingsPath"),
-            forUserFeedback ? QCoreApplication::translate("CmdlineArgs", "Use a specific folder for settings and library database")
+            forUserFeedback ? QCoreApplication::translate("CmdlineArgs",
+                                      "Use a specific folder for settings and "
+                                      "library database")
                             : QString(),
             QStringLiteral("PATH"));
     const QCommandLineOption settingsPathDeprecated(QStringLiteral("p"),
-            forUserFeedback ? QCoreApplication::translate("CmdlineArgs", "Use a specific folder for settings and library database")
+            forUserFeedback ? QCoreApplication::translate("CmdlineArgs",
+                                      "Use a specific folder for settings and "
+                                      "library database")
                             : QString(),
             QStringLiteral("PATH"));
     parser.addOption(settingsPath);
     parser.addOption(settingsPathDeprecated);
 
     const QCommandLineOption resourcePath(QStringLiteral("resourcePath"),
-            forUserFeedback ? QCoreApplication::translate("CmdlineArgs", "Use a specific folder for resources (e.g. skins)")
+            forUserFeedback ? QCoreApplication::translate("CmdlineArgs",
+                                      "Use a specific folder for resources "
+                                      "(e.g. skins)")
                             : QString(),
             QStringLiteral("PATH"));
     const QCommandLineOption resourcePathDeprecated(QStringLiteral("q"),
-            forUserFeedback ? QCoreApplication::translate("CmdlineArgs", "Use a specific folder for resources (e.g. skins)")
+            forUserFeedback ? QCoreApplication::translate("CmdlineArgs",
+                                      "Use a specific folder for resources "
+                                      "(e.g. skins)")
                             : QString(),
             QStringLiteral("PATH"));
     parser.addOption(resourcePath);
     parser.addOption(resourcePathDeprecated);
 
     const QCommandLineOption timelinePath(QStringLiteral("timelinePath"),
-            forUserFeedback ? QCoreApplication::translate("CmdlineArgs", "Path to a file for logging stats on track features")
+            forUserFeedback ? QCoreApplication::translate("CmdlineArgs",
+                                      "Path to a file for logging stats on "
+                                      "track features")
                             : QString(),
             QStringLiteral("PATH"));
     const QCommandLineOption timelinePathDeprecated(QStringLiteral("t"),
-            forUserFeedback ? QCoreApplication::translate("CmdlineArgs", "Path to a file for logging stats on track features")
+            forUserFeedback ? QCoreApplication::translate("CmdlineArgs",
+                                      "Path to a file for logging stats on "
+                                      "track features")
                             : QString(),
             QStringLiteral("PATH"));
     parser.addOption(timelinePath);
     parser.addOption(timelinePathDeprecated);
 
-    const QCommandLineOption enableLegacyVuMeter(QStringLiteral("enable-legacy-vumeter"),
-            forUserFeedback ? QCoreApplication::translate("CmdlineArgs", "Use the legacy VU meter behavior")
+    const QCommandLineOption enableLegacyVuMeter(
+            QStringLiteral("enable-legacy-vumeter"),
+            forUserFeedback ? QCoreApplication::translate("CmdlineArgs",
+                                      "Use the legacy VU meter behavior")
                             : QString());
     parser.addOption(enableLegacyVuMeter);
 
-    const QCommandLineOption enableLegacySpinny(QStringLiteral("enable-legacy-spinny"),
-            forUserFeedback ? QCoreApplication::translate("CmdlineArgs", "Use the legacy spinny behavior")
+    const QCommandLineOption enableLegacySpinny(
+            QStringLiteral("enable-legacy-spinny"),
+            forUserFeedback ? QCoreApplication::translate("CmdlineArgs",
+                                      "Use the legacy spinny behavior")
                             : QString());
     parser.addOption(enableLegacySpinny);
 
     const QCommandLineOption controllerDebug(QStringLiteral("controllerDebug"),
-            forUserFeedback ? QCoreApplication::translate("CmdlineArgs", "Log all data sent to/from controllers")
+            forUserFeedback ? QCoreApplication::translate("CmdlineArgs",
+                                      "Log all data sent to/from controllers")
                             : QString());
-    const QCommandLineOption controllerDebugDeprecated(QStringLiteral("debugHID"),
-            forUserFeedback ? QCoreApplication::translate("CmdlineArgs", "Log all data sent to/from controllers")
+    const QCommandLineOption controllerDebugDeprecated(
+            QStringLiteral("debugHID"),
+            forUserFeedback ? QCoreApplication::translate("CmdlineArgs",
+                                      "Log all data sent to/from controllers")
                             : QString());
     parser.addOption(controllerDebug);
     parser.addOption(controllerDebugDeprecated);
 
-    const QCommandLineOption controllerAbortOnWarning(QStringLiteral("controllerAbortOnWarning"),
-            forUserFeedback ? QCoreApplication::translate("CmdlineArgs", "Abort on controller script warnings")
+    const QCommandLineOption controllerAbortOnWarning(
+            QStringLiteral("controllerAbortOnWarning"),
+            forUserFeedback ? QCoreApplication::translate("CmdlineArgs",
+                                      "Abort on controller script warnings")
                             : QString());
     parser.addOption(controllerAbortOnWarning);
 
     const QCommandLineOption developer(QStringLiteral("developer"),
-            forUserFeedback ? QCoreApplication::translate("CmdlineArgs", "Enables developer mode (extra logging, checks, etc.)")
+            forUserFeedback ? QCoreApplication::translate("CmdlineArgs",
+                                      "Enables developer mode (extra logging, "
+                                      "checks, etc.)")
                             : QString());
     parser.addOption(developer);
 
     const QCommandLineOption qml(QStringLiteral("new-ui"),
-            forUserFeedback ? QCoreApplication::translate("CmdlineArgs", "Enables the experimental QML UI")
+            forUserFeedback ? QCoreApplication::translate("CmdlineArgs",
+                                      "Enables the experimental QML UI")
                             : QString());
     const QCommandLineOption qmlDeprecated(QStringLiteral("qml"),
-            forUserFeedback ? QCoreApplication::translate("CmdlineArgs", "Enables the experimental QML UI")
+            forUserFeedback ? QCoreApplication::translate("CmdlineArgs",
+                                      "Enables the experimental QML UI")
                             : QString());
     parser.addOption(qml);
     parser.addOption(qmlDeprecated);
 
     const QCommandLineOption awareOfRisk(QStringLiteral("aware-of-risk"),
-            forUserFeedback ? QCoreApplication::translate("CmdlineArgs", "Indicate that you are aware of the risks of using experimental features")
+            forUserFeedback ? QCoreApplication::translate("CmdlineArgs",
+                                      "Indicate that you are aware of the "
+                                      "risks of using experimental features")
                             : QString());
     parser.addOption(awareOfRisk);
 
     const QCommandLineOption safeMode(QStringLiteral("safeMode"),
-            forUserFeedback ? QCoreApplication::translate("CmdlineArgs", "Starts Mixxx in safe mode")
+            forUserFeedback ? QCoreApplication::translate("CmdlineArgs",
+                                      "Starts Mixxx in safe mode")
                             : QString());
     const QCommandLineOption safeModeDeprecated(QStringLiteral("s"),
-            forUserFeedback ? QCoreApplication::translate("CmdlineArgs", "Starts Mixxx in safe mode")
+            forUserFeedback ? QCoreApplication::translate("CmdlineArgs",
+                                      "Starts Mixxx in safe mode")
                             : QString());
     parser.addOption(safeMode);
     parser.addOption(safeModeDeprecated);
 
     const QCommandLineOption color(QStringLiteral("color"),
-            forUserFeedback ? QCoreApplication::translate("CmdlineArgs", "Whether to use colors in console output (always, never, auto)")
+            forUserFeedback ? QCoreApplication::translate("CmdlineArgs",
+                                      "Whether to use colors in console output "
+                                      "(always, never, auto)")
                             : QString(),
             QStringLiteral("auto/always/never"));
     parser.addOption(color);

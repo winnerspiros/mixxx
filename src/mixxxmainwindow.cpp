@@ -1,15 +1,9 @@
 #include "mixxxmainwindow.h"
 #if defined(__LINUX__) && !defined(__ANDROID__)
-#if defined(__LINUX__) && !defined(__ANDROID__)
-#if defined(__LINUX__) && !defined(__ANDROID__)
 #include <QDBusConnection>
 #endif
-#endif
-#if defined(__LINUX__) && !defined(__ANDROID__)
 #if defined(__LINUX__) && !defined(__ANDROID__)
 #include <QDBusConnectionInterface>
-#endif
-#endif
 #endif
 
 #include <QCheckBox>
@@ -24,16 +18,6 @@
 #include <QGLFormat>
 #endif
 
-#if defined(__LINUX__) && !defined(__ANDROID__)
-#if defined(__LINUX__) && !defined(__ANDROID__)
-#if defined(__LINUX__) && !defined(__ANDROID__)
-#endif
-#endif
-#if defined(__LINUX__) && !defined(__ANDROID__)
-#if defined(__LINUX__) && !defined(__ANDROID__)
-#endif
-#endif
-#endif
 
 #ifdef MIXXX_USE_QOPENGL
 #include "widget/tooltipqopengl.h"
