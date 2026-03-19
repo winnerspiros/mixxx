@@ -2172,7 +2172,7 @@ if(QT6)
       endif()
     endif()
     if(Qt6_DIR)
-      find_package(Qt6 COMPONENTS ${QT_COMPONENTS} REQUIRED)
+      find_package(Qt6 COMPONENTS ${QT_COMPONENTS} QUIET)
     endif()
   endif()
 
