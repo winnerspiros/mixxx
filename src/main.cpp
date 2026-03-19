@@ -197,7 +197,7 @@ Java_org_qtproject_qt_android_QtNativeAccessibility_accessibilitySupported(JNIEn
 }
 #endif
 
-int main(int argc, char * argv[]) {
+int main(int argc, char* argv[]) {
     Console console;
 
     // These need to be set early on (not sure how early) in order to trigger
@@ -233,7 +233,7 @@ int main(int argc, char * argv[]) {
     // Setting the organization name results in a QDesktopStorage::DataLocation
     // of "$HOME/Library/Application Support/Mixxx/Mixxx" on OS X. Leave the
     // organization name blank.
-    //QCoreApplication::setOrganizationName("Mixxx");
+    // QCoreApplication::setOrganizationName("Mixxx");
 
     QCoreApplication::setApplicationName(VersionStore::applicationName());
     QCoreApplication::setApplicationVersion(VersionStore::version());

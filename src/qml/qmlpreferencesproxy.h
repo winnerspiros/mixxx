@@ -11,7 +11,9 @@
 #include <QString>
 #include <QUrl>
 #ifndef Q_OS_ANDROID
+#ifndef Q_OS_ANDROID
 #include <QVideoFrame>
+#endif
 #endif
 #include <chrono>
 #include <limits>

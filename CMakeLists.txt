@@ -117,8 +117,7 @@ if(
 
   # Remove the extension from the filename (note that our buildenv names contain two dots)
   string(
-    REGEX REPLACE
-    "\\.[^.]*$"
+    REGEX REPLACE "\\.[^.]*$"
     ""
     BUILDENV_NAME
     "${FILENAME_WITH_EXTENSION}"
@@ -148,7 +147,8 @@ if(
         " ..."
       )
       file(
-        DOWNLOAD "${BUILDENV_URL}" "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip"
+        DOWNLOAD "${BUILDENV_URL}"
+        "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip"
         SHOW_PROGRESS
         TLS_VERIFY ON
       )
@@ -299,8 +299,7 @@ if(DEFINED MIXXX_VCPKG_ROOT AND DEFINED VCPKG_TARGET_TRIPLET)
     )
     if(ANDROID OR CMAKE_SYSTEM_NAME STREQUAL "Android")
       list(
-        APPEND
-        CMAKE_FIND_ROOT_PATH
+        APPEND CMAKE_FIND_ROOT_PATH
         "${VCPKG_INSTALLED_PATH}"
         "${VCPKG_INSTALLED_PATH}/share"
       )
@@ -507,8 +506,7 @@ if(MSVC)
     string(REPLACE "/Zi" "/Z7" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
   elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
     string(
-      REPLACE
-      "/Zi"
+      REPLACE "/Zi"
       "/Z7"
       CMAKE_CXX_FLAGS_RELEASE
       "${CMAKE_CXX_FLAGS_RELEASE}"
@@ -516,15 +514,13 @@ if(MSVC)
     string(REPLACE "/Zi" "/Z7" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
   elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
     string(
-      REPLACE
-      "/Zi"
+      REPLACE "/Zi"
       "/Z7"
       CMAKE_CXX_FLAGS_RELWITHDEBINFO
       "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
     )
     string(
-      REPLACE
-      "/Zi"
+      REPLACE "/Zi"
       "/Z7"
       CMAKE_C_FLAGS_RELWITHDEBINFO
       "${CMAKE_C_FLAGS_RELWITHDEBINFO}"
@@ -556,8 +552,7 @@ if(MSVC)
       add_compile_options(/O2) # this implies /Od2
       # Remove /RTC1 flag set by CMAKE by default (conflicts with /O2)
       string(
-        REPLACE
-        "/RTC1"
+        REPLACE "/RTC1"
         ""
         CMAKE_CXX_FLAGS_DEBUG
         "${CMAKE_CXX_FLAGS_DEBUG}"
@@ -567,15 +562,13 @@ if(MSVC)
       # For some reasons cmake uses /Ob1 in RelWithDebInfo https://gitlab.kitware.com/cmake/cmake/-/issues/20812
       # /O2 is applied by CMake AND this implies /Od2
       string(
-        REPLACE
-        "/Ob1"
+        REPLACE "/Ob1"
         ""
         CMAKE_CXX_FLAGS_RELWITHDEBINFO
         "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
       )
       string(
-        REPLACE
-        "/Ob1"
+        REPLACE "/Ob1"
         ""
         CMAKE_C_FLAGS_RELWITHDEBINFO
         "${CMAKE_C_FLAGS_RELWITHDEBINFO}"
@@ -590,8 +583,7 @@ if(MSVC)
       # The CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO can be DEFINED by the user in the GUI OR in CMakeSettings.json,
       # therefore we can't rely on the default.
       string(
-        FIND
-        CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO
+        FIND CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO
         "/INCREMENTAL:NO"
         INCREMENTAL_NO_POSITION
       )
@@ -601,8 +593,7 @@ if(MSVC)
           "Overwriting /INCREMENTAL by /INCREMENTAL:NO to allow link time code optimization"
         )
         string(
-          REPLACE
-          "/INCREMENTAL"
+          REPLACE "/INCREMENTAL"
           "/INCREMENTAL:NO"
           CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO
           "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO}"
@@ -658,16 +649,14 @@ if(MSVC)
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
       # Remove optimize flags set by cmake defaults
       string(
-        REPLACE
-        "/O2"
+        REPLACE "/O2"
         ""
         CMAKE_CXX_FLAGS_RELEASE
         "${CMAKE_CXX_FLAGS_RELEASE}"
       )
       string(REPLACE "/O2" "" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
       string(
-        REPLACE
-        "/Ob2"
+        REPLACE "/Ob2"
         ""
         CMAKE_CXX_FLAGS_RELEASE
         "${CMAKE_CXX_FLAGS_RELEASE}"
@@ -678,30 +667,26 @@ if(MSVC)
     elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
       # Remove optimize flags set by cmake defaults
       string(
-        REPLACE
-        "/O2"
+        REPLACE "/O2"
         ""
         CMAKE_CXX_FLAGS_RELWITHDEBINFO
         "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
       )
       string(
-        REPLACE
-        "/O2"
+        REPLACE "/O2"
         ""
         CMAKE_C_FLAGS_RELWITHDEBINFO
         "${CMAKE_C_FLAGS_RELWITHDEBINFO}"
       )
       # For some reasons cmake uses /Ob1 in RelWithDebInfo https://gitlab.kitware.com/cmake/cmake/-/issues/20812
       string(
-        REPLACE
-        "/Ob1"
+        REPLACE "/Ob1"
         ""
         CMAKE_CXX_FLAGS_RELWITHDEBINFO
         "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
       )
       string(
-        REPLACE
-        "/Ob1"
+        REPLACE "/Ob1"
         ""
         CMAKE_C_FLAGS_RELWITHDEBINFO
         "${CMAKE_C_FLAGS_RELWITHDEBINFO}"
@@ -934,8 +919,7 @@ if(NOT MSVC)
     )
     if(LLD_VERSION_STRING)
       string(
-        REGEX MATCH
-        "LLD ([0-9]+\\.[0-9]+\\.[0-9]+)"
+        REGEX MATCH "LLD ([0-9]+\\.[0-9]+\\.[0-9]+)"
         LLD_VERSION_MATCH
         "${LLD_VERSION_STRING}"
       )
@@ -1860,7 +1844,7 @@ target_include_directories(
   mixxx-lib
   PUBLIC src "${CMAKE_CURRENT_BINARY_DIR}/src"
 )
-if(UNIX AND NOT APPLE)
+if(UNIX AND NOT APPLE AND NOT ANDROID)
   set(MIXXX_SETTINGS_PATH ".mixxx/")
 endif()
 
@@ -2153,8 +2137,7 @@ if(QT6)
   if(NOT TARGET Qt6::Core)
     # Try again without some potentially problematic or optional components
     list(
-      REMOVE_ITEM
-      QT_COMPONENTS
+      REMOVE_ITEM QT_COMPONENTS
       Multimedia
       MultimediaWidgets
       QmlIntegration
@@ -2191,7 +2174,7 @@ if(QT6)
       endif()
     endif()
     if(Qt6_DIR)
-      find_package(Qt6 COMPONENTS ${QT_COMPONENTS} REQUIRED)
+      find_package(Qt6 COMPONENTS ${QT_COMPONENTS} QUIET)
     endif()
   endif()
 
@@ -2326,8 +2309,7 @@ else()
   find_package(Qt5 COMPONENTS ${QT_COMPONENTS} QUIET)
   if(NOT Qt5_FOUND)
     list(
-      REMOVE_ITEM
-      QT_COMPONENTS
+      REMOVE_ITEM QT_COMPONENTS
       Multimedia
       MultimediaWidgets
       SvgWidgets
@@ -2506,7 +2488,7 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/res/Mixxx-Manual.pdf")
 endif()
 
 # Additional Linux-only files
-if(UNIX AND NOT APPLE)
+if(UNIX AND NOT APPLE AND NOT ANDROID)
   # .desktop file for KDE/GNOME menu
   install(
     FILES "${CMAKE_CURRENT_SOURCE_DIR}/res/linux/org.mixxx.Mixxx.desktop"
@@ -2682,7 +2664,7 @@ endif()
 if(WIN32 AND NOT QT6)
   # Qt 5 loads these ANGLE DLLs at runtime if the graphics driver is on the ignore list.
   # It does NOT work with Debug, because the debug version is compiled without the a d suffix
-  find_package(unofficial-angle CONFIG REQUIRED)
+  find_package(unofficial-angle CONFIG QUIET)
   install(
     IMPORTED_RUNTIME_ARTIFACTS
       unofficial::angle::libEGL
@@ -3007,7 +2989,8 @@ if(
   )
   message(STATUS "Downloading manual from ${MANUAL_URL}...")
   file(
-    DOWNLOAD "${MANUAL_URL}" "${CMAKE_CURRENT_BINARY_DIR}/res/Mixxx-Manual.pdf"
+    DOWNLOAD "${MANUAL_URL}"
+    "${CMAKE_CURRENT_BINARY_DIR}/res/Mixxx-Manual.pdf"
     SHOW_PROGRESS
     STATUS MANUAL_PDF_DOWNLOAD
     TLS_VERIFY ON
@@ -3026,8 +3009,7 @@ if(
     )
   endif()
   file(
-    RENAME
-    "${CMAKE_CURRENT_BINARY_DIR}/res/Mixxx-Manual.pdf"
+    RENAME "${CMAKE_CURRENT_BINARY_DIR}/res/Mixxx-Manual.pdf"
     "${CMAKE_CURRENT_SOURCE_DIR}/res/Mixxx-Manual.pdf"
   )
 endif()
@@ -3101,7 +3083,7 @@ endif()
 # Use this function to throw an error because the build environment is NOT set
 # up correctly.
 
-if(UNIX AND NOT APPLE)
+if(UNIX AND NOT APPLE AND NOT ANDROID)
   execute_process(
     COMMAND uname -r
     OUTPUT_VARIABLE UNAME_R
@@ -3396,8 +3378,7 @@ if(ENGINEPRIME)
     # CMake does NOT pass lists of paths properly to external projects.
     # This is worked around by changing the list separator.
     string(
-      REPLACE
-      ";"
+      REPLACE ";"
       "|"
       PIPE_DELIMITED_CMAKE_PREFIX_PATH
       "${CMAKE_PREFIX_PATH}"
@@ -3448,7 +3429,7 @@ if(ENGINEPRIME)
     # depends on zlib AND optionally sqlite3.  If libdjinterop was configured
     # to depend on system SQLite, Mixxx will already have the dependency.
     # But it does NOT have zlib, so we explicitly add that here.
-    find_package(ZLIB 1.2.8 REQUIRED)
+    find_package(ZLIB 1.2.8 QUIET)
     # The include folder needs to already exist, otherwise INTERFACE_INCLUDE_DIRECTORIES will NOT be propagated
     file(MAKE_DIRECTORY "${DJINTEROP_INSTALL_DIR}/include")
 
@@ -3490,7 +3471,7 @@ if(ENGINEPRIME)
 endif()
 
 # Ebur128
-find_package(Ebur128 REQUIRED)
+find_package(Ebur128 QUIET)
 target_link_libraries(mixxx-lib PRIVATE Ebur128::Ebur128)
 
 # FidLib
@@ -3540,7 +3521,7 @@ if(KEYFINDER)
     target_link_libraries(mixxx-lib PRIVATE KeyFinder::KeyFinder)
   else()
     # If KeyFinder is built statically, we need FFTW
-    find_package(FFTW3 REQUIRED)
+    find_package(FFTW3 QUIET)
     set(
       KeyFinder_INSTALL_DIR
       "${CMAKE_CURRENT_BINARY_DIR}/lib/keyfinder-install"
@@ -3553,8 +3534,7 @@ if(KEYFINDER)
     # CMake does NOT pass lists of paths properly to external projects.
     # This is worked around by changing the list separator.
     string(
-      REPLACE
-      ";"
+      REPLACE ";"
       "|"
       PIPE_DELIMITED_CMAKE_PREFIX_PATH
       "${CMAKE_PREFIX_PATH}"
@@ -3632,7 +3612,7 @@ if(KEYFINDER)
 endif()
 
 # FLAC
-find_package(FLAC REQUIRED)
+find_package(FLAC QUIET)
 target_link_libraries(mixxx-lib PRIVATE FLAC::FLAC)
 
 # FpClassify This is a wrapper around the fpclassify function that prevents
@@ -3661,7 +3641,7 @@ endif()
 target_link_libraries(mixxx-lib PRIVATE FpClassify)
 
 # LAME
-find_package(mp3lame REQUIRED)
+find_package(mp3lame QUIET)
 target_link_libraries(mixxx-lib PRIVATE mp3lame::mp3lame)
 
 add_library(
@@ -3677,7 +3657,7 @@ target_include_directories(
   PUBLIC lib/rekordbox-metadata
 )
 target_link_libraries(mixxx-lib PRIVATE rekordbox_metadata)
-find_package(SoundTouch REQUIRED)
+find_package(SoundTouch QUIET)
 target_link_libraries(mixxx-lib PUBLIC SoundTouch::SoundTouch)
 
 #silence "enumeration values NOT handled in switch" in generated code
@@ -3729,7 +3709,7 @@ else()
   endif()
   set(OpenGL_GL_PREFERENCE "GLVND")
   if(EMSCRIPTEN)
-    find_package(OpenGL REQUIRED)
+    find_package(OpenGL QUIET)
     # Emscripten's FindOpenGL.cmake does NOT create OpenGL::GL
     target_link_libraries(mixxx-lib PRIVATE ${OPENGL_gl_LIBRARY})
     target_compile_definitions(mixxx-lib PUBLIC QT_OPENGL_ES_2)
@@ -3745,7 +3725,7 @@ else()
     target_link_libraries(mixxx-lib PRIVATE "${GLESv2_LIBRARY}")
     target_compile_definitions(mixxx-lib PUBLIC QT_OPENGL_ES_2)
   else()
-    find_package(OpenGL REQUIRED)
+    find_package(OpenGL QUIET)
     if(OPENGL_opengl_LIBRARY)
       target_link_libraries(mixxx-lib PRIVATE OpenGL::GL)
     else()
@@ -3762,18 +3742,18 @@ else()
 endif()
 
 # Ogg
-find_package(Ogg REQUIRED)
+find_package(Ogg QUIET)
 target_link_libraries(mixxx-lib PRIVATE Ogg::ogg)
 
 # Vorbis
-find_package(Vorbis REQUIRED)
+find_package(Vorbis QUIET)
 target_link_libraries(
   mixxx-lib
   PRIVATE Vorbis::vorbis Vorbis::vorbisenc Vorbis::vorbisfile
 )
 
 # PortAudio
-find_package(PortAudio REQUIRED)
+find_package(PortAudio QUIET)
 target_link_libraries(mixxx-lib PUBLIC PortAudio::PortAudio)
 
 if(ANDROID OR CMAKE_SYSTEM_NAME STREQUAL "Android")
@@ -3801,7 +3781,7 @@ if(PORTMIDI)
       src/controllers/midi/portmidienumerator.cpp
   )
   target_compile_definitions(mixxx-lib PUBLIC __PORTMIDI__)
-  find_package(PortMidi REQUIRED)
+  find_package(PortMidi QUIET)
   target_include_directories(mixxx-lib SYSTEM PUBLIC ${PortMidi_INCLUDE_DIRS})
   target_link_libraries(mixxx-lib PRIVATE ${PortMidi_LIBRARIES})
   target_sources(
@@ -3863,37 +3843,32 @@ if(NETWORKAUTH)
   if(NOT EXISTS "${librespot-cpp_SOURCE_DIR}/lib/spdlog/CMakeLists.txt")
     file(MAKE_DIRECTORY "${librespot-cpp_SOURCE_DIR}/lib/spdlog")
     file(
-      WRITE
-      "${librespot-cpp_SOURCE_DIR}/lib/spdlog/CMakeLists.txt"
+      WRITE "${librespot-cpp_SOURCE_DIR}/lib/spdlog/CMakeLists.txt"
       "if(NOT TARGET spdlog)\n  add_library(spdlog INTERFACE)\nendif()"
     )
   endif()
   # Patch librespot-cpp to avoid TARGET name collision AND link signature mismatch
   file(READ "${librespot-cpp_SOURCE_DIR}/CMakeLists.txt" LIBRESPOT_CMAKELISTS)
   string(
-    REPLACE
-    "project(mixxx)"
+    REPLACE "project(mixxx)"
     "project(librespot-cpp)"
     LIBRESPOT_CMAKELISTS
     "${LIBRESPOT_CMAKELISTS}"
   )
   string(
-    REPLACE
-    "add_executable(mixxx"
+    REPLACE "add_executable(mixxx"
     "add_library(librespot-cpp-lib STATIC"
     LIBRESPOT_CMAKELISTS
     "${LIBRESPOT_CMAKELISTS}"
   )
   string(
-    REPLACE
-    "target_link_libraries(mixxx"
+    REPLACE "target_link_libraries(mixxx"
     "target_link_libraries(librespot-cpp-lib PRIVATE"
     LIBRESPOT_CMAKELISTS
     "${LIBRESPOT_CMAKELISTS}"
   )
   file(
-    WRITE
-    "${librespot-cpp_SOURCE_DIR}/CMakeLists.txt"
+    WRITE "${librespot-cpp_SOURCE_DIR}/CMakeLists.txt"
     "${LIBRESPOT_CMAKELISTS}"
   )
 
@@ -4012,14 +3987,12 @@ if(QT6)
   endif()
   if(QML)
     list(
-      APPEND
-      CPACK_DEBIAN_PACKAGE_DEPENDS
+      APPEND CPACK_DEBIAN_PACKAGE_DEPENDS
       "qml6-module-qt-labs-folderlistmodel"
     )
     list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml6-module-qt-labs-qmlmodels")
     list(
-      APPEND
-      CPACK_DEBIAN_PACKAGE_DEPENDS
+      APPEND CPACK_DEBIAN_PACKAGE_DEPENDS
       "qml6-module-qt5compat-graphicaleffects"
     )
     list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml6-module-qtmultimedia")
@@ -4051,21 +4024,18 @@ set(
   "${CPACK_DEBIAN_PACKAGE_DESCRIPTION}"
 )
 string(
-  PREPEND
-  CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED
+  PREPEND CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED
   "${CPACK_PACKAGE_DESCRIPTION_SUMMARY}"
   "\n"
 )
 string(
-  REPLACE
-  "\n\n"
+  REPLACE "\n\n"
   "\n.\n"
   CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED
   "${CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED}"
 )
 string(
-  REPLACE
-  "\n"
+  REPLACE "\n"
   "\n "
   CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED
   "${CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED}"
@@ -4139,7 +4109,7 @@ endif()
 include(CPack)
 
 if(APPLOCAL_COMPONENT_defined)
-  cpack_add_component(applocal HIDDEN REQUIRED)
+  cpack_add_component(applocal HIDDEN QUIET)
 
   # In order to run Mixx from the build directory install applocal components
   add_custom_command(
@@ -4201,7 +4171,10 @@ add_custom_target(
 if(WIN32)
   string(TIMESTAMP MIXXX_YEAR "%Y")
 
-  set(MIXXX_FILEVERSION ",,")
+  set(
+    MIXXX_FILEVERSION
+    "${PROJECT_VERSION_MAJOR},${PROJECT_VERSION_MINOR},${PROJECT_VERSION_PATCH}"
+  )
   set(MIXXX_PRODUCTVERSION "")
 
   if(CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -4228,10 +4201,10 @@ endif()
 target_include_directories(mixxx-lib SYSTEM PUBLIC lib/replaygain)
 
 # TagLib
-find_package(TagLib 1.11 REQUIRED)
+find_package(TagLib 1.11 QUIET)
 target_include_directories(mixxx-lib SYSTEM PUBLIC ${TagLib_INCLUDE_DIRS})
 target_link_libraries(mixxx-lib PUBLIC TagLib::TagLib)
-find_package(SndFile REQUIRED)
+find_package(SndFile QUIET)
 target_link_libraries(mixxx-lib PUBLIC SndFile::SndFile)
 
 # QM-DSP

@@ -13,8 +13,12 @@
 #endif
 
 #if defined(__LINUX__) && !defined(__ANDROID__)
+#if defined(__LINUX__) && !defined(__ANDROID__)
 #include <QDBusConnection>
+#endif
+#if defined(__LINUX__) && !defined(__ANDROID__)
 #include <QDBusConnectionInterface>
+#endif
 #endif
 
 #ifdef MIXXX_USE_QOPENGL
@@ -84,6 +88,11 @@ inline bool supportsGlobalMenu() {
     return false;
 #else
     return false;
+#endif
+}
+return false;
+#else
+return false;
 #endif
 }
 

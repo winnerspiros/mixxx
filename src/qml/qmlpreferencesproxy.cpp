@@ -7,8 +7,12 @@
 #ifndef Q_OS_ANDROID
 #include <qvideosink.h>
 
+#ifndef Q_OS_ANDROID
 #include <QVideoFrame>
+#endif
+#ifndef Q_OS_ANDROID
 #include <QVideoFrameFormat>
+#endif
 #endif
 #include <algorithm>
 #include <cstdint>
