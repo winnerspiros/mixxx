@@ -75,6 +75,8 @@ endif()
 if(DEFINED ENV{MIXXX_VCPKG_ROOT} AND NOT DEFINED MIXXX_VCPKG_ROOT)
   set(MIXXX_VCPKG_ROOT "$ENV{MIXXX_VCPKG_ROOT}")
   string(STRIP "${MIXXX_VCPKG_ROOT}" MIXXX_VCPKG_ROOT)
+  string(STRIP "${MIXXX_VCPKG_ROOT}" MIXXX_VCPKG_ROOT)
+  string(STRIP "${MIXXX_VCPKG_ROOT}" MIXXX_VCPKG_ROOT)
 endif()
 
 if(NOT DEFINED MIXXX_VCPKG_ROOT AND NOT DEFINED ENV{MIXXX_VCPKG_ROOT})
@@ -2662,7 +2664,7 @@ endif()
 if(WIN32 AND NOT QT6)
   # Qt 5 loads these ANGLE DLLs at runtime if the graphics driver is on the ignore list.
   # It does NOT work with Debug, because the debug version is compiled without the a d suffix
-  find_package(unofficial-angle CONFIG REQUIRED)
+  find_package(unofficial-angle CONFIG QUIET)
   install(
     IMPORTED_RUNTIME_ARTIFACTS
       unofficial::angle::libEGL
@@ -3427,7 +3429,7 @@ if(ENGINEPRIME)
     # depends on zlib AND optionally sqlite3.  If libdjinterop was configured
     # to depend on system SQLite, Mixxx will already have the dependency.
     # But it does NOT have zlib, so we explicitly add that here.
-    find_package(ZLIB 1.2.8 REQUIRED)
+    find_package(ZLIB 1.2.8 QUIET)
     # The include folder needs to already exist, otherwise INTERFACE_INCLUDE_DIRECTORIES will NOT be propagated
     file(MAKE_DIRECTORY "${DJINTEROP_INSTALL_DIR}/include")
 
@@ -3469,7 +3471,7 @@ if(ENGINEPRIME)
 endif()
 
 # Ebur128
-find_package(Ebur128 REQUIRED)
+find_package(Ebur128 QUIET)
 target_link_libraries(mixxx-lib PRIVATE Ebur128::Ebur128)
 
 # FidLib
@@ -3519,7 +3521,7 @@ if(KEYFINDER)
     target_link_libraries(mixxx-lib PRIVATE KeyFinder::KeyFinder)
   else()
     # If KeyFinder is built statically, we need FFTW
-    find_package(FFTW3 REQUIRED)
+    find_package(FFTW3 QUIET)
     set(
       KeyFinder_INSTALL_DIR
       "${CMAKE_CURRENT_BINARY_DIR}/lib/keyfinder-install"
@@ -3610,7 +3612,7 @@ if(KEYFINDER)
 endif()
 
 # FLAC
-find_package(FLAC REQUIRED)
+find_package(FLAC QUIET)
 target_link_libraries(mixxx-lib PRIVATE FLAC::FLAC)
 
 # FpClassify This is a wrapper around the fpclassify function that prevents
@@ -3639,7 +3641,7 @@ endif()
 target_link_libraries(mixxx-lib PRIVATE FpClassify)
 
 # LAME
-find_package(mp3lame REQUIRED)
+find_package(mp3lame QUIET)
 target_link_libraries(mixxx-lib PRIVATE mp3lame::mp3lame)
 
 add_library(
@@ -3655,7 +3657,7 @@ target_include_directories(
   PUBLIC lib/rekordbox-metadata
 )
 target_link_libraries(mixxx-lib PRIVATE rekordbox_metadata)
-find_package(SoundTouch REQUIRED)
+find_package(SoundTouch QUIET)
 target_link_libraries(mixxx-lib PUBLIC SoundTouch::SoundTouch)
 
 #silence "enumeration values NOT handled in switch" in generated code
@@ -3707,7 +3709,7 @@ else()
   endif()
   set(OpenGL_GL_PREFERENCE "GLVND")
   if(EMSCRIPTEN)
-    find_package(OpenGL REQUIRED)
+    find_package(OpenGL QUIET)
     # Emscripten's FindOpenGL.cmake does NOT create OpenGL::GL
     target_link_libraries(mixxx-lib PRIVATE ${OPENGL_gl_LIBRARY})
     target_compile_definitions(mixxx-lib PUBLIC QT_OPENGL_ES_2)
@@ -3723,7 +3725,7 @@ else()
     target_link_libraries(mixxx-lib PRIVATE "${GLESv2_LIBRARY}")
     target_compile_definitions(mixxx-lib PUBLIC QT_OPENGL_ES_2)
   else()
-    find_package(OpenGL REQUIRED)
+    find_package(OpenGL QUIET)
     if(OPENGL_opengl_LIBRARY)
       target_link_libraries(mixxx-lib PRIVATE OpenGL::GL)
     else()
@@ -3740,18 +3742,18 @@ else()
 endif()
 
 # Ogg
-find_package(Ogg REQUIRED)
+find_package(Ogg QUIET)
 target_link_libraries(mixxx-lib PRIVATE Ogg::ogg)
 
 # Vorbis
-find_package(Vorbis REQUIRED)
+find_package(Vorbis QUIET)
 target_link_libraries(
   mixxx-lib
   PRIVATE Vorbis::vorbis Vorbis::vorbisenc Vorbis::vorbisfile
 )
 
 # PortAudio
-find_package(PortAudio REQUIRED)
+find_package(PortAudio QUIET)
 target_link_libraries(mixxx-lib PUBLIC PortAudio::PortAudio)
 
 if(ANDROID OR CMAKE_SYSTEM_NAME STREQUAL "Android")
@@ -3779,7 +3781,7 @@ if(PORTMIDI)
       src/controllers/midi/portmidienumerator.cpp
   )
   target_compile_definitions(mixxx-lib PUBLIC __PORTMIDI__)
-  find_package(PortMidi REQUIRED)
+  find_package(PortMidi QUIET)
   target_include_directories(mixxx-lib SYSTEM PUBLIC ${PortMidi_INCLUDE_DIRS})
   target_link_libraries(mixxx-lib PRIVATE ${PortMidi_LIBRARIES})
   target_sources(
@@ -4107,7 +4109,7 @@ endif()
 include(CPack)
 
 if(APPLOCAL_COMPONENT_defined)
-  cpack_add_component(applocal HIDDEN REQUIRED)
+  cpack_add_component(applocal HIDDEN QUIET)
 
   # In order to run Mixx from the build directory install applocal components
   add_custom_command(
@@ -4173,7 +4175,7 @@ if(WIN32)
     MIXXX_FILEVERSION
     "${PROJECT_VERSION_MAJOR},${PROJECT_VERSION_MINOR},${PROJECT_VERSION_PATCH}"
   )
-  set(MIXXX_PRODUCTVERSION "${MIXXX_FILEVERSION}")
+  set(MIXXX_PRODUCTVERSION "")
 
   if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(MIXXX_DEBUG 1)
@@ -4190,10 +4192,7 @@ if(WIN32)
   configure_file("src/mixxx.rc.include.in" "src/mixxx.rc.include" @ONLY)
   configure_file("src/mixxx.rc" "mixxx.rc" @ONLY)
 
-  target_sources(
-    mixxx
-    PRIVATE mixxx.rc "${CMAKE_CURRENT_BINARY_DIR}/src/gitinfo.h"
-  )
+  target_sources(mixxx PRIVATE mixxx.rc "/src/gitinfo.h")
   target_include_directories(mixxx PRIVATE "")
   add_dependencies(mixxx mixxx-gitinfo)
 endif()
@@ -4202,10 +4201,10 @@ endif()
 target_include_directories(mixxx-lib SYSTEM PUBLIC lib/replaygain)
 
 # TagLib
-find_package(TagLib 1.11 REQUIRED)
+find_package(TagLib 1.11 QUIET)
 target_include_directories(mixxx-lib SYSTEM PUBLIC ${TagLib_INCLUDE_DIRS})
 target_link_libraries(mixxx-lib PUBLIC TagLib::TagLib)
-find_package(SndFile REQUIRED)
+find_package(SndFile QUIET)
 target_link_libraries(mixxx-lib PUBLIC SndFile::SndFile)
 
 # QM-DSP
