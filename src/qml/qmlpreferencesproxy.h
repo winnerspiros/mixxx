@@ -1,8 +1,8 @@
 #pragma once
 
-#include <memory>
 #include <QObject>
 #include <QString>
+#include <memory>
 
 #ifndef Q_OS_ANDROID
 #include <QVideoFrame>
@@ -25,7 +25,7 @@ class QmlPreferencesProxy : public QObject {
 
   signals:
 #ifndef Q_OS_ANDROID
-    void videoFrameAvailable(const QVideoFrame& frame);
+    void videoFrameAvailable(const ::QVideoFrame& frame);
 #endif
 
   private:
