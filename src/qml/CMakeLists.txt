@@ -1,0 +1,34 @@
+if(QML)
+  target_sources(mixxx-lib PRIVATE
+    asyncimageprovider.cpp
+    qmlapplication.cpp
+    qmlautoreload.cpp
+    qmlbeatsmodel.cpp
+    qmlchainpresetmodel.cpp
+    qmlconfigproxy.cpp
+    qmlcontrolproxy.cpp
+    qmlcuesmodel.cpp
+    qmldlgpreferencesproxy.cpp
+    qmleffectmanifestparametersmodel.cpp
+    qmleffectsmanagerproxy.cpp
+    qmleffectslotproxy.cpp
+    qmllibraryproxy.cpp
+    qmllibrarysource.cpp
+    qmllibrarysourcetree.cpp
+    qmllibrarytracklistcolumn.cpp
+    qmllibrarytracklistmodel.cpp
+    qmlmixxxcontrollerscreen.cpp
+    qmlplayermanagerproxy.cpp
+    qmlplayerproxy.cpp
+    qmlpreferencesproxy.cpp
+    qmlsettingparameter.cpp
+    qmlsidebarmodelproxy.cpp
+    qmlsoundmanagerproxy.cpp
+    qmlstemsmodel.cpp
+    qmltrackproxy.cpp
+    qmlvisibleeffectsmodel.cpp
+    qmlwaveformdisplay.cpp
+    qmlwaveformoverview.cpp
+    qmlwaveformrenderer.cpp
+  )
+endif()

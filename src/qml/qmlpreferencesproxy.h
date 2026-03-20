@@ -1,6 +1,5 @@
 #pragma once
 
-#include <QtGlobal>
 #include <QtQml/qqml.h>
 
 #include <QImage>
@@ -11,6 +10,7 @@
 #include <QSize>
 #include <QString>
 #include <QUrl>
+#include <QtGlobal>
 #ifndef Q_OS_ANDROID
 #include <QVideoFrame>
 #endif
@@ -56,10 +56,10 @@ class QmlControllerScreenElement : public QObject {
         return m_screenInfo.size;
     }
     int targetFps() const {
-        return m_screenInfo.targetFps;
+        return m_screenInfo.target_fps;
     }
     int fps() const {
-        return static_cast<int>(1000000 / m_averageFrameDuration);
+        return static_cast<int>(std::round(1000000.0 / m_averageFrameDuration));
     }
 #ifndef Q_OS_ANDROID
     Q_INVOKABLE void connectVideoSink(QObject* videoSink);
@@ -93,7 +93,9 @@ class QmlControllerSettingElement : public QObject {
     QML_ANONYMOUS
     QML_UNCREATABLE("Use Mixxx.ControllerSettingElement to get devices")
   public:
-    explicit QmlControllerSettingElement(QObject* parent) : QObject(parent) {}
+    explicit QmlControllerSettingElement(QObject* parent)
+            : QObject(parent) {
+    }
     virtual QString getType() const = 0;
 };
 

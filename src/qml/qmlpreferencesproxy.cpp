@@ -1,21 +1,21 @@
 #include "qmlpreferencesproxy.h"
 
-#include <QtGlobal>
 #include <QHash>
 #include <QQmlEngine>
 #include <QStringLiteral>
+#include <QtGlobal>
 #ifndef Q_OS_ANDROID
-#include <QVideoSink>
 #include <QVideoFrame>
 #include <QVideoFrameFormat>
+#include <QVideoSink>
 #endif
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <limits>
 #include <memory>
 #include <optional>
 #include <utility>
-#include <cmath>
 
 #include "util/xml.h"
 
@@ -30,7 +30,7 @@
 
 namespace {
 /// Number of sample frame timestamp sample to perform a smooth average FPS label.
-constexpr double kFrameSmoothAverageFactor = 20;
+constexpr double kFrameSmoothAverageFactor = 20.0;
 } // namespace
 
 namespace mixxx {
@@ -59,16 +59,15 @@ void QmlControllerScreenElement::updateFrame(
         return;
     }
 
+    double currentDuration = static_cast<double>(
+            std::chrono::duration_cast<std::chrono::microseconds>(
+                    currentTimestamp - m_lastFrameTimestamp)
+                    .count());
+
     if (m_averageFrameDuration == std::numeric_limits<double>::max()) {
-        m_averageFrameDuration =
-                static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(
-                        currentTimestamp - m_lastFrameTimestamp)
-                        .count());
+        m_averageFrameDuration = currentDuration;
     } else {
-        m_averageFrameDuration = m_averageFrameDuration +
-                (static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(
-                        currentTimestamp - m_lastFrameTimestamp)
-                        .count()) - m_averageFrameDuration) / kFrameSmoothAverageFactor;
+        m_averageFrameDuration = m_averageFrameDuration + (currentDuration - m_averageFrameDuration) / kFrameSmoothAverageFactor;
     }
     m_lastFrameTimestamp = currentTimestamp;
     emit fpsChanged();
