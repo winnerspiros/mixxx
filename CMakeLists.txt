@@ -15,10 +15,7 @@ function(fatal_error_missing_env)
         FATAL_ERROR
         "Did you download the Mixxx build environment using `${CMAKE_SOURCE_DIR}/tools/windows_release_buildenv.bat` or `${CMAKE_SOURCE_DIR}/tools/windows_buildenv.bat`(includes Debug)?"
       )
-    endif()
-  elseif(APPLE AND NOT IOS)
-    if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
-      message(
+if((APPLE AND NOT IOS) OR WIN32 OR ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android") AND NOT IS_DIRECTORY "${MIXXX_VCPKG_ROOT}")
         FATAL_ERROR
         "Did you build the Mixxx build environment as described here: https://github.com/mixxxdj/mixxx/wiki/Compiling-dependencies-for-macOS-arm64?"
       )
@@ -84,13 +81,7 @@ if(NOT DEFINED MIXXX_VCPKG_ROOT AND NOT DEFINED ENV{MIXXX_VCPKG_ROOT})
   endif()
 endif()
 
-if(
-  ((APPLE AND NOT IOS) OR WIN32 OR ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
-  AND NOT IS_DIRECTORY "${MIXXX_VCPKG_ROOT}"
-)
-  if(NOT DEFINED BUILDENV_BASEPATH)
-    if(DEFINED ENV{BUILDENV_BASEPATH})
-      set(BUILDENV_BASEPATH "$ENV{BUILDENV_BASEPATH}")
+if((APPLE AND NOT IOS) OR WIN32 OR ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android") AND NOT IS_DIRECTORY "${MIXXX_VCPKG_ROOT}")
     else()
       set(BUILDENV_BASEPATH "${CMAKE_SOURCE_DIR}/buildenv")
     endif()
@@ -1629,8 +1620,8 @@ add_library(
   src/util/versionstore.cpp
   src/waveform/widgets/allshader/waveformwidget.cpp
   src/widget/tooltipqopengl.cpp
-  src/widget/wglwidgetqglwidget.cpp
-  src/widget/wglwidgetqopengl.cpp
+  $<$<NOT:$<BOOL:${QOPENGL}>>:src/widget/wglwidgetqglwidget.cpp>
+  $<$<BOOL:${QOPENGL}>:src/widget/wglwidgetqopengl.cpp>
   src/widget/wspinnyglsl.cpp
   src/widget/wstemlabel.cpp
   src/widget/wtrackstemmenu.cpp

@@ -90,11 +90,6 @@ inline bool supportsGlobalMenu() {
     return false;
 #endif
 }
-return false;
-#else
-return false;
-#endif
-}
 
 const ConfigKey kHideMenuBarConfigKey = ConfigKey("[Config]", "hide_menubar");
 const ConfigKey kMenuBarHintConfigKey = ConfigKey("[Config]", "show_menubar_hint");

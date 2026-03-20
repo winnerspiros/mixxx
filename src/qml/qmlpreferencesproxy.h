@@ -75,7 +75,7 @@ class QmlControllerScreenElement : public QObject {
     void videoFrameAvailable(const QVideoFrame& videoFrame);
 #endif
   public slots:
-    void updateFrame(const ::LegacyControllerMapping::ScreenInfo& screen, const QImage& frame);
+    void updateFrame(const ::LegacyControllerMapping::ScreenInfo& screen, const ::QImage& frame);
     void clear() {
         m_averageFrameDuration = std::numeric_limits<double>::max();
     }
