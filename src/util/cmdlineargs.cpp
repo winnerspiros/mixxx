@@ -47,8 +47,6 @@ bool calcUseColorsAuto() {
 
 } // namespace
 
-
-
 namespace mixxx {
 
 CmdlineArgs::CmdlineArgs()
