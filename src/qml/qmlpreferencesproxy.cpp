@@ -1,18 +1,13 @@
 #include "qmlpreferencesproxy.h"
 
-#include <qglobal.h>
-#include <qhash.h>
-#include <qqmlengine.h>
-#include <qstringliteral.h>
+#include <QtGlobal>
+#include <QHash>
+#include <QQmlEngine>
+#include <QStringLiteral>
 #ifndef Q_OS_ANDROID
-#include <qvideosink.h>
-
-#ifndef Q_OS_ANDROID
+#include <QVideoSink>
 #include <QVideoFrame>
-#endif
-#ifndef Q_OS_ANDROID
 #include <QVideoFrameFormat>
-#endif
 #endif
 #include <algorithm>
 #include <cstdint>
@@ -20,6 +15,7 @@
 #include <memory>
 #include <optional>
 #include <utility>
+#include <cmath>
 
 #include "util/xml.h"
 
@@ -54,7 +50,7 @@ void QmlControllerScreenElement::updateFrame(
     }
 
 #ifndef Q_OS_ANDROID
-    emit videoFrameAvailable(QVideoFrame(frame));
+    emit videoFrameAvailable(::QVideoFrame(frame));
 #endif
 
     auto currentTimestamp = Clock::now();
@@ -65,15 +61,14 @@ void QmlControllerScreenElement::updateFrame(
 
     if (m_averageFrameDuration == std::numeric_limits<double>::max()) {
         m_averageFrameDuration =
-                std::chrono::duration_cast<std::chrono::microseconds>(
+                static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(
                         currentTimestamp - m_lastFrameTimestamp)
-                        .count();
+                        .count());
     } else {
-        m_averageFrameDuration = std::lerp(m_averageFrameDuration,
-                std::chrono::duration_cast<std::chrono::microseconds>(
+        m_averageFrameDuration = m_averageFrameDuration +
+                (static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(
                         currentTimestamp - m_lastFrameTimestamp)
-                        .count(),
-                1.0 / kFrameSmoothAverageFactor);
+                        .count()) - m_averageFrameDuration) / kFrameSmoothAverageFactor;
     }
     m_lastFrameTimestamp = currentTimestamp;
     emit fpsChanged();

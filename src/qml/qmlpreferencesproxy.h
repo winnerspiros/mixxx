@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QtGlobal>
 #include <QtQml/qqml.h>
 
 #include <QImage>
@@ -11,9 +12,7 @@
 #include <QString>
 #include <QUrl>
 #ifndef Q_OS_ANDROID
-#ifndef Q_OS_ANDROID
 #include <QVideoFrame>
-#endif
 #endif
 #include <chrono>
 #include <limits>
@@ -48,19 +47,19 @@ class QmlControllerScreenElement : public QObject {
 
   public:
     explicit QmlControllerScreenElement(
-            QObject* parent, const ::LegacyControllerMapping::ScreenInfo& screen);
-    const QString& identifier() const {
+            QObject* parent, const ::LegacyControllerMapping::ScreenInfo& screenInfo);
+
+    QString identifier() const {
         return m_screenInfo.identifier;
     }
-    const QSize& size() const {
+    QSize size() const {
         return m_screenInfo.size;
     }
     int targetFps() const {
-        return m_screenInfo.target_fps;
+        return m_screenInfo.targetFps;
     }
     int fps() const {
-        return static_cast<int>(
-                1000000 / m_averageFrameDuration);
+        return static_cast<int>(1000000 / m_averageFrameDuration);
     }
 #ifndef Q_OS_ANDROID
     Q_INVOKABLE void connectVideoSink(QObject* videoSink);
@@ -72,7 +71,7 @@ class QmlControllerScreenElement : public QObject {
     void fpsChanged();
 #ifndef Q_OS_ANDROID
     void videoSinkChanged();
-    void videoFrameAvailable(const QVideoFrame& videoFrame);
+    void videoFrameAvailable(const ::QVideoFrame& videoFrame);
 #endif
   public slots:
     void updateFrame(const ::LegacyControllerMapping::ScreenInfo& screen, const ::QImage& frame);
@@ -83,20 +82,18 @@ class QmlControllerScreenElement : public QObject {
   private:
     ::LegacyControllerMapping::ScreenInfo m_screenInfo;
 
-    double m_averageFrameDuration;
     using Clock = std::chrono::steady_clock;
     Clock::time_point m_lastFrameTimestamp;
+    double m_averageFrameDuration;
 };
 
 class QmlControllerSettingElement : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString type READ getType CONSTANT)
-    QML_NAMED_ELEMENT(ControllerSettingElement)
-    QML_UNCREATABLE("Use Mixxx.ControllerMapping to get settings")
+    QML_ANONYMOUS
+    QML_UNCREATABLE("Use Mixxx.ControllerSettingElement to get devices")
   public:
-    explicit QmlControllerSettingElement(QObject* parent)
-            : QObject(parent) {
-    }
+    explicit QmlControllerSettingElement(QObject* parent) : QObject(parent) {}
     virtual QString getType() const = 0;
 };
 
