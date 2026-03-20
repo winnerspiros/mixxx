@@ -47,6 +47,10 @@ bool calcUseColorsAuto() {
 
 } // namespace
 
+
+
+namespace mixxx {
+
 CmdlineArgs::CmdlineArgs()
         : m_qml(false),
           m_awareOfRisk(false),
@@ -528,3 +532,5 @@ bool CmdlineArgs::parse(const QStringList& arguments, CmdlineArgs::ParseMode mod
 
     return true;
 }
+
+} // namespace mixxx
