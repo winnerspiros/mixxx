@@ -31,7 +31,7 @@ void YouTubeFeature::searchAndActivate(const QString& query) {
 
     process.start("yt-dlp", arguments);
     if (!process.waitForFinished()) {
-        kLogger.error() << "yt-dlp search failed";
+        kLogger.critical() << "yt-dlp search failed";
         return;
     }
 

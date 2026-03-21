@@ -22,7 +22,7 @@ class YouTubeService : public QObject {
     void fetchSponsorSegments(const QString& videoId);
 
   signals:
-    void sponsorSegmentsFetched(const QString& videoId, const QList<SponsorSegment>& segments);
+    void sponsorSegmentsFetched(const QString& videoId, const QList<mixxx::SponsorSegment>& segments);
 
   private:
     // We can use QNetworkAccessManager directly or Mixxx's WebTask

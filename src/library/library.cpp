@@ -765,12 +765,12 @@ void Library::searchTracksInCollection() {
     m_pLibraryControl->setLibraryFocus(FocusWidget::Searchbar, Qt::ShortcutFocusReason);
 }
 #ifdef NETWORKAUTH
-    if (m_pSpotifyFeature) {
-        m_pSpotifyFeature->searchAndActivate(query);
-    }
-    if (m_pYouTubeFeature) {
-        m_pYouTubeFeature->searchAndActivate(query);
-    }
+if (m_pSpotifyFeature) {
+    m_pSpotifyFeature->searchAndActivate(query);
+}
+if (m_pYouTubeFeature) {
+    m_pYouTubeFeature->searchAndActivate(query);
+}
 #endif
 
 void Library::searchTracksInCollection(const QString& query) {

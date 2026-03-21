@@ -1,7 +1,7 @@
 #include "library/dao/directorydao.h"
 
-#include <QStringBuilder>
 #include <QDir>
+#include <QStringBuilder>
 
 #include "library/queryutil.h"
 #include "util/db/fwdsqlquery.h"

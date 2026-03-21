@@ -27,12 +27,12 @@ void YouTubeService::fetchSponsorSegments(const QString& videoId) {
     QNetworkRequest request(url);
     QNetworkReply* reply = manager->get(request);
 
-    connect(reply, &QNetworkReply::finished, [this, reply, videoId, manager]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, videoId, manager]() {
         QList<SponsorSegment> segments;
         if (reply->error() == QNetworkReply::NoError) {
             QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
             QJsonArray array = doc.array();
-            for (const auto& value : array) {
+            for (const auto& value : std::as_const(array)) {
                 QJsonObject obj = value.toObject();
                 QJsonArray segmentArray = obj["segment"].toArray();
                 segments.append({segmentArray[0].toDouble(),
