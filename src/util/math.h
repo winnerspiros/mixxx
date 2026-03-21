@@ -1,5 +1,9 @@
 #pragma once
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 #include <algorithm>
 #include <cmath>
 #include <type_traits>
@@ -16,8 +20,26 @@ using std::fabs;
 
 #define math_max std::max
 #define math_min std::min
-#define math_max3(a, b, c) std::max({a, b, c});
-#define math_min3(a, b, c) std::min({a, b, c});
+#define math_max3(a, b, c) std::max({(a), (b), (c)})
+#define math_min3(a, b, c) std::min({(a), (b), (c)})
+
+template<typename T>
+    requires std::is_integral_v<T>
+constexpr T roundUpToPowerOf2(T n) {
+    if (n <= 0) {
+        return 1;
+    }
+    n--;
+    n |= n >> 1;
+    n |= n >> 2;
+    n |= n >> 4;
+    n |= n >> 8;
+    n |= n >> 16;
+    if constexpr (sizeof(T) > 4) {
+        n |= n >> 32;
+    }
+    return n + 1;
+}
 
 // Restrict value to the range [min, max]. Undefined behavior if min > max.
 template<typename T>
@@ -28,57 +50,30 @@ constexpr T math_clamp(T value, T min, T max) {
     return std::clamp(value, min, max);
 }
 
-// NOTE(rryan): It is an error to call even() on a floating point number. Do not
-// hack this to support floating point values! The programmer should be required
-// to manually convert so they are aware of the conversion.
+// Check if value is between min and max.
 template<typename T>
-// since we also want to this to work on size_t and ptrdiff_t, is_integer would be too strict.
-requires(std::is_arithmetic_v<T> && !std::is_floating_point_v<T>) constexpr bool even(T value) {
-    return value % 2 == 0;
+constexpr bool math_isbetween(T value, T min, T max) {
+    return value >= min && value <= max;
 }
 
-#ifdef _MSC_VER
-// Ask VC++ to emit an intrinsic for fabs instead of calling std::fabs.
-#pragma intrinsic(fabs)
-#endif
-
-// return value of 0 indicates failure (no greater power possible)
-constexpr unsigned int roundUpToPowerOf2(unsigned int v) {
-#if (defined(__cpp_lib_int_pow2) && __cpp_lib_int_pow2 >= 202002L)
-    return std::bit_ceil(v);
+#if defined(_MSC_VER) && _MSC_VER < 1928
+#define CMATH_CONSTEXPR
 #else
-    unsigned int power = 1;
-    while (power < v && power > 0) {
-        power *= 2;
-    }
-    return power;
-#endif
-}
-
-// Obsolete with C++23
-#if defined(__cpp_lib_constexpr_cmath) && __cpp_lib_constexpr_cmath >= 202202L
 #define CMATH_CONSTEXPR constexpr
-#else
-#define CMATH_CONSTEXPR inline
 #endif
 
-CMATH_CONSTEXPR double
-roundToFraction(double value, int denominator) {
-    double wholePart;
-    double fractionPart = std::modf(value, &wholePart);
-    double numerator = std::round(fractionPart * denominator);
-    return wholePart + (numerator / denominator);
+template<typename T>
+    requires std::is_floating_point_v<T>
+CMATH_CONSTEXPR T ratio2db(T a) {
+    if (a <= 0) {
+        return static_cast<T>(-1000);
+    }
+    return static_cast<T>(20 * log10(a));
 }
 
 template<typename T>
-requires std::is_floating_point_v<T>
-        CMATH_CONSTEXPR T ratio2db(T a) {
-    return static_cast<T>(log10(a) * 20);
-}
-
-template<typename T>
-requires std::is_floating_point_v<T>
-        CMATH_CONSTEXPR T db2ratio(T a) {
+    requires std::is_floating_point_v<T>
+CMATH_CONSTEXPR T db2ratio(T a) {
     return static_cast<T>(pow(10, a / 20));
 }
 
@@ -86,7 +81,7 @@ requires std::is_floating_point_v<T>
 
 /// https://en.wikipedia.org/wiki/Sign_function
 template<typename T>
-requires std::is_arithmetic_v<T>
+    requires std::is_arithmetic_v<T>
 constexpr T sgn(const T a) {
     // silence -Wtype-limits
     if constexpr (std::is_unsigned_v<T>) {
@@ -94,4 +89,12 @@ constexpr T sgn(const T a) {
     } else {
         return static_cast<T>(a > T(0)) - static_cast<T>(a < T(0));
     }
+}
+template<typename T, typename U>
+    requires std::is_floating_point_v<T> && std::is_arithmetic_v<U>
+inline T roundToFraction(T value, U fraction) {
+    if (fraction == 0) {
+        return value;
+    }
+    return std::round(value * static_cast<T>(fraction)) / static_cast<T>(fraction);
 }

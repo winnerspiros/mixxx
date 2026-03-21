@@ -10,6 +10,7 @@
 
 #include <QCommandLineParser>
 #include <QCoreApplication>
+#include <QDir>
 #include <QProcessEnvironment>
 #include <QStandardPaths>
 #include <QStyleFactory>
@@ -29,14 +30,11 @@ bool calcUseColorsAuto() {
     }
 
 #ifndef __WINDOWS__
-    if (!isatty(fileno(stderr))) {
-        return false;
-    }
+    return isatty(fileno(stderr)) != 0;
 #else
     if (!_isatty(_fileno(stderr))) {
         return false;
     }
-#endif
 
     // Check if terminal is known to support ANSI colors
     QString term = QProcessEnvironment::systemEnvironment().value("TERM");
@@ -44,67 +42,54 @@ bool calcUseColorsAuto() {
             term.startsWith("screen") || term.startsWith("xterm") ||
             term.startsWith("vt100") || term.startsWith("rxvt") ||
             term.endsWith("color");
+#endif
 }
 
 } // namespace
 
+namespace mixxx {
+
 CmdlineArgs::CmdlineArgs()
-        : m_startInFullscreen(false), // Initialize vars
+        : m_qml(false),
+          m_awareOfRisk(false),
+          m_startInFullscreen(false),
           m_startAutoDJ(false),
           m_rescanLibrary(false),
-          m_controllerDebug(false),
-          m_controllerAbortOnWarning(false),
-          m_developer(false),
-#ifdef MIXXX_USE_QML
-          m_qml(false),
-#endif
-          m_safeMode(false),
+          m_settingsPathSet(false),
           m_useLegacyVuMeter(false),
           m_useLegacySpinny(false),
-          m_debugAssertBreak(false),
-          m_settingsPathSet(false),
-          m_scaleFactor(1.0),
+          m_controllerDebug(false),
+          m_controllerPreviewScreens(false),
+          m_controllerAbortOnWarning(false),
+          m_developer(false),
+          m_safeMode(false),
           m_useColors(calcUseColorsAuto()),
-          m_parseForUserFeedbackRequired(false),
+          m_debugAssertBreak(false),
           m_logLevel(mixxx::kLogLevelDefault),
           m_logFlushLevel(mixxx::kLogFlushLevelDefault),
           m_logMaxFileSize(mixxx::kLogMaxFileSizeDefault),
-// We are not ready to switch to XDG folders under Linux, so keeping $HOME/.mixxx as preferences folder. see #8090
+          m_scaleFactor(1.0),
+          m_parseForUserFeedbackRequired(false) {
+// We are not ready to switch to XDG folders under Linux, so keeping
+// /home/jules/.mixxx as preferences folder. see #8090
 #if defined(__LINUX__) || defined(__BSD__)
 #ifdef MIXXX_SETTINGS_PATH
-          m_settingsPath(QDir::homePath().append("/").append(MIXXX_SETTINGS_PATH))
+    m_settingsPath = QDir::homePath().append("/").append(MIXXX_SETTINGS_PATH);
 #else
-#error "We are not ready to switch to XDG folders under Linux"
+#error "MIXXX_SETTINGS_PATH NOT defined"
 #endif
 #elif defined(Q_OS_IOS)
-          // On iOS we intentionally use a user-accessible subdirectory of the sandbox
-          // documents directory rather than the default app data directory. Specifically
-          // we use
-          //
-          //     <sandbox home>/Documents/Library/Application Support/Mixxx
-          //
-          // instead of the default (and hidden)
-          //
-          //     <sandbox home>/Library/Application Support/Mixxx
-          //
-          // This lets the user back up their mixxxdb, add custom controller mappings,
-          // potentially diagnose issues by accessing logs etc. via the native iOS files app.
-          m_settingsPath(
-                  QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)
-                          .append("/Library/Application Support/Mixxx"))
+    m_settingsPath =
+            QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)
+                    .append("/Library/Application Support/Mixxx");
 #else
-
-          // TODO(XXX) Trailing slash not needed anymore as we switches from String::append
-          // to QDir::filePath elsewhere in the code. This is candidate for removal.
-          m_settingsPath(
-                  QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)
-                          .append("/"))
+    m_settingsPath =
+            QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)
+                    .append("/");
 #endif
-{
 }
 
-namespace {
-bool parseLogLevel(
+bool CmdlineArgs::parseLogLevel(
         const QString& logLevel,
         mixxx::LogLevel* pLogLevel) {
     if (logLevel.compare(QLatin1String("trace"), Qt::CaseInsensitive) == 0) {
@@ -122,7 +107,6 @@ bool parseLogLevel(
     }
     return true;
 }
-} // namespace
 
 bool CmdlineArgs::parse(int argc, char** argv) {
     // Some command line parameters needs to be evaluated before
@@ -282,7 +266,6 @@ bool CmdlineArgs::parse(const QStringList& arguments, CmdlineArgs::ParseMode mod
                             : QString());
     parser.addOption(developer);
 
-#ifdef MIXXX_USE_QML
     const QCommandLineOption qml(QStringLiteral("new-ui"),
             forUserFeedback
                     ? QCoreApplication::translate("CmdlineArgs",
@@ -306,7 +289,6 @@ bool CmdlineArgs::parse(const QStringList& arguments, CmdlineArgs::ParseMode mod
                               "existing user profile from a stable version")
                     : QString());
     parser.addOption(awareOfRisk);
-#endif
     const QCommandLineOption safeMode(QStringLiteral("safe-mode"),
             forUserFeedback ? QCoreApplication::translate("CmdlineArgs",
                                       "Enables safe-mode. Disables OpenGL waveforms, and "
@@ -478,7 +460,6 @@ bool CmdlineArgs::parse(const QStringList& arguments, CmdlineArgs::ParseMode mod
     m_controllerPreviewScreens = parser.isSet(controllerPreviewScreens);
     m_controllerAbortOnWarning = parser.isSet(controllerAbortOnWarning);
     m_developer = parser.isSet(developer);
-#ifdef MIXXX_USE_QML
     m_qml = parser.isSet(qml);
     if (parser.isSet(qmlDeprecated)) {
         m_qml |= true;
@@ -486,7 +467,6 @@ bool CmdlineArgs::parse(const QStringList& arguments, CmdlineArgs::ParseMode mod
                       "removed. Please use '--new-ui' instead!";
     }
     m_awareOfRisk = parser.isSet(awareOfRisk);
-#endif
     m_safeMode = parser.isSet(safeMode) || parser.isSet(safeModeDeprecated);
     m_debugAssertBreak = parser.isSet(debugAssertBreak) || parser.isSet(debugAssertBreakDeprecated);
 
@@ -550,3 +530,5 @@ bool CmdlineArgs::parse(const QStringList& arguments, CmdlineArgs::ParseMode mod
 
     return true;
 }
+
+} // namespace mixxx

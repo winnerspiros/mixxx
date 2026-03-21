@@ -1,6 +1,7 @@
 #include "library/dao/directorydao.h"
 
 #include <QDir>
+#include <QStringBuilder>
 
 #include "library/queryutil.h"
 #include "util/db/fwdsqlquery.h"
@@ -204,8 +205,8 @@ std::pair<DirectoryDAO::RelocateResult, QList<RelocatedTrack>> DirectoryDAO::rel
     // track location in newDirectory then the replace query will fail because the
     // location column becomes non-unique.
     QSqlQuery query(m_database);
-    query.prepare("UPDATE " % kTable % " SET " % kLocationColumn %
-            "=:newDirectory WHERE " % kLocationColumn % "=:oldDirectory");
+    query.prepare(QStringLiteral("UPDATE ") % kTable % QStringLiteral(" SET ") % kLocationColumn %
+            QStringLiteral("=:newDirectory WHERE ") % kLocationColumn % QStringLiteral("=:oldDirectory"));
     query.bindValue(":newDirectory", newDirectory);
     query.bindValue(":oldDirectory", oldDirectory);
     if (!query.exec()) {

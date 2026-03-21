@@ -119,7 +119,7 @@ int runMixxx(MixxxApplication* pApp, const CmdlineArgs& args) {
             exitCode = kFatalErrorOnStartupExitCode;
         } else {
             qDebug() << "Displaying main window";
-            #ifdef Q_OS_ANDROID
+#ifdef Q_OS_ANDROID
             mainWindow.showMaximized();
 #else
             mainWindow.show();
@@ -197,7 +197,7 @@ Java_org_qtproject_qt_android_QtNativeAccessibility_accessibilitySupported(JNIEn
 }
 #endif
 
-int main(int argc, char * argv[]) {
+int main(int argc, char* argv[]) {
     Console console;
 
     // These need to be set early on (not sure how early) in order to trigger
@@ -225,7 +225,7 @@ int main(int argc, char * argv[]) {
             Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
 #endif
 
-#if defined(__LINUX__) && !defined(__ANDROID__)
+#ifdef __LINUX__
     // Needed by Wayland compositors to set proper app_id and window icon
     QGuiApplication::setDesktopFileName(QStringLiteral("org.mixxx.Mixxx"));
 #endif
@@ -233,7 +233,7 @@ int main(int argc, char * argv[]) {
     // Setting the organization name results in a QDesktopStorage::DataLocation
     // of "$HOME/Library/Application Support/Mixxx/Mixxx" on OS X. Leave the
     // organization name blank.
-    //QCoreApplication::setOrganizationName("Mixxx");
+    // QCoreApplication::setOrganizationName("Mixxx");
 
     QCoreApplication::setApplicationName(VersionStore::applicationName());
     QCoreApplication::setApplicationVersion(VersionStore::version());
