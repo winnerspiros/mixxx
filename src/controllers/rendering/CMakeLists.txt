@@ -1,5 +1,3 @@
 if(QML)
-  target_sources(mixxx-lib PRIVATE
-    controllerrenderingengine.cpp
-  )
+  target_sources(mixxx-lib PRIVATE controllerrenderingengine.cpp)
 endif()

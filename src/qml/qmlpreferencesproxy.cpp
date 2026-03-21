@@ -67,24 +67,14 @@ void QmlControllerScreenElement::updateFrame(
     if (m_averageFrameDuration == std::numeric_limits<double>::max()) {
         m_averageFrameDuration = currentDuration;
     } else {
-        m_averageFrameDuration = m_averageFrameDuration + (currentDuration - m_averageFrameDuration) / kFrameSmoothAverageFactor;
+        m_averageFrameDuration = m_averageFrameDuration +
+                (currentDuration - m_averageFrameDuration) /
+                        kFrameSmoothAverageFactor;
     }
     m_lastFrameTimestamp = currentTimestamp;
     emit fpsChanged();
 }
-
-#ifndef Q_OS_ANDROID
-void QmlControllerScreenElement::connectVideoSink(QObject* videoSinkObject) {
-    QVideoSink* videoSink = qobject_cast<QVideoSink*>(videoSinkObject);
-    if (!videoSink) {
-        return;
-    }
-    connect(this,
-            &QmlControllerScreenElement::videoFrameAvailable,
-            videoSink,
-            [videoSink](const QVideoFrame& frame) {
-                videoSink->setVideoFrame(frame);
-            });
+});
 }
 #endif
 
