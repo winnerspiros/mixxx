@@ -1,20 +1,16 @@
 #include "qmlpreferencesproxy.h"
 
-#include <qglobal.h>
-#include <qhash.h>
-#include <qqmlengine.h>
-#include <qstringliteral.h>
-#ifndef Q_OS_ANDROID
-#include <qvideosink.h>
-
+#include <QHash>
+#include <QQmlEngine>
+#include <QStringLiteral>
+#include <QtGlobal>
 #ifndef Q_OS_ANDROID
 #include <QVideoFrame>
-#endif
-#ifndef Q_OS_ANDROID
 #include <QVideoFrameFormat>
-#endif
+#include <QVideoSink>
 #endif
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <limits>
 #include <memory>
@@ -34,7 +30,7 @@
 
 namespace {
 /// Number of sample frame timestamp sample to perform a smooth average FPS label.
-constexpr double kFrameSmoothAverageFactor = 20;
+constexpr double kFrameSmoothAverageFactor = 20.0;
 } // namespace
 
 namespace mixxx {
@@ -54,7 +50,7 @@ void QmlControllerScreenElement::updateFrame(
     }
 
 #ifndef Q_OS_ANDROID
-    emit videoFrameAvailable(QVideoFrame(frame));
+    emit videoFrameAvailable(::QVideoFrame(frame));
 #endif
 
     auto currentTimestamp = Clock::now();
@@ -63,51 +59,21 @@ void QmlControllerScreenElement::updateFrame(
         return;
     }
 
+    double currentDuration = static_cast<double>(
+            std::chrono::duration_cast<std::chrono::microseconds>(
+                    currentTimestamp - m_lastFrameTimestamp)
+                    .count());
+
     if (m_averageFrameDuration == std::numeric_limits<double>::max()) {
-        m_averageFrameDuration =
-                std::chrono::duration_cast<std::chrono::microseconds>(
-                        currentTimestamp - m_lastFrameTimestamp)
-                        .count();
+        m_averageFrameDuration = currentDuration;
     } else {
-        m_averageFrameDuration = std::lerp(m_averageFrameDuration,
-                std::chrono::duration_cast<std::chrono::microseconds>(
-                        currentTimestamp - m_lastFrameTimestamp)
-                        .count(),
-                1.0 / kFrameSmoothAverageFactor);
+        m_averageFrameDuration = m_averageFrameDuration +
+                (currentDuration - m_averageFrameDuration) /
+                        kFrameSmoothAverageFactor;
     }
     m_lastFrameTimestamp = currentTimestamp;
     emit fpsChanged();
 }
-
-#ifndef Q_OS_ANDROID
-void QmlControllerScreenElement::connectVideoSink(QObject* videoSinkObject) {
-    QVideoSink* videoSink = qobject_cast<QVideoSink*>(videoSinkObject);
-    if (!videoSink) {
-        return;
-    }
-    connect(this,
-            &QmlControllerScreenElement::videoFrameAvailable,
-            videoSink,
-            [videoSink](const QVideoFrame& frame) {
-                videoSink->setVideoFrame(frame);
-            });
-}
-#endif
-
-QmlControllerSettingItem::QmlControllerSettingItem(
-        std::shared_ptr<AbstractLegacyControllerSetting> pInternal, QObject* parent)
-        : QmlControllerSettingElement(parent),
-          m_pInternal(pInternal) {
-    connect(m_pInternal.get(),
-            &AbstractLegacyControllerSetting::valueChanged,
-            this,
-            &QmlControllerSettingItem::valueChanged);
-}
-
-QString QmlControllerSettingItem::label() const {
-    return m_pInternal->label();
-}
-
 QString QmlControllerSettingItem::description() const {
     return m_pInternal->description();
 }

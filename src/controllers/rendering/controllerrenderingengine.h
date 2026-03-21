@@ -73,7 +73,7 @@ class ControllerRenderingEngine : public QObject {
 
   signals:
     void frameRendered(const ::LegacyControllerMapping::ScreenInfo& screeninfo,
-            ::QImage frame,
+            const ::QImage& frame,
             const ::QDateTime& timestamp);
     void stopping();
     /// @brief Request the screen thread to send a frame to the device.
@@ -86,7 +86,7 @@ class ControllerRenderingEngine : public QObject {
 
     std::chrono::time_point<std::chrono::steady_clock> m_nextFrameStart;
 
-    ::LegacyControllerMapping:: ::LegacyControllerMapping::ScreenInfo m_screenInfo;
+    ::LegacyControllerMapping::ScreenInfo m_screenInfo;
 
     std::unique_ptr<QThread> m_pThread;
 

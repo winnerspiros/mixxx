@@ -13,12 +13,8 @@
 #endif
 
 #if defined(__LINUX__) && !defined(__ANDROID__)
-#if defined(__LINUX__) && !defined(__ANDROID__)
 #include <QDBusConnection>
-#endif
-#if defined(__LINUX__) && !defined(__ANDROID__)
 #include <QDBusConnectionInterface>
-#endif
 #endif
 
 #ifdef MIXXX_USE_QOPENGL
@@ -44,14 +40,9 @@
 #ifdef __ENGINEPRIME__
 #include "library/export/libraryexporter.h"
 #endif
-#include "library/library_prefs.h"
 #include "library/trackcollectionmanager.h"
 #include "mixer/playerinfo.h"
 #include "mixer/playermanager.h"
-#include "recording/recordingmanager.h"
-#include "skin/legacy/launchimage.h"
-#include "skin/skinloader.h"
-#include "soundio/soundmanager.h"
 #include "sources/soundsourceproxy.h"
 #include "track/track.h"
 #include "util/debug.h"
@@ -88,11 +79,6 @@ inline bool supportsGlobalMenu() {
     return false;
 #else
     return false;
-#endif
-}
-return false;
-#else
-return false;
 #endif
 }
 
