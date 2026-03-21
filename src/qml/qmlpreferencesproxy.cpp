@@ -74,24 +74,6 @@ void QmlControllerScreenElement::updateFrame(
     m_lastFrameTimestamp = currentTimestamp;
     emit fpsChanged();
 }
-});
-}
-#endif
-
-QmlControllerSettingItem::QmlControllerSettingItem(
-        std::shared_ptr<AbstractLegacyControllerSetting> pInternal, QObject* parent)
-        : QmlControllerSettingElement(parent),
-          m_pInternal(pInternal) {
-    connect(m_pInternal.get(),
-            &AbstractLegacyControllerSetting::valueChanged,
-            this,
-            &QmlControllerSettingItem::valueChanged);
-}
-
-QString QmlControllerSettingItem::label() const {
-    return m_pInternal->label();
-}
-
 QString QmlControllerSettingItem::description() const {
     return m_pInternal->description();
 }
