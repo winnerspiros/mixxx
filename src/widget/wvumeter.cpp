@@ -1,5 +1,6 @@
 #include "widget/wvumeter.h"
 
+#include "moc_wvumeter.cpp"
 #include "util/duration.h"
 #include "util/math.h"
 
@@ -113,5 +114,3 @@ void WVuMeter::draw() {
         }
     }
 }
-
-#include "moc_wvumeter.cpp"

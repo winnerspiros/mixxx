@@ -19,7 +19,7 @@
         android:normalScreens="true"
         android:smallScreens="true" />
     <application
-        android:extractNativeLibs="true" android:name="org.qtproject.qt.android.bindings.QtApplication"
+        android:name="org.qtproject.qt.android.bindings.QtApplication"
         android:hardwareAccelerated="true"
         android:icon="@mipmap/ic_launcher"
         android:label="Mixxx"
@@ -52,7 +52,7 @@
 
           <meta-data
                 android:name="android.app.arguments"
-                android:value="--log-level debug --developer" />
+                android:value="--new-ui --log-level debug --developer" />
         </activity>
 
         <provider

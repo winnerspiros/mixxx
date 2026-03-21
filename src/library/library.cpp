@@ -161,14 +161,13 @@ Library::Library(
             &Library::analyzeTracks,
             m_pAnalysisFeature,
             &AnalysisFeature::analyzeTracks);
-    addFeature(m_pAnalysisFeature);
 #ifdef NETWORKAUTH
     m_pSpotifyFeature = make_parented<SpotifyFeature>(this, m_pConfig);
     addFeature(m_pSpotifyFeature);
     m_pYouTubeFeature = make_parented<YouTubeFeature>(this, m_pConfig);
     addFeature(m_pYouTubeFeature);
 #endif
-
+    addFeature(m_pAnalysisFeature);
     // Suspend a batch analysis while an ad-hoc analysis of
     // loaded tracks is in progress and resume it afterwards.
     connect(pPlayerManager,
@@ -765,12 +764,6 @@ void Library::searchTracksInCollection() {
     m_pMixxxLibraryFeature->selectAndActivate();
     m_pLibraryControl->setLibraryFocus(FocusWidget::Searchbar, Qt::ShortcutFocusReason);
 }
-
-void Library::searchTracksInCollection(const QString& query) {
-    VERIFY_OR_DEBUG_ASSERT(m_pMixxxLibraryFeature) {
-        return;
-    }
-    m_pMixxxLibraryFeature->searchAndActivate(query);
 #ifdef NETWORKAUTH
     if (m_pSpotifyFeature) {
         m_pSpotifyFeature->searchAndActivate(query);
@@ -779,6 +772,12 @@ void Library::searchTracksInCollection(const QString& query) {
         m_pYouTubeFeature->searchAndActivate(query);
     }
 #endif
+
+void Library::searchTracksInCollection(const QString& query) {
+    VERIFY_OR_DEBUG_ASSERT(m_pMixxxLibraryFeature) {
+        return;
+    }
+    m_pMixxxLibraryFeature->searchAndActivate(query);
 }
 
 void Library::showAutoDJ() {

@@ -91,21 +91,21 @@ if(SndFile_FOUND)
   set(SndFile_INCLUDE_DIRS "${SndFile_INCLUDE_DIR}")
   set(SndFile_DEFINITIONS ${PC_SndFile_CFLAGS_OTHER})
 
-  if(NOT TARGET SndFile::SndFile)
-    add_library(SndFile::SndFile UNKNOWN IMPORTED)
+  if(NOT TARGET SndFile::sndfile)
+    add_library(SndFile::sndfile UNKNOWN IMPORTED)
     set_target_properties(
-      SndFile::SndFile
+      SndFile::sndfile
       PROPERTIES
         IMPORTED_LOCATION "${SndFile_LIBRARY}"
         INTERFACE_COMPILE_OPTIONS "${PC_SndFile_CFLAGS_OTHER}"
         INTERFACE_INCLUDE_DIRECTORIES "${SndFile_INCLUDE_DIR}"
     )
-    is_static_library(SndFile_IS_STATIC SndFile::SndFile)
+    is_static_library(SndFile_IS_STATIC SndFile::sndfile)
     if(SndFile_IS_STATIC)
       find_package(FLAC)
       if(FLAC_FOUND)
         set_property(
-          TARGET SndFile::SndFile
+          TARGET SndFile::sndfile
           APPEND
           PROPERTY INTERFACE_LINK_LIBRARIES FLAC::FLAC
         )
@@ -116,7 +116,7 @@ if(SndFile_FOUND)
         find_package(mpg123 CONFIG)
         if(mpg123_FOUND)
           set_property(
-            TARGET SndFile::SndFile
+            TARGET SndFile::sndfile
             APPEND
             PROPERTY INTERFACE_LINK_LIBRARIES MPG123::libmpg123
           )
