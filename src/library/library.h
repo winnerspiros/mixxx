@@ -42,12 +42,8 @@ class LibraryExporter;
 #endif
 
 // A Library class is a container for all the model-side aspects of the library.
-#ifdef NETWORKAUTH
-#include "library/spotify/spotifyfeature.h"
-#include "library/youtube/youtubefeature.h"
-#endif
 // A library widget can be attached to the Library object by calling bindLibraryWidget.
-class Library : public QObject {
+class Library: public QObject {
     Q_OBJECT
 
   public:
@@ -74,7 +70,7 @@ class Library : public QObject {
     void bindSearchboxWidget(WSearchLineEdit* pSearchboxWidget);
     void bindSidebarWidget(WLibrarySidebar* sidebarWidget);
     void bindLibraryWidget(WLibrary* libraryWidget,
-            KeyboardEventFilter* pKeyboard);
+                    KeyboardEventFilter* pKeyboard);
 
     void addFeature(LibraryFeature* feature);
 
@@ -95,7 +91,7 @@ class Library : public QObject {
         return m_editMetadataSelectedClick;
     }
 
-    // static Library* buildDefaultLibrary();
+    //static Library* buildDefaultLibrary();
 
     static const int kDefaultRowHeightPx;
 
@@ -182,8 +178,8 @@ class Library : public QObject {
     void onTrackAnalyzerProgress(TrackId trackId, AnalyzerProgress analyzerProgress);
 
   private slots:
-    void onPlayerManagerTrackAnalyzerProgress(TrackId trackId, AnalyzerProgress analyzerProgress);
-    void onPlayerManagerTrackAnalyzerIdle();
+      void onPlayerManagerTrackAnalyzerProgress(TrackId trackId, AnalyzerProgress analyzerProgress);
+      void onPlayerManagerTrackAnalyzerIdle();
 
   private:
     const UserSettingsPointer m_pConfig;
@@ -201,10 +197,6 @@ class Library : public QObject {
     WLibrary* m_pLibraryWidget;
     parented_ptr<MixxxLibraryFeature> m_pMixxxLibraryFeature;
     parented_ptr<AutoDJFeature> m_pAutoDJFeature;
-#ifdef NETWORKAUTH
-    parented_ptr<SpotifyFeature> m_pSpotifyFeature;
-    parented_ptr<YouTubeFeature> m_pYouTubeFeature;
-#endif
     parented_ptr<PlaylistFeature> m_pPlaylistFeature;
     parented_ptr<CrateFeature> m_pCrateFeature;
     parented_ptr<BrowseFeature> m_pBrowseFeature;

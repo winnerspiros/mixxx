@@ -5,6 +5,7 @@
 #include "util/timer.h"
 #include "util/widgethelper.h"
 #include "waveform/vsyncthread.h"
+#include "widget/moc_wvumeterbase.cpp"
 #include "widget/wpixmapstore.h"
 
 #define DEFAULT_FALLTIME 20
@@ -209,6 +210,3 @@ void WVuMeterBase::swap() {
     doneCurrent();
     m_bSwapNeeded = false;
 }
-
-
-#include "moc_wvumeterbase.cpp"

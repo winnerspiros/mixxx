@@ -26,7 +26,7 @@
             return;                                                         \
         }                                                                   \
         m_pConfig->setValue(ConfigKey(GROUP, KEY), value);                  \
-        Q_EMIT NAME##Changed();                                               \
+        emit NAME##Changed();                                               \
     }
 
 namespace {
@@ -119,7 +119,7 @@ void QmlConfigProxy::setHotcueColorPalette(const QString& paletteName) {
     ColorPaletteSettings colorPaletteSettings(m_pConfig);
     colorPaletteSettings.setHotcueColorPalette(colorPaletteSettings.getColorPalette(paletteName,
             colorPaletteSettings.getHotcueColorPalette()));
-    Q_EMIT hotcueColorPaletteChanged();
+    emit hotcueColorPaletteChanged();
 }
 
 QVariantList QmlConfigProxy::trackColorPalette() const {
@@ -135,7 +135,7 @@ void QmlConfigProxy::setTrackColorPalette(const QString& paletteName) {
     ColorPaletteSettings colorPaletteSettings(m_pConfig);
     colorPaletteSettings.setTrackColorPalette(colorPaletteSettings.getColorPalette(paletteName,
             colorPaletteSettings.getTrackColorPalette()));
-    Q_EMIT trackColorPaletteChanged();
+    emit trackColorPaletteChanged();
 }
 
 QVariantList QmlConfigProxy::keyColorPalette() const {
@@ -153,7 +153,7 @@ void QmlConfigProxy::setKeyColorPalette(const QString& paletteName) {
     ColorPaletteSettings colorPaletteSettings(m_pConfig);
     colorPaletteSettings.setKeyColorPalette(colorPaletteSettings.getColorPalette(paletteName,
             colorPaletteSettings.getConfigKeyColorPalette()));
-    Q_EMIT keyColorPaletteChanged();
+    emit keyColorPaletteChanged();
 }
 
 QVariantList QmlConfigProxy::colorPalette(const QString& paletteName) const {
@@ -189,7 +189,7 @@ bool QmlConfigProxy::useAcceleration() const {
 void QmlConfigProxy::set_useAcceleration(bool value) {
     m_pConfig->setValue(
             ConfigKey(kPreferencesGroup, k3DHardwareAccelerationKey), value);
-    Q_EMIT useAccelerationChanged();
+    emit useAccelerationChanged();
 }
 
 bool QmlConfigProxy::waveformZoomSynchronization() {

@@ -84,6 +84,10 @@ inline bool supportsGlobalMenu() {
 #endif
     return false;
 }
+#else
+inline bool supportsGlobalMenu() {
+    return false;
+}
 #endif
 
 const ConfigKey kHideMenuBarConfigKey = ConfigKey("[Config]", "hide_menubar");
@@ -102,9 +106,7 @@ MixxxMainWindow::MixxxMainWindow(std::shared_ptr<mixxx::CoreServices> pCoreServi
           m_noMicInputDialog(nullptr),
           m_noAuxInputDialog(nullptr),
           m_pGuiTick(nullptr),
-#if defined(__LINUX__) && !defined(__ANDROID__)
           m_supportsGlobalMenuBar(supportsGlobalMenu()),
-#endif
           m_inRebootMixxxView(false),
           m_pDeveloperToolsDlg(nullptr),
           m_pPrefDlg(nullptr),

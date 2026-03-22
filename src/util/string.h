@@ -4,14 +4,7 @@
 #include <QColor>
 #include <QLocale>
 #include <QString>
-#include <QtGlobal>
-
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-#include <QStringView>
-#else
-#include <QStringView>
-#endif
-
+#include <QStringRef>
 #include <cstring>
 #include <cwchar>
 #include <limits>
@@ -32,15 +25,9 @@ class StringCollator {
         return m_collator.compare(s1, s2);
     }
 
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-    int compare(QStringView s1, QStringView s2) const {
+    int compare(const QStringRef& s1, const QStringRef& s2) const {
         return m_collator.compare(s1, s2);
     }
-#else
-    int compare(const QStringView& s1, const QStringView& s2) const {
-        return m_collator.compare(s1, s2);
-    }
-#endif
 
   private:
     QCollator m_collator;
