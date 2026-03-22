@@ -1445,6 +1445,9 @@ add_library(
   src/library/recording/dlgrecording.ui
   src/library/recording/recordingfeature.cpp
   src/library/rekordbox/rekordboxfeature.cpp
+  src/library/youtube/youtubefeature.cpp
+  src/library/youtube/youtubeservice.cpp
+  src/library/spotify/spotifyfeature.cpp
   src/library/rhythmbox/rhythmboxfeature.cpp
   src/library/scanner/importfilestask.cpp
   src/library/scanner/libraryscanner.cpp
@@ -1589,6 +1592,8 @@ add_library(
   src/sources/soundsourceproviderregistry.cpp
   src/sources/soundsourceproxy.cpp
   src/sources/soundsourcesndfile.cpp
+  src/sources/youtube/soundsourceyoutube.cpp
+  src/sources/spotify/soundsourcespotify.cpp
   src/track/albuminfo.cpp
   src/track/beatfactory.cpp
   src/track/beats.cpp
