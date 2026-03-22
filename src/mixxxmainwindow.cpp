@@ -76,16 +76,14 @@ namespace {
 // while Mixxx is running.
 // This is a reimplementation of QGenericUnixTheme > checkDBusGlobalMenuAvailable()
 inline bool supportsGlobalMenu() {
+#if defined(__LINUX__) && !defined(__ANDROID__)
 #ifndef QT_NO_DBUS
     QDBusConnection conn = QDBusConnection::sessionBus();
     if (const auto* pIface = conn.interface()) {
         return pIface->isServiceRegistered("com.canonical.AppMenu.Registrar");
     }
 #endif
-    return false;
-}
-#else
-inline bool supportsGlobalMenu() {
+#endif
     return false;
 }
 #endif
@@ -106,7 +104,9 @@ MixxxMainWindow::MixxxMainWindow(std::shared_ptr<mixxx::CoreServices> pCoreServi
           m_noMicInputDialog(nullptr),
           m_noAuxInputDialog(nullptr),
           m_pGuiTick(nullptr),
+#if defined(__LINUX__) && !defined(__ANDROID__)
           m_supportsGlobalMenuBar(supportsGlobalMenu()),
+#endif
           m_inRebootMixxxView(false),
           m_pDeveloperToolsDlg(nullptr),
           m_pPrefDlg(nullptr),
@@ -127,7 +127,7 @@ MixxxMainWindow::MixxxMainWindow(std::shared_ptr<mixxx::CoreServices> pCoreServi
                 Qt::AA_DontUseNativeMenuBar,
                 CmdlineArgs::Instance().getStartInFullscreen() || fullscreenPref);
     }
-#endif // __LINUX__
+#endif
 
     connect(m_pCoreServices.get(),
             &mixxx::CoreServices::libraryScanSummary,
@@ -333,7 +333,7 @@ void MixxxMainWindow::initialize() {
             Qt::DirectConnection);
 #endif
 
-    // Connect signals to the menubar. Should be done before Q_EMIT skinLoaded.
+    // Connect signals to the menubar. Should be done before emit skinLoaded.
     connectMenuBar();
 
     QWidget* oldWidget = m_pCentralWidget;
@@ -1091,7 +1091,7 @@ void MixxxMainWindow::slotDeveloperTools(bool visible) {
         m_pDeveloperToolsDlg->show();
         m_pDeveloperToolsDlg->activateWindow();
     } else {
-        Q_EMIT closeDeveloperToolsDlgChecked(0);
+        emit closeDeveloperToolsDlgChecked(0);
     }
 }
 
@@ -1400,7 +1400,7 @@ bool MixxxMainWindow::loadConfiguredSkin() {
     if (centralWidget() == m_pLaunchImage) {
         initializationProgressUpdate(100, "");
     }
-    Q_EMIT skinLoaded();
+    emit skinLoaded();
     return m_pCentralWidget != nullptr;
 }
 
@@ -1503,7 +1503,7 @@ bool MixxxMainWindow::eventFilter(QObject* obj, QEvent* event) {
             // up & down when the menu is shown menu and 'hidden'. The menu
             // will be updated when the skin finished loading.
             if (centralWidget() != m_pLaunchImage) {
-                Q_EMIT fullScreenChanged(isFullScreen());
+                emit fullScreenChanged(isFullScreen());
             }
         }
     }
@@ -1583,6 +1583,7 @@ bool MixxxMainWindow::confirmExit() {
                 QMessageBox::Yes | QMessageBox::No,
                 QMessageBox::No);
         if (btn == QMessageBox::No) {
+#endif
             return false;
         }
     } else if (playingSampler) {
@@ -1592,6 +1593,7 @@ bool MixxxMainWindow::confirmExit() {
                 QMessageBox::Yes | QMessageBox::No,
                 QMessageBox::No);
         if (btn == QMessageBox::No) {
+#endif
             return false;
         }
     }
@@ -1599,6 +1601,7 @@ bool MixxxMainWindow::confirmExit() {
         QMessageBox::StandardButton btn = QMessageBox::question(
                 this, tr("Confirm Exit"), tr("The preferences window is still open.") + "<br>" + tr("Discard any changes and exit Mixxx?"), QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
         if (btn == QMessageBox::No) {
+#endif
             return false;
         } else {
             m_pPrefDlg->close();

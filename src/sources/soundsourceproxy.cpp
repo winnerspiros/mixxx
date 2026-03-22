@@ -19,8 +19,6 @@
 #endif
 #ifdef __SNDFILE__
 #include "sources/soundsourcesndfile.h"
-#include "sources/spotify/soundsourcespotify.h"
-#include "sources/youtube/soundsourceyoutube.h"
 #endif
 #ifdef __FFMPEG__
 #include "sources/soundsourceffmpeg.h"
@@ -48,7 +46,7 @@
 #include "util/logger.h"
 #include "util/regex.h"
 
-// Static memory allocation
+//Static memory allocation
 /*static*/ mixxx::SoundSourceProviderRegistry SoundSourceProxy::s_soundSourceProviders;
 /*static*/ QStringList SoundSourceProxy::s_supportedFileNamePatterns;
 /*static*/ QRegularExpression SoundSourceProxy::s_supportedFileNamesRegex;
@@ -324,13 +322,13 @@ bool SoundSourceProxy::isFileSuffixSupported(const QString& fileSuffix) {
     return getSupportedFileSuffixes().contains(fileSuffix);
 }
 
-// static
+//static
 mixxx::SoundSourceProviderPointer SoundSourceProxy::getPrimaryProviderForFileType(
         const QString& fileType) {
     return s_soundSourceProviders.getPrimaryProviderForFileType(fileType);
 }
 
-// static
+//static
 QStringList SoundSourceProxy::getFileSuffixesForFileType(
         const QString& fileType) {
     // Each file type is a valid file suffix
@@ -346,7 +344,7 @@ QStringList SoundSourceProxy::getFileSuffixesForFileType(
     return fileSuffixes;
 }
 
-// static
+//static
 QStringList SoundSourceProxy::getSupportedFileSuffixes() {
     const auto fileTypes = getSupportedFileTypes();
     QStringList fileSuffixes;
@@ -386,7 +384,7 @@ SoundSourceProxy::allProviderRegistrationsForUrl(
     return providerRegistrations;
 }
 
-// static
+//static
 ExportTrackMetadataResult
 SoundSourceProxy::exportTrackMetadataBeforeSaving(
         Track* pTrack,
@@ -560,7 +558,7 @@ importTrackMetadataAndCoverImageUnavailable() {
 
 } // anonymous namespace
 
-// static
+//static
 std::pair<mixxx::MetadataSource::ImportResult, QDateTime>
 SoundSourceProxy::importTrackMetadataAndCoverImageFromFile(
         const mixxx::FileAccess& trackFileAccess,
