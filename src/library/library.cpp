@@ -332,7 +332,7 @@ void Library::bindSearchboxWidget(WSearchLineEdit* pSearchboxWidget) {
             &Library::setTrackTableFont,
             pSearchboxWidget,
             &WSearchLineEdit::slotSetFont);
-    emit setTrackTableFont(m_trackTableFont);
+    Q_EMIT setTrackTableFont(m_trackTableFont);
     m_pLibraryControl->bindSearchboxWidget(pSearchboxWidget);
     connect(pSearchboxWidget,
             &WSearchLineEdit::setLibraryFocus,
@@ -473,9 +473,9 @@ void Library::bindLibraryWidget(
 
     // Set the current font and row height on all the WTrackTableViews that were
     // just connected to us.
-    emit setTrackTableFont(m_trackTableFont);
-    emit setTrackTableRowHeight(m_iTrackTableRowHeight);
-    emit setSelectedClick(m_editMetadataSelectedClick);
+    Q_EMIT setTrackTableFont(m_trackTableFont);
+    Q_EMIT setTrackTableRowHeight(m_iTrackTableRowHeight);
+    Q_EMIT setSelectedClick(m_editMetadataSelectedClick);
 }
 
 void Library::addFeature(LibraryFeature* feature) {
@@ -549,18 +549,18 @@ void Library::slotShowTrackModel(QAbstractItemModel* model) {
     VERIFY_OR_DEBUG_ASSERT(trackModel) {
         return;
     }
-    emit showTrackModel(model);
-    emit switchToView(m_sTrackViewName);
-    emit restoreSearch(trackModel->currentSearch());
+    Q_EMIT showTrackModel(model);
+    Q_EMIT switchToView(m_sTrackViewName);
+    Q_EMIT restoreSearch(trackModel->currentSearch());
 }
 
 void Library::slotSwitchToView(const QString& view) {
     // qDebug() << "Library::slotSwitchToView" << view;
-    emit switchToView(view);
+    Q_EMIT switchToView(view);
 }
 
 void Library::slotLoadTrack(TrackPointer pTrack) {
-    emit loadTrack(pTrack);
+    Q_EMIT loadTrack(pTrack);
 }
 
 void Library::slotLoadLocationToPlayer(const QString& location, const QString& group, bool play) {
@@ -568,9 +568,9 @@ void Library::slotLoadLocationToPlayer(const QString& location, const QString& g
     TrackPointer pTrack = m_pTrackCollectionManager->getOrAddTrack(trackRef);
     if (pTrack) {
 #ifdef __STEM__
-        emit loadTrackToPlayer(pTrack, group, mixxx::StemChannelSelection(), play);
+        Q_EMIT loadTrackToPlayer(pTrack, group, mixxx::StemChannelSelection(), play);
 #else
-        emit loadTrackToPlayer(pTrack, group, play);
+        Q_EMIT loadTrackToPlayer(pTrack, group, play);
 #endif
     }
 }
@@ -580,12 +580,12 @@ void Library::slotLoadTrackToPlayer(TrackPointer pTrack,
         const QString& group,
         mixxx::StemChannelSelection stemMask,
         bool play) {
-    emit loadTrackToPlayer(pTrack, group, stemMask, play);
+    Q_EMIT loadTrackToPlayer(pTrack, group, stemMask, play);
 }
 #else
 void Library::slotLoadTrackToPlayer(
         TrackPointer pTrack, const QString& group, bool play) {
-    emit loadTrackToPlayer(pTrack, group, play);
+    Q_EMIT loadTrackToPlayer(pTrack, group, play);
 }
 #endif
 
@@ -727,7 +727,7 @@ void Library::setFont(const QFont& font) {
     double newFontHeight = newMetrics.height();
 
     m_trackTableFont = font;
-    emit setTrackTableFont(font);
+    Q_EMIT setTrackTableFont(font);
 
     // adapt the previous font height/row height ratio
     int scaledRowHeight = static_cast<int>(std::round(
@@ -737,12 +737,12 @@ void Library::setFont(const QFont& font) {
 
 void Library::setRowHeight(int rowHeight) {
     m_iTrackTableRowHeight = rowHeight;
-    emit setTrackTableRowHeight(rowHeight);
+    Q_EMIT setTrackTableRowHeight(rowHeight);
 }
 
 void Library::setEditMetadataSelectedClick(bool enabled) {
     m_editMetadataSelectedClick = enabled;
-    emit setSelectedClick(enabled);
+    Q_EMIT setSelectedClick(enabled);
 }
 
 void Library::slotSearchInCurrentView() {
@@ -770,7 +770,7 @@ void Library::searchTracksInCollection(const QString& query) {
 
 void Library::showAutoDJ() {
     m_pAutoDJFeature->activate();
-    emit switchToView(kAutoDJViewName);
+    Q_EMIT switchToView(kAutoDJViewName);
     // Select it but don't scroll there
     m_pSidebarModel->slotFeatureSelect(m_pAutoDJFeature, QModelIndex(), false);
 }

@@ -21,7 +21,6 @@ YouTubeService::YouTubeService(QObject* parent)
 
 void YouTubeService::fetchSponsorSegments(const QString& videoId) {
     kLogger.info() << "Fetching SponsorBlock segments for:" << videoId;
-    // For now, emit empty list to satisfy the flow
     QList<SponsorSegment> segments;
     Q_EMIT sponsorSegmentsFetched(videoId, segments);
 }

@@ -333,7 +333,7 @@ void MixxxMainWindow::initialize() {
             Qt::DirectConnection);
 #endif
 
-    // Connect signals to the menubar. Should be done before emit skinLoaded.
+    // Connect signals to the menubar. Should be done before Q_EMIT skinLoaded.
     connectMenuBar();
 
     QWidget* oldWidget = m_pCentralWidget;
@@ -1091,7 +1091,7 @@ void MixxxMainWindow::slotDeveloperTools(bool visible) {
         m_pDeveloperToolsDlg->show();
         m_pDeveloperToolsDlg->activateWindow();
     } else {
-        emit closeDeveloperToolsDlgChecked(0);
+        Q_EMIT closeDeveloperToolsDlgChecked(0);
     }
 }
 
@@ -1400,7 +1400,7 @@ bool MixxxMainWindow::loadConfiguredSkin() {
     if (centralWidget() == m_pLaunchImage) {
         initializationProgressUpdate(100, "");
     }
-    emit skinLoaded();
+    Q_EMIT skinLoaded();
     return m_pCentralWidget != nullptr;
 }
 
@@ -1503,7 +1503,7 @@ bool MixxxMainWindow::eventFilter(QObject* obj, QEvent* event) {
             // up & down when the menu is shown menu and 'hidden'. The menu
             // will be updated when the skin finished loading.
             if (centralWidget() != m_pLaunchImage) {
-                emit fullScreenChanged(isFullScreen());
+                Q_EMIT fullScreenChanged(isFullScreen());
             }
         }
     }

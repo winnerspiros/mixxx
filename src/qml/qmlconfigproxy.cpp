@@ -26,7 +26,7 @@
             return;                                                         \
         }                                                                   \
         m_pConfig->setValue(ConfigKey(GROUP, KEY), value);                  \
-        emit NAME##Changed();                                               \
+        Q_EMIT NAME##Changed();                                             \
     }
 
 namespace {
@@ -102,7 +102,8 @@ namespace qml {
 
 QmlConfigProxy::QmlConfigProxy(
         UserSettingsPointer pConfig, QObject* parent)
-        : QObject(parent), m_pConfig(pConfig) {
+        : QObject(parent),
+          m_pConfig(pConfig) {
 }
 
 QVariantList QmlConfigProxy::hotcueColorPalette() const {
@@ -119,7 +120,7 @@ void QmlConfigProxy::setHotcueColorPalette(const QString& paletteName) {
     ColorPaletteSettings colorPaletteSettings(m_pConfig);
     colorPaletteSettings.setHotcueColorPalette(colorPaletteSettings.getColorPalette(paletteName,
             colorPaletteSettings.getHotcueColorPalette()));
-    emit hotcueColorPaletteChanged();
+    Q_EMIT hotcueColorPaletteChanged();
 }
 
 QVariantList QmlConfigProxy::trackColorPalette() const {
@@ -135,7 +136,7 @@ void QmlConfigProxy::setTrackColorPalette(const QString& paletteName) {
     ColorPaletteSettings colorPaletteSettings(m_pConfig);
     colorPaletteSettings.setTrackColorPalette(colorPaletteSettings.getColorPalette(paletteName,
             colorPaletteSettings.getTrackColorPalette()));
-    emit trackColorPaletteChanged();
+    Q_EMIT trackColorPaletteChanged();
 }
 
 QVariantList QmlConfigProxy::keyColorPalette() const {
@@ -153,7 +154,7 @@ void QmlConfigProxy::setKeyColorPalette(const QString& paletteName) {
     ColorPaletteSettings colorPaletteSettings(m_pConfig);
     colorPaletteSettings.setKeyColorPalette(colorPaletteSettings.getColorPalette(paletteName,
             colorPaletteSettings.getConfigKeyColorPalette()));
-    emit keyColorPaletteChanged();
+    Q_EMIT keyColorPaletteChanged();
 }
 
 QVariantList QmlConfigProxy::colorPalette(const QString& paletteName) const {
@@ -189,7 +190,7 @@ bool QmlConfigProxy::useAcceleration() const {
 void QmlConfigProxy::set_useAcceleration(bool value) {
     m_pConfig->setValue(
             ConfigKey(kPreferencesGroup, k3DHardwareAccelerationKey), value);
-    emit useAccelerationChanged();
+    Q_EMIT useAccelerationChanged();
 }
 
 bool QmlConfigProxy::waveformZoomSynchronization() {
