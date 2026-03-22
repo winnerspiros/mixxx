@@ -197,7 +197,7 @@ Java_org_qtproject_qt_android_QtNativeAccessibility_accessibilitySupported(JNIEn
 }
 #endif
 
-int main(int argc, char * argv[]) {
+int main(int argc, char* argv[]) {
     Console console;
 
     // These need to be set early on (not sure how early) in order to trigger

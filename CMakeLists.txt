@@ -1423,10 +1423,10 @@ add_library(
   src/library/itunes/itunestrackmodel.cpp
   src/library/itunes/itunesxmlimporter.cpp
   src/library/library_prefs.cpp
-  src/library/library.cpp
   src/library/spotify/spotifyfeature.cpp
   src/library/youtube/youtubefeature.cpp
   src/library/youtube/youtubeservice.cpp
+  src/library/library.cpp
   src/library/librarycontrol.cpp
   src/library/libraryfeature.cpp
   src/library/librarytablemodel.cpp
@@ -3736,16 +3736,6 @@ set(QT_EXTRA_COMPONENTS "")
 if(QT6)
   find_package(QT 6.2 NAMES Qt6 COMPONENTS Core REQUIRED)
   list(APPEND QT_EXTRA_COMPONENTS "ShaderTools")
-if(NETWORKAUTH)
-    find_package(Qt6 COMPONENTS NetworkAuth QUIET)
-    if(Qt6NetworkAuth_FOUND OR TARGET Qt6::NetworkAuth)
-      message(STATUS "Found Qt6 NetworkAuth")
-      list(APPEND QT_EXTRA_COMPONENTS "NetworkAuth")
-    else()
-      message(WARNING "Qt6 NetworkAuth NOT found. Disabling NETWORKAUTH.")
-      set(NETWORKAUTH OFF)
-    endif()
-  endif()
   list(APPEND QT_EXTRA_COMPONENTS "SvgWidgets")
   list(APPEND QT_EXTRA_COMPONENTS "Core5Compat")
   if(QT_VERSION VERSION_GREATER_EQUAL 6.10)
@@ -3766,16 +3756,6 @@ if(QML)
   list(APPEND QT_EXTRA_COMPONENTS "QuickTemplates2")
   list(APPEND QT_EXTRA_COMPONENTS "QuickWidgets")
   list(APPEND QT_EXTRA_COMPONENTS "ShaderTools")
-if(NETWORKAUTH)
-    find_package(Qt6 COMPONENTS NetworkAuth QUIET)
-    if(Qt6NetworkAuth_FOUND OR TARGET Qt6::NetworkAuth)
-      message(STATUS "Found Qt6 NetworkAuth")
-      list(APPEND QT_EXTRA_COMPONENTS "NetworkAuth")
-    else()
-      message(WARNING "Qt6 NetworkAuth NOT found. Disabling NETWORKAUTH.")
-      set(NETWORKAUTH OFF)
-    endif()
-  endif()
   if(QT_VERSION VERSION_GREATER_EQUAL 6.7)
     list(APPEND QT_EXTRA_COMPONENTS "QuickControls2Basic")
     list(APPEND QT_EXTRA_COMPONENTS "QuickControls2BasicStyleImpl")
@@ -3787,11 +3767,12 @@ if(NETWORKAUTH)
     list(APPEND QT_EXTRA_COMPONENTS "QmlWorkerScript")
   endif()
 endif()
-find_package(
-  Qt${QT_VERSION_MAJOR}
 if(ANDROID)
   list(REMOVE_ITEM QT_COMPONENTS DBus PrintSupport Multimedia MultimediaWidgets)
+  list(REMOVE_ITEM QT_EXTRA_COMPONENTS DBus PrintSupport Multimedia MultimediaWidgets)
 endif()
+find_package(
+  Qt${QT_VERSION_MAJOR}
   COMPONENTS ${QT_COMPONENTS} ${QT_EXTRA_COMPONENTS}
   REQUIRED
 )

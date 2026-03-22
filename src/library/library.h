@@ -47,7 +47,7 @@ class LibraryExporter;
 
 // A Library class is a container for all the model-side aspects of the library.
 // A library widget can be attached to the Library object by calling bindLibraryWidget.
-class Library: public QObject {
+class Library : public QObject {
     Q_OBJECT
 
   public:
@@ -182,8 +182,8 @@ class Library: public QObject {
     void onTrackAnalyzerProgress(TrackId trackId, AnalyzerProgress analyzerProgress);
 
   private slots:
-      void onPlayerManagerTrackAnalyzerProgress(TrackId trackId, AnalyzerProgress analyzerProgress);
-      void onPlayerManagerTrackAnalyzerIdle();
+    void onPlayerManagerTrackAnalyzerProgress(TrackId trackId, AnalyzerProgress analyzerProgress);
+    void onPlayerManagerTrackAnalyzerIdle();
 
   private:
     const UserSettingsPointer m_pConfig;
