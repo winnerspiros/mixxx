@@ -1,6 +1,5 @@
 #include "engine/channels/enginedeck.h"
 
-#include <QStringBuilder>
 #include <QStringView>
 
 #include "control/controlpushbutton.h"
@@ -376,6 +375,6 @@ void EngineDeck::slotPassthroughChangeRequest(double v) {
 // static
 QString EngineDeck::getGroupForStem(QStringView deckGroup, int stemIdx) {
     DEBUG_ASSERT(deckGroup.endsWith(QChar(']')) && stemIdx < 4);
-    return deckGroup.chopped(1).toString() + QStringLiteral("_Stem") + QString(QChar('1' + stemIdx)) + QString(QChar(']'));
+    return deckGroup.chopped(1) + QStringLiteral("_Stem") + QChar('1' + stemIdx) + QChar(']');
 }
 #endif

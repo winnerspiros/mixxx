@@ -6,7 +6,7 @@
 #include "util/timer.h"
 
 class QApplication;
-
+class CmdlineArgs;
 class KeyboardEventFilter;
 class EffectsManager;
 class EngineMixer;
@@ -25,7 +25,6 @@ class ControlPushButton;
 struct LibraryScanResultSummary;
 
 namespace mixxx {
-class CmdlineArgs;
 
 class ControlIndicatorTimer;
 class DbConnectionPool;

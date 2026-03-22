@@ -17,11 +17,6 @@
 #include <vector>
 #include <cmath>
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
-
-
 /**
  * Kaiser window: A windower whose bandwidth and sidelobe height
  * (signal-noise ratio) can be specified. These parameters are traded

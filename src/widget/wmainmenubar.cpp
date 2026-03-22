@@ -664,7 +664,7 @@ void WMainMenuBar::initialize() {
     // According to Apple's Human Interface Guidelines devs are encouraged
     // to not use custom icons in menus.
     // https://developer.apple.com/design/human-interface-guidelines/macos/menus/menu-anatomy/
-    externalLinkSuffix = QString(QChar(' ')) + QString(QChar(0x2197)); // north-east arrow
+    externalLinkSuffix = QChar(' ') + QChar(0x2197); // north-east arrow
 #endif
 
     // Community Support

@@ -5,7 +5,6 @@
 #include <QDebug>
 #include <QFileDialog>
 #include <QOpenGLContext>
-#include <QStringBuilder>
 #include <QUrl>
 
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
@@ -40,9 +39,14 @@
 #ifdef __ENGINEPRIME__
 #include "library/export/libraryexporter.h"
 #endif
+#include "library/library_prefs.h"
 #include "library/trackcollectionmanager.h"
 #include "mixer/playerinfo.h"
 #include "mixer/playermanager.h"
+#include "recording/recordingmanager.h"
+#include "skin/legacy/launchimage.h"
+#include "skin/skinloader.h"
+#include "soundio/soundmanager.h"
 #include "sources/soundsourceproxy.h"
 #include "track/track.h"
 #include "util/debug.h"
@@ -63,6 +67,7 @@
 #endif
 
 namespace {
+#ifdef __LINUX__
 // Detect if the desktop supports a global menu to decide whether we need to rebuild
 // and reconnect the menu bar when switching to/from fullscreen mode.
 // Compared to QMenuBar::isNativeMenuBar() (requires a set menu bar) and
@@ -71,16 +76,15 @@ namespace {
 // while Mixxx is running.
 // This is a reimplementation of QGenericUnixTheme > checkDBusGlobalMenuAvailable()
 inline bool supportsGlobalMenu() {
-#if defined(__LINUX__) && !defined(__ANDROID__) && !defined(QT_NO_DBUS)
+#ifndef QT_NO_DBUS
     QDBusConnection conn = QDBusConnection::sessionBus();
     if (const auto* pIface = conn.interface()) {
         return pIface->isServiceRegistered("com.canonical.AppMenu.Registrar");
     }
-    return false;
-#else
-    return false;
 #endif
+    return false;
 }
+#endif
 
 const ConfigKey kHideMenuBarConfigKey = ConfigKey("[Config]", "hide_menubar");
 const ConfigKey kMenuBarHintConfigKey = ConfigKey("[Config]", "show_menubar_hint");
@@ -98,7 +102,9 @@ MixxxMainWindow::MixxxMainWindow(std::shared_ptr<mixxx::CoreServices> pCoreServi
           m_noMicInputDialog(nullptr),
           m_noAuxInputDialog(nullptr),
           m_pGuiTick(nullptr),
+#ifdef __LINUX__
           m_supportsGlobalMenuBar(supportsGlobalMenu()),
+#endif
           m_inRebootMixxxView(false),
           m_pDeveloperToolsDlg(nullptr),
           m_pPrefDlg(nullptr),
@@ -336,7 +342,7 @@ void MixxxMainWindow::initialize() {
         reportCriticalErrorAndQuit(
                 "default skin cannot be loaded - see <b>mixxx</b> trace for more information");
         m_pCentralWidget = oldWidget;
-        // TODO (XXX) add dialog to warn user and launch skin choice page
+        //TODO (XXX) add dialog to warn user and launch skin choice page
     } else {
         m_pMenuBar->setStyleSheet(m_pCentralWidget->styleSheet());
     }
@@ -618,7 +624,7 @@ void MixxxMainWindow::alwaysHideMenuBarDlg() {
 #endif
 
 QDialog::DialogCode MixxxMainWindow::soundDeviceErrorDlg(
-        const QString& title, const QString& text, bool* retryClicked) {
+        const QString &title, const QString &text, bool* retryClicked) {
     QMessageBox msgBox;
     msgBox.setIcon(QMessageBox::Warning);
     msgBox.setWindowTitle(title);
@@ -633,7 +639,8 @@ QDialog::DialogCode MixxxMainWindow::soundDeviceErrorDlg(
     QPushButton* exitButton =
             msgBox.addButton(tr("Exit"), QMessageBox::ActionRole);
 
-    while (true) {
+    while (true)
+    {
         msgBox.exec();
 
         if (msgBox.clickedButton() == retryButton) {
@@ -666,53 +673,53 @@ QDialog::DialogCode MixxxMainWindow::soundDeviceErrorDlg(
 QDialog::DialogCode MixxxMainWindow::soundDeviceBusyDlg(bool* retryClicked) {
     QString title(tr("Sound Device Busy"));
     QString text(
-            QStringLiteral("<html> <p>") %
-            tr("Mixxx was unable to open all the configured sound devices.") %
-            QStringLiteral("</p> <p>") %
-            m_pCoreServices->getSoundManager()->getErrorDeviceName() %
-            " is used by another application or not plugged in."
-            "</p><ul>"
-            "<li>" %
-            tr("<b>Retry</b> after closing the other application "
-               "or reconnecting a sound device") %
-            "</li>"
-            "<li>" %
-            tr("<b>Reconfigure</b> Mixxx's sound device settings.") %
-            "</li>"
-            "<li>" %
-            tr("Get <b>Help</b> from the Mixxx Wiki.") %
-            "</li>"
-            "<li>" %
-            tr("<b>Exit</b> Mixxx.") %
-            "</li>"
-            "</ul></html>");
+            "<html> <p>" %
+                    tr("Mixxx was unable to open all the configured sound devices.") +
+            "</p> <p>" %
+                    m_pCoreServices->getSoundManager()->getErrorDeviceName() %
+                    " is used by another application or not plugged in."
+                    "</p><ul>"
+                    "<li>" %
+                    tr("<b>Retry</b> after closing the other application "
+                       "or reconnecting a sound device") %
+                    "</li>"
+                    "<li>" %
+                    tr("<b>Reconfigure</b> Mixxx's sound device settings.") %
+                    "</li>"
+                    "<li>" %
+                    tr("Get <b>Help</b> from the Mixxx Wiki.") %
+                    "</li>"
+                    "<li>" %
+                    tr("<b>Exit</b> Mixxx.") %
+                    "</li>"
+                    "</ul></html>");
     return soundDeviceErrorDlg(title, text, retryClicked);
 }
 
 QDialog::DialogCode MixxxMainWindow::soundDeviceErrorMsgDlg(
         SoundDeviceStatus status, bool* retryClicked) {
     QString title(tr("Sound Device Error"));
-    QString text(QStringLiteral("<html> <p>") %
-            tr("Mixxx was unable to open all the configured sound "
-               "devices.") %
-            QStringLiteral("</p> <p>") %
-            m_pCoreServices->getSoundManager()
-                    ->getLastErrorMessage(status)
-                    .replace("\n", "<br/>") %
-            "</p><ul>"
-            "<li>" %
-            tr("<b>Retry</b> after fixing an issue") %
-            "</li>"
-            "<li>" %
-            tr("<b>Reconfigure</b> Mixxx's sound device settings.") %
-            "</li>"
-            "<li>" %
-            tr("Get <b>Help</b> from the Mixxx Wiki.") %
-            "</li>"
-            "<li>" %
-            tr("<b>Exit</b> Mixxx.") %
-            "</li>"
-            "</ul></html>");
+    QString text("<html> <p>" %
+                    tr("Mixxx was unable to open all the configured sound "
+                       "devices.") +
+            "</p> <p>" %
+                    m_pCoreServices->getSoundManager()
+                            ->getLastErrorMessage(status)
+                            .replace("\n", "<br/>") %
+                    "</p><ul>"
+                    "<li>" %
+                    tr("<b>Retry</b> after fixing an issue") %
+                    "</li>"
+                    "<li>" %
+                    tr("<b>Reconfigure</b> Mixxx's sound device settings.") %
+                    "</li>"
+                    "<li>" %
+                    tr("Get <b>Help</b> from the Mixxx Wiki.") %
+                    "</li>"
+                    "<li>" %
+                    tr("<b>Exit</b> Mixxx.") %
+                    "</li>"
+                    "</ul></html>");
     return soundDeviceErrorDlg(title, text, retryClicked);
 }
 
@@ -722,18 +729,19 @@ QDialog::DialogCode MixxxMainWindow::noOutputDlg(bool* continueClicked) {
     msgBox.setWindowTitle(tr("No Output Devices"));
     msgBox.setText(
             "<html>" + tr("Mixxx was configured without any output sound devices. "
-                          "Audio processing will be disabled without a configured output device.") +
+            "Audio processing will be disabled without a configured output device.") +
             "<ul>"
-            "<li>" +
-            tr("<b>Continue</b> without any outputs.") +
-            "</li>"
-            "<li>" +
-            tr("<b>Reconfigure</b> Mixxx's sound device settings.") +
-            "</li>"
-            "<li>" +
-            tr("<b>Exit</b> Mixxx.") +
-            "</li>"
-            "</ul></html>");
+                "<li>" +
+                    tr("<b>Continue</b> without any outputs.") +
+                "</li>"
+                "<li>" +
+                    tr("<b>Reconfigure</b> Mixxx's sound device settings.") +
+                "</li>"
+                "<li>" +
+                    tr("<b>Exit</b> Mixxx.") +
+                "</li>"
+            "</ul></html>"
+    );
 
     QPushButton* continueButton =
             msgBox.addButton(tr("Continue"), QMessageBox::ActionRole);
@@ -742,7 +750,8 @@ QDialog::DialogCode MixxxMainWindow::noOutputDlg(bool* continueClicked) {
     QPushButton* exitButton =
             msgBox.addButton(tr("Exit"), QMessageBox::ActionRole);
 
-    while (true) {
+    while (true)
+    {
         msgBox.exec();
 
         if (msgBox.clickedButton() == continueButton) {
@@ -1024,7 +1033,7 @@ void MixxxMainWindow::slotFileLoadSongPlayer(int deck) {
 
     QString loadTrackText = tr("Load track to Deck %1").arg(QString::number(deck));
     QString deckWarningMessage = tr("Deck %1 is currently playing a track.")
-                                         .arg(QString::number(deck));
+            .arg(QString::number(deck));
     QString areYouSure = tr("Are you sure you want to load a new track?");
 
     if (ControlObject::get(ConfigKey(group, "play")) > 0.0) {
@@ -1349,8 +1358,8 @@ void MixxxMainWindow::rebootMixxxView() {
 
     if (!loadConfiguredSkin()) {
         QMessageBox::critical(this,
-                tr("Error in skin file"),
-                tr("The selected skin cannot be loaded."));
+                              tr("Error in skin file"),
+                              tr("The selected skin cannot be loaded."));
         m_inRebootMixxxView = false;
         // m_pWidgetParent is NULL, we can't continue.
         return;
@@ -1503,7 +1512,7 @@ bool MixxxMainWindow::eventFilter(QObject* obj, QEvent* event) {
     return QMainWindow::eventFilter(obj, event);
 }
 
-void MixxxMainWindow::closeEvent(QCloseEvent* event) {
+void MixxxMainWindow::closeEvent(QCloseEvent *event) {
     // WARNING: We can receive a CloseEvent while only partially
     // initialized. This is because we call QApplication::processEvents to
     // render LaunchImage progress in the constructor.
@@ -1532,7 +1541,7 @@ void MixxxMainWindow::checkDirectRendering() {
     UserSettingsPointer pConfig = m_pCoreServices->getSettings();
 
     if (!factory->isOpenGlAvailable() && !factory->isOpenGlesAvailable() &&
-            pConfig->getValueString(ConfigKey("[Direct Rendering]", "Warned")) != QString("yes")) {
+        pConfig->getValueString(ConfigKey("[Direct Rendering]", "Warned")) != QString("yes")) {
         QMessageBox::warning(nullptr,
                 tr("OpenGL Direct Rendering"),
                 tr("Direct rendering is not enabled on your machine.<br><br>"
@@ -1570,33 +1579,31 @@ bool MixxxMainWindow::confirmExit() {
     }
     if (playing) {
         QMessageBox::StandardButton btn = QMessageBox::question(this,
-                tr("Confirm Exit"),
-                tr("A deck is currently playing. Exit Mixxx?"),
-                QMessageBox::Yes | QMessageBox::No,
-                QMessageBox::No);
+            tr("Confirm Exit"),
+            tr("A deck is currently playing. Exit Mixxx?"),
+            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
         if (btn == QMessageBox::No) {
             return false;
         }
     } else if (playingSampler) {
         QMessageBox::StandardButton btn = QMessageBox::question(this,
-                tr("Confirm Exit"),
-                tr("A sampler is currently playing. Exit Mixxx?"),
-                QMessageBox::Yes | QMessageBox::No,
-                QMessageBox::No);
+            tr("Confirm Exit"),
+            tr("A sampler is currently playing. Exit Mixxx?"),
+            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
         if (btn == QMessageBox::No) {
             return false;
         }
     }
     if (m_pPrefDlg && m_pPrefDlg->isVisible()) {
-        QMessageBox::StandardButton btn = QMessageBox::question(this,
-                tr("Confirm Exit"),
-                tr("The preferences window is still open.") + "<br>" +
-                        tr("Discard any changes and exit Mixxx?"),
-                QMessageBox::Yes | QMessageBox::No,
-                QMessageBox::No);
+        QMessageBox::StandardButton btn = QMessageBox::question(
+            this, tr("Confirm Exit"),
+            tr("The preferences window is still open.") + "<br>" +
+            tr("Discard any changes and exit Mixxx?"),
+            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
         if (btn == QMessageBox::No) {
             return false;
-        } else {
+        }
+        else {
             m_pPrefDlg->close();
         }
     }

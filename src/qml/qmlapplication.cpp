@@ -1,10 +1,7 @@
 #include "qmlapplication.h"
 
 #include <QQmlEngineExtensionPlugin>
-#ifndef Q_OS_ANDROID
-#include <QtQuickControls2/QQuickStyle>
-#endif
-#include <QMessageBox>
+#include <QQuickStyle>
 #include <QQuickWindow>
 #include <QTextDocument>
 
@@ -18,18 +15,14 @@
 #include "util/versionstore.h"
 #include "waveform/visualsmanager.h"
 #include "waveform/waveformwidgetfactory.h"
-
 #if defined(Q_OS_ANDROID)
 #include <android/api-level.h>
 #include <android/log.h>
 #include <android/performance_hint.h>
-#include <unistd.h>
 #endif
 
 Q_IMPORT_QML_PLUGIN(MixxxPlugin)
-#ifdef MIXXX_USE_QML
 Q_IMPORT_QML_PLUGIN(Mixxx_ControlsPlugin)
-#endif
 
 namespace {
 const QString kMainQmlFileName = QStringLiteral("qml/main.qml");
@@ -55,18 +48,11 @@ QmlApplication::QmlApplication(
           m_visualsManager(std::make_unique<VisualsManager>()),
           m_mainFilePath(m_pCoreServices->getSettings()->getResourcePath() + kMainQmlFileName),
           m_pAppEngine(nullptr),
-          m_autoReload()
 #if defined(Q_OS_ANDROID)
-          ,
-          m_frameTimer(),
-          m_perfSession(nullptr)
+          m_perfSession(nullptr),
 #endif
-{
-#ifdef MIXXX_USE_QML
-#ifndef Q_OS_ANDROID
+          m_autoReload() {
     QQuickStyle::setStyle("Basic");
-#endif
-#endif
 
     m_pCoreServices->initialize(app);
 
@@ -92,6 +78,8 @@ QmlApplication::QmlApplication(
                    "'--allow-dangerous-data-corruption-risk'.")
                         .arg(configVersion));
 
+        QPushButton* continueButton =
+                msgBox.addButton(tr("Ok"), QMessageBox::ActionRole);
         msgBox.exec();
         m_pCoreServices.reset();
         exit(-1);
@@ -147,26 +135,21 @@ QmlApplication::QmlApplication(
             });
 
 #if defined(Q_OS_ANDROID)
-#if __ANDROID_API__ >= 33
     APerformanceHintManager* manager = APerformanceHint_getManager();
-    if (manager) {
-        int32_t thread32 = gettid();
-        m_perfSession = APerformanceHint_createSession(
-                manager, &thread32, 1, static_cast<int64_t>(1e9 / 60));
-        if (m_perfSession) {
-#if __ANDROID_API__ >= 35
-            APerformanceHint_setPreferPowerEfficiency(m_perfSession, false);
-#endif
-            __android_log_print(ANDROID_LOG_VERBOSE, "mixxx", "ADPF session ready");
-        } else {
-            __android_log_print(ANDROID_LOG_WARN, "mixxx", "unable to create a ADPF session!");
-        }
+    VERIFY_OR_DEBUG_ASSERT(manager) {
+        return;
     }
-#endif
-#endif
+    int32_t thread32 = gettid();
+    m_perfSession = APerformanceHint_createSession(manager, &thread32, 1, 1e9 / 60);
+    VERIFY_OR_DEBUG_ASSERT(m_perfSession) {
+        __android_log_print(ANDROID_LOG_WARN, "mixxx", "unable to create a ADPF session!");
+    }
+    else {
+        APerformanceHint_setPreferPowerEfficiency(m_perfSession, false);
+        __android_log_print(ANDROID_LOG_VERBOSE, "mixxx", "ADPF session ready");
+    }
 }
 
-#if defined(Q_OS_ANDROID)
 void QmlApplication::slotWindowChanged(QQuickWindow* window) {
     if (window) {
         connect(window, &QQuickWindow::afterFrameEnd, this, &QmlApplication::slotFrameSwapped);
@@ -175,16 +158,16 @@ void QmlApplication::slotWindowChanged(QQuickWindow* window) {
 }
 
 void QmlApplication::slotFrameSwapped() {
-#if __ANDROID_API__ >= 33
-    if (m_perfSession) {
-        auto lastFrameDurationNs = m_frameTimer.elapsed().toIntegerNanos();
-        APerformanceHint_reportActualWorkDuration(m_perfSession,
-                lastFrameDurationNs);
+    VERIFY_OR_DEBUG_ASSERT(m_perfSession) {
+        return;
     }
+    auto lastFrameDurationNs = m_frameTimer.elapsed().toIntegerNanos();
+    auto t = std::chrono::steady_clock::now() - std::chrono::steady_clock::time_point{};
+    APerformanceHint_reportActualWorkDuration(m_perfSession,
+            lastFrameDurationNs);
     m_frameTimer.restart();
 #endif
 }
-#endif
 
 QmlApplication::~QmlApplication() {
     // Delete all the QML singletons in order to prevent leak detection in CoreService
@@ -204,7 +187,7 @@ void QmlApplication::loadQml(const QString& path) {
     m_pAppEngine->addImportPath(QStringLiteral(":/mixxx.org/imports"));
 
     // No memory leak here, the QQmlEngine takes ownership of the provider
-    [[maybe_unused]] QQuickAsyncImageProvider* pImageProvider = new AsyncImageProvider(
+    QQuickAsyncImageProvider* pImageProvider = new AsyncImageProvider(
             m_pCoreServices->getTrackCollectionManager());
     m_pAppEngine->addImageProvider(AsyncImageProvider::kProviderName, pImageProvider);
 

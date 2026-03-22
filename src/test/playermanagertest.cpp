@@ -99,9 +99,7 @@ class PlayerManagerTest : public MixxxDbTest, SoundSourceProviderRegistration {
                 m_pRecordingManager.get());
 
         m_pPlayerManager->bindToLibrary(m_pLibrary.get());
-        #ifdef __RUBBERBAND__
         RubberBandWorkerPool::createInstance();
-#endif
     }
 
     void TearDown() override {

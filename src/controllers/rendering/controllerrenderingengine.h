@@ -25,7 +25,7 @@ class QThread;
 class ControllerRenderingEngine : public QObject {
     Q_OBJECT
   public:
-    ControllerRenderingEngine(const ::LegacyControllerMapping::ScreenInfo& info,
+    ControllerRenderingEngine(const LegacyControllerMapping::ScreenInfo& info,
             gsl::not_null<ControllerEngineThreadControl*> engineThreadControl);
     // Destructor will wait for the ControllerRenderingEngine's thread to
     // complete. It should be called from the Controller thread.
@@ -48,7 +48,7 @@ class ControllerRenderingEngine : public QObject {
         return m_quickWindow.get();
     }
 
-    const ::LegacyControllerMapping::ScreenInfo& info() const {
+    const LegacyControllerMapping::ScreenInfo& info() const {
         return m_screenInfo;
     }
 
@@ -56,7 +56,7 @@ class ControllerRenderingEngine : public QObject {
     // Request sending frame data to the device. The task will be run in the
     // rendering event loop. This method should only be called once received the
     // `frameRendered` signal.
-    virtual void requestSendingFrameData(::Controller* controller, const ::QByteArray& frame);
+    virtual void requestSendingFrameData(Controller* controller, const QByteArray& frame);
     // Request setting up the rendering context for QML engine and wait till it
     // is completed. The task will be run in the rendering event loop to ensure
     // thread affinity of engine components. `isValid` can be used to ensure
@@ -69,24 +69,24 @@ class ControllerRenderingEngine : public QObject {
     void finish();
     void renderFrame();
     void setup(std::shared_ptr<QQmlEngine> qmlEngine);
-    void send(::Controller* controller, const ::QByteArray& frame);
+    void send(Controller* controller, const QByteArray& frame);
 
   signals:
-    void frameRendered(const ::LegacyControllerMapping::ScreenInfo& screeninfo,
-            const ::QImage& frame,
-            const ::QDateTime& timestamp);
+    void frameRendered(const LegacyControllerMapping::ScreenInfo& screeninfo,
+            QImage frame,
+            const QDateTime& timestamp);
     void stopping();
     /// @brief Request the screen thread to send a frame to the device.
     /// @param controller the controller to send the frame to.
     /// @param frame the frame data, ready to be sent.
-    void sendFrameDataRequested(::Controller* controller, const ::QByteArray& frame);
+    void sendFrameDataRequested(Controller* controller, const QByteArray& frame);
 
   private:
     virtual void prepare();
 
     std::chrono::time_point<std::chrono::steady_clock> m_nextFrameStart;
 
-    ::LegacyControllerMapping::ScreenInfo m_screenInfo;
+    LegacyControllerMapping::ScreenInfo m_screenInfo;
 
     std::unique_ptr<QThread> m_pThread;
 

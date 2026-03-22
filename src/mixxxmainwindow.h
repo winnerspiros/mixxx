@@ -142,7 +142,9 @@ class MixxxMainWindow : public QMainWindow {
     VisualsManager* m_pVisualsManager;
 
     parented_ptr<WMainMenuBar> m_pMenuBar;
-    bool m_supportsGlobalMenuBar;
+#ifdef __LINUX__
+    const bool m_supportsGlobalMenuBar;
+#endif
     bool m_inRebootMixxxView;
 
     DlgDeveloperTools* m_pDeveloperToolsDlg;

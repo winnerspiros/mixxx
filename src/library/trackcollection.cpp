@@ -1,6 +1,5 @@
 #include "library/trackcollection.h"
 
-#include <QStringBuilder>
 #include "library/basetrackcache.h"
 #include "library/trackset/crate/crate.h"
 #include "moc_trackcollection.cpp"
@@ -301,9 +300,9 @@ bool TrackCollection::hideTracks(const QList<TrackId>& trackIds) {
          }
 
          QString playlistNamesSection =
-                 QStringLiteral("\n\n\"") %
+                 "\n\n\"" %
                  playlistNames.join("\"\n\"") %
-                 QStringLiteral("\"\n\n");
+                 "\"\n\n";
 
          if (QMessageBox::question(
                  nullptr,

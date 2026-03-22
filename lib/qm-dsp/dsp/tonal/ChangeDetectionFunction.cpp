@@ -15,11 +15,6 @@
 
 #include "ChangeDetectionFunction.h"
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
-
-
 ChangeDetectionFunction::ChangeDetectionFunction(ChangeDFConfig config) :
     m_dFilterSigma(0.0), m_iFilterWidth(0)
 {
