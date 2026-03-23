@@ -6,8 +6,6 @@
 #include <QObject>
 #include <QQmlEngine>
 #include <QQmlListProperty>
-#include <QtQml/QQmlRegistration>
-#include <QtQmlIntegration>
 #include <memory>
 #include <optional>
 
@@ -32,8 +30,6 @@ class QmlControllerMappingProxy;
 
 class QmlControllerSettingElement : public QObject {
     Q_OBJECT
-    QML_ELEMENT
-    QML_UNCREATABLE("Base class")
   public:
     using QObject::QObject;
     virtual ~QmlControllerSettingElement() = default;
@@ -45,8 +41,6 @@ class QmlControllerSettingElement : public QObject {
 class QmlControllerScreenElement : public QObject {
     Q_OBJECT
     Q_PROPERTY(int fps READ fps NOTIFY fpsChanged)
-    QML_ELEMENT
-    QML_UNCREATABLE("Managed by ControllerMappingProxy")
   public:
     QmlControllerScreenElement(QObject* parent, const ::LegacyControllerMapping::ScreenInfo& screen);
 
@@ -74,8 +68,6 @@ class QmlControllerSettingItem : public QmlControllerSettingElement {
     Q_PROPERTY(QJSValue savedValue READ savedValue CONSTANT)
     Q_PROPERTY(QJSValue defaultValue READ defaultValue CONSTANT)
     Q_PROPERTY(QString type READ type CONSTANT)
-    QML_ELEMENT
-    QML_UNCREATABLE("Managed by loadSettings")
   public:
     QmlControllerSettingItem(::LegacyControllerSettingsLayoutItem* pInternal, QObject* parent);
 
@@ -94,8 +86,6 @@ class QmlControllerSettingContainer : public QmlControllerSettingElement {
     Q_OBJECT
     Q_PROPERTY(QQmlListProperty<mixxx::qml::QmlControllerSettingElement> children READ children CONSTANT)
     Q_PROPERTY(::LegacyControllerSettingsLayoutContainer::Disposition disposition READ disposition CONSTANT)
-    QML_ELEMENT
-    QML_UNCREATABLE("Managed by loadSettings")
   public:
     QmlControllerSettingContainer(const ::LegacyControllerSettingsLayoutContainer* pInternal, QObject* parent);
 
@@ -112,8 +102,6 @@ class QmlControllerSettingGroup : public QmlControllerSettingElement {
     Q_PROPERTY(QString label READ label CONSTANT)
     Q_PROPERTY(QQmlListProperty<mixxx::qml::QmlControllerSettingElement> children READ children CONSTANT)
     Q_PROPERTY(::LegacyControllerSettingsLayoutContainer::Disposition disposition READ disposition CONSTANT)
-    QML_ELEMENT
-    QML_UNCREATABLE("Managed by loadSettings")
   public:
     QmlControllerSettingGroup(const ::LegacyControllerSettingsGroup* pInternal, QObject* parent);
 
@@ -135,8 +123,6 @@ class QmlControllerMappingProxy : public QObject {
     Q_PROPERTY(QUrl wikiLink READ getWikiLink CONSTANT)
     Q_PROPERTY(bool hasSettings READ hasSettings CONSTANT)
     Q_PROPERTY(bool hasScreens READ hasScreens CONSTANT)
-    QML_ELEMENT
-    QML_UNCREATABLE("Managed by ControllerManagerProxy")
   public:
     QmlControllerMappingProxy(const ::MappingInfo& mapping, QObject* parent);
 
@@ -185,8 +171,6 @@ class QmlControllerDeviceProxy : public QObject {
     Q_PROPERTY(QString product READ product CONSTANT)
     Q_PROPERTY(QString serialNumber READ serialNumber CONSTANT)
     Q_PROPERTY(QList<mixxx::qml::QmlControllerMappingProxy*> mappings READ getMappings CONSTANT)
-    QML_ELEMENT
-    QML_UNCREATABLE("Managed by ControllerManagerProxy")
   public:
     enum class Type {
         MIDI,
@@ -262,8 +246,6 @@ class QmlControllerManagerProxy : public QObject {
     Q_PROPERTY(QQmlListProperty<mixxx::qml::QmlControllerDeviceProxy> knownDevices READ knownDevices NOTIFY deviceListChanged)
     Q_PROPERTY(QQmlListProperty<mixxx::qml::QmlControllerDeviceProxy> unknownDevices READ unknownDevices NOTIFY deviceListChanged)
     Q_PROPERTY(bool controllerScreenDebug READ isControllerScreenDebug CONSTANT)
-    QML_ELEMENT
-    QML_SINGLETON
   public:
     QmlControllerManagerProxy(std::shared_ptr<::ControllerManager> pControllerManager, QObject* parent = nullptr);
 
@@ -274,6 +256,10 @@ class QmlControllerManagerProxy : public QObject {
     std::shared_ptr<::ControllerManager> internal() const;
 
     static QmlControllerManagerProxy* create(QQmlEngine* pQmlEngine, QJSEngine* pJsEngine);
+    static inline void registerManager(std::shared_ptr<::ControllerManager> pControllerManager, bool controllerPreviewScreens = false) {
+        s_pControllerManager = std::move(pControllerManager);
+        s_controllerPreviewScreens = controllerPreviewScreens;
+    }
 
   signals:
     void deviceListChanged();
@@ -295,11 +281,11 @@ class QmlControllerManagerProxy : public QObject {
     QList<mixxx::qml::QmlControllerDeviceProxy*> m_knownDevicesFound;
     QList<mixxx::qml::QmlControllerDeviceProxy*> m_unknownDevicesFound;
 
-    static inline std::shared_ptr<::ControllerManager> s_pControllerManager;
+    static inline std::shared_ptr<::ControllerManager> s_pControllerManager = nullptr;
     static inline bool s_controllerPreviewScreens = false;
 };
 
 } // namespace qml
 } // namespace mixxx
 
-Q_DECLARE_METATYPE(MappingInfo)
+Q_DECLARE_METATYPE(mixxx::qml::QmlControllerDeviceProxy::Type)

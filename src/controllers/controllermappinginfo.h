@@ -113,3 +113,6 @@ class MappingInfo {
     QString m_wikilink;
     QList<ProductInfo> m_products;
 };
+
+#include <QMetaType>
+Q_DECLARE_METATYPE(MappingInfo)

@@ -59,6 +59,13 @@ QmlControllerScreenElement::QmlControllerScreenElement(
     clear();
 }
 
+int QmlControllerScreenElement::fps() const {
+    if (m_averageFrameDuration == std::numeric_limits<double>::max() || m_averageFrameDuration <= 0) {
+        return 0;
+    }
+    return static_cast<int>(1000000 / m_averageFrameDuration);
+}
+
 void QmlControllerScreenElement::updateFrame(
         const ::LegacyControllerMapping::ScreenInfo& screen, const QImage& frame) {
     if (m_screenInfo.identifier != screen.identifier) {
@@ -73,14 +80,14 @@ void QmlControllerScreenElement::updateFrame(
     double averageFrameDuration;
     if (m_averageFrameDuration == std::numeric_limits<double>::max()) {
         averageFrameDuration =
-                std::chrono::duration_cast<std::chrono::microseconds>(
+                static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(
                         currentTimestamp - m_lastFrameTimestamp)
-                        .count();
+                        .count());
     } else {
         averageFrameDuration = std::lerp(m_averageFrameDuration,
-                std::chrono::duration_cast<std::chrono::microseconds>(
+                static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(
                         currentTimestamp - m_lastFrameTimestamp)
-                        .count(),
+                        .count()),
                 1.0 / kFrameSmoothAverageFactor);
     }
     m_lastFrameTimestamp = currentTimestamp;
@@ -124,6 +131,30 @@ QmlControllerSettingItem::QmlControllerSettingItem(
           m_pInternal(pInternal) {
 }
 
+QString QmlControllerSettingItem::label() const {
+    return m_pInternal->setting()->label();
+}
+
+QJSValue QmlControllerSettingItem::value() const {
+    return m_pInternal->setting()->value();
+}
+
+void QmlControllerSettingItem::setValue(const QJSValue& value) {
+    m_pInternal->setting()->setValue(value);
+}
+
+QJSValue QmlControllerSettingItem::savedValue() const {
+    return m_pInternal->setting()->savedValue();
+}
+
+QJSValue QmlControllerSettingItem::defaultValue() const {
+    return m_pInternal->setting()->defaultValue();
+}
+
+QString QmlControllerSettingItem::type() const {
+    return m_pInternal->setting()->getType();
+}
+
 QmlControllerSettingContainer::QmlControllerSettingContainer(
         const LegacyControllerSettingsLayoutContainer* pInternal, QObject* parent)
         : QmlControllerSettingElement(parent),
@@ -136,6 +167,14 @@ QmlControllerSettingContainer::QmlControllerSettingContainer(
     }
 }
 
+QQmlListProperty<QmlControllerSettingElement> QmlControllerSettingContainer::children() {
+    return QQmlListProperty<QmlControllerSettingElement>(this, &m_children);
+}
+
+::LegacyControllerSettingsLayoutContainer::Disposition QmlControllerSettingContainer::disposition() const {
+    return m_pInternal->disposition();
+}
+
 QmlControllerSettingGroup::QmlControllerSettingGroup(
         const LegacyControllerSettingsGroup* pInternal, QObject* parent)
         : QmlControllerSettingElement(parent),
@@ -146,6 +185,18 @@ QmlControllerSettingGroup::QmlControllerSettingGroup(
             m_children.append(pElement);
         }
     }
+}
+
+QString QmlControllerSettingGroup::label() const {
+    return m_pInternal->label();
+}
+
+QQmlListProperty<QmlControllerSettingElement> QmlControllerSettingGroup::children() {
+    return QQmlListProperty<QmlControllerSettingElement>(this, &m_children);
+}
+
+::LegacyControllerSettingsLayoutContainer::Disposition QmlControllerSettingGroup::disposition() const {
+    return m_pInternal->disposition();
 }
 
 QmlControllerMappingProxy::QmlControllerMappingProxy(
