@@ -7,9 +7,12 @@
 #include <utility>
 
 #include "controllers/controller.h"
+#include "controllers/defs_controllers.h"
 #include "controllers/legacycontrollermappingfilehandler.h"
+#include "controllers/scripting/legacy/controllerscriptenginelegacy.h"
 #include "qml/qmlconfigproxy.h"
 #include "util/assert.h"
+#include "util/logger.h"
 #include "util/logging.h"
 #include "util/math.h"
 
@@ -18,7 +21,7 @@ namespace qml {
 
 namespace {
 
-const Logger kLogger("QmlPreferencesProxy");
+const mixxx::Logger kLogger("QmlPreferencesProxy");
 constexpr double kFrameSmoothAverageFactor = 10.0;
 
 } // namespace
@@ -133,8 +136,7 @@ QmlControllerSettingGroup::QmlControllerSettingGroup(
 QmlControllerMappingProxy::QmlControllerMappingProxy(
         const MappingInfo& mapping, QObject* parent)
         : QObject(parent),
-          m_mappingDefinition(mapping),
-          m_pMapping(nullptr) {
+          m_mappingDefinition(mapping) {
 }
 
 QmlControllerSettingElement* QmlControllerMappingProxy::loadSettings(
@@ -151,7 +153,7 @@ QmlControllerSettingElement* QmlControllerMappingProxy::loadSettings(
         pController->setInstanceFor(m_mappingDefinition.getPath(), mapping);
     }
 
-    return loadElement(mapping->getSettingsLayout().get(), this);
+    return loadElement(mapping->getSettingsLayout(), this);
 }
 
 QList<QmlControllerScreenElement*> QmlControllerMappingProxy::loadScreens(
@@ -245,7 +247,7 @@ bool QmlControllerMappingProxy::isUserMapping(const QmlConfigProxy* pConfig) con
     return m_mappingDefinition.getPath().startsWith(settingsMappingsPath(pConfig->get()));
 }
 
-void QmlControllerMappingProxy::fetchMappingDetails() {
+void QmlControllerMappingProxy::fetchMappingDetails() const {
     if (m_hasSettings.has_value() && m_hasScreens.has_value()) {
         return;
     }
@@ -561,3 +563,5 @@ void QmlControllerManagerProxy::loadMappingFromEnumerator(
 
 } // namespace qml
 } // namespace mixxx
+
+#include "moc_qmlpreferencesproxy.cpp"

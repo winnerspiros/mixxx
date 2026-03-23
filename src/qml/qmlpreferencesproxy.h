@@ -214,14 +214,14 @@ class QmlControllerMappingProxy : public QObject {
     void mappingErrored();
 
   private:
-    void fetchMappingDetails();
+    void fetchMappingDetails() const;
 
     // The following information may require to parse the XML file entirely. To
     // avoid unnecessarily doing so, we only load these fields if needed.
     // Accessors make sure to fetch this information just in time.
-    std::optional<bool> m_hasSettings;
-    std::optional<bool> m_hasScreens;
-    MappingInfo m_mappingDefinition;
+    mutable std::optional<bool> m_hasSettings;
+    mutable std::optional<bool> m_hasScreens;
+    mutable MappingInfo m_mappingDefinition;
 };
 
 class QmlControllerDeviceProxy : public QObject {
