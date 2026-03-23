@@ -24,7 +24,7 @@ void SoundSourceSpotify::close() {
 ReadableSampleFrames SoundSourceSpotify::readSampleFramesClamped(
         const WritableSampleFrames& sampleFrames) {
     // librespot-cpp integration goes here
-    return ReadableSampleFrames(sampleFrames.frameIndexRange(), 0);
+    return ReadableSampleFrames(sampleFrames.frameIndexRange());
 }
 
 SoundSource::OpenResult SoundSourceSpotify::tryOpen(
@@ -33,7 +33,7 @@ SoundSource::OpenResult SoundSourceSpotify::tryOpen(
     Q_UNUSED(mode);
     Q_UNUSED(params);
     kLogger.info() << "Opening Spotify stream:" << getUrl().toString();
-    return OpenResult::Ok;
+    return OpenResult::Succeeded;
 }
 
 } // namespace mixxx

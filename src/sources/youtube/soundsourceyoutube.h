@@ -13,6 +13,8 @@ class SoundSourceYouTube : public SoundSource {
 
     void close() override;
 
+    void onSponsorSegmentsFetched(const QString& videoId, const QList<SponsorSegment>& segments);
+
   protected:
     ReadableSampleFrames readSampleFramesClamped(
             const WritableSampleFrames& sampleFrames) override;
@@ -20,9 +22,6 @@ class SoundSourceYouTube : public SoundSource {
     OpenResult tryOpen(
             OpenMode mode,
             const OpenParams& params) override;
-
-  private slots:
-    void onSponsorSegmentsFetched(const QString& videoId, const QList<SponsorSegment>& segments);
 
   private:
     QList<SponsorSegment> m_sponsorSegments;
@@ -39,8 +38,8 @@ class SoundSourceProviderYouTube : public SoundSourceProvider {
     QStringList getSupportedFileTypes() const override {
         return {"youtube"};
     }
-    SoundSourceProviderPriority getPriorityHint(const QString& supportedFileType) const override {
-        return SoundSourceProviderPriority::High;
+    SoundSourceProviderPriority getPriorityHint(const QString& /*supportedFileType*/) const override {
+        return SoundSourceProviderPriority::Higher;
     }
     SoundSourcePointer newSoundSource(const QUrl& url) override {
         return std::make_shared<SoundSourceYouTube>(url);

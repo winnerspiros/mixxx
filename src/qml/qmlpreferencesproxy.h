@@ -3,131 +3,122 @@
 #include <QDialog>
 #include <QObject>
 #include <QQmlEngine>
+#ifndef Q_OS_ANDROID
 #include <QVideoSink>
+#include <QVideoFrame>
+#endif
 #include <memory>
 #include <optional>
 
 #include "controllers/controllermappinginfo.h"
 #include "controllers/controllermappinginfoenumerator.h"
+#include "controllers/controllermanager.h"
 #include "controllers/legacycontrollermapping.h"
+#include "controllers/legacycontrollersettings.h"
 #include "controllers/legacycontrollersettingslayout.h"
-#include "qmlconfigproxy.h"
-
-class ControllerManager;
-class LegacyControllerMapping;
-class AbstractLegacyControllerSetting;
-class Controller;
+#include "util/clock.h"
 
 namespace mixxx {
 namespace qml {
 
+class QmlConfigProxy;
+
 class QmlControllerScreenElement : public QObject {
     Q_OBJECT
-    Q_PROPERTY(QString identifier READ identifier CONSTANT)
-    Q_PROPERTY(QSize size READ size CONSTANT)
-    Q_PROPERTY(int targetFps READ targetFps CONSTANT)
-    Q_PROPERTY(int currentFps READ fps NOTIFY fpsChanged)
-    QML_ANONYMOUS
+    Q_PROPERTY(int fps READ fps NOTIFY fpsChanged)
   public:
-    explicit QmlControllerScreenElement(
+    QmlControllerScreenElement(
             QObject* parent, const LegacyControllerMapping::ScreenInfo& screen);
-    const QString& identifier() const {
-        return m_screenInfo.identifier;
-    }
-    const QSize& size() const {
-        return m_screenInfo.size;
-    }
-    int targetFps() const {
-        return m_screenInfo.target_fps;
-    }
+
+    void clear();
+
+    void updateFrame(
+            const LegacyControllerMapping::ScreenInfo& screen, const QImage& frame);
+
     int fps() const {
         return static_cast<int>(
                 1000000 / m_averageFrameDuration);
     }
+
+#ifndef Q_OS_ANDROID
     Q_INVOKABLE void connectVideoSink(QVideoSink* videoSink) {
         disconnect(videoSink);
         connect(this,
-                #ifndef Q_OS_ANDROID
                 &QmlControllerScreenElement::videoFrameAvailable,
-#else
-                nullptr,
-#endif
                 videoSink,
                 &QVideoSink::setVideoFrame);
     }
+#else
+    Q_INVOKABLE void connectVideoSink(QObject* /*videoSink*/) {
+    }
+#endif
+
   signals:
     void fpsChanged();
     void videoSinkChanged();
-    #ifndef Q_OS_ANDROID
+#ifndef Q_OS_ANDROID
     void videoFrameAvailable(const QVideoFrame& videoFrame);
 #endif
+
   public slots:
-    void updateFrame(const LegacyControllerMapping::ScreenInfo& screen, const QImage& frame);
-    void clear() {
-        m_averageFrameDuration = std::numeric_limits<double>::max();
-    }
 
   private:
     LegacyControllerMapping::ScreenInfo m_screenInfo;
-
-    double m_averageFrameDuration;
-    using Clock = std::chrono::steady_clock;
     Clock::time_point m_lastFrameTimestamp;
+    double m_averageFrameDuration;
 };
 
 class QmlControllerSettingElement : public QObject {
     Q_OBJECT
-    Q_PROPERTY(QList<QmlControllerSettingElement*> children MEMBER m_pChildren CONSTANT)
     Q_PROPERTY(QString type READ getType CONSTANT)
-    Q_PROPERTY(bool dirty READ isDirty NOTIFY dirtyChanged)
     QML_ANONYMOUS
+    QML_UNCREATABLE("Use Mixxx.ControllerSettingElement to get devices")
   public:
-    explicit QmlControllerSettingElement(
-            const LegacyControllerSettingsLayoutElement* pInternal,
-            QObject* parent);
+    explicit QmlControllerSettingElement(QObject* parent) : QObject(parent) {}
     virtual QString getType() const = 0;
-    virtual bool isDirty() const;
-
-    static QmlControllerSettingElement* build(
-            LegacyControllerSettingsLayoutElement* element, QObject* parent);
-
-  signals:
-    void dirtyChanged();
-
-  protected:
-    QList<QmlControllerSettingElement*> m_pChildren;
 };
 
 class QmlControllerSettingItem : public QmlControllerSettingElement {
     Q_OBJECT
-    Q_PROPERTY(AbstractLegacyControllerSetting* properties READ getSetting CONSTANT)
-    Q_PROPERTY(LegacyControllerSettingsLayoutContainer::Disposition
-                    preferredOrientation READ preferredOrientation CONSTANT)
+    Q_PROPERTY(QString name READ name CONSTANT)
+    Q_PROPERTY(QVariant value READ value WRITE setValue NOTIFY valueChanged)
+    Q_PROPERTY(bool isDirty READ isDirty NOTIFY dirtyChanged)
     QML_ANONYMOUS
     QML_UNCREATABLE("Use Mixxx.ControllerSettingElement to get devices")
   public:
     explicit QmlControllerSettingItem(
-            const LegacyControllerSettingsLayoutItem* pInternal,
-            QObject* parent);
+            LegacyControllerSettingsLayoutItem* pInternal, QObject* parent);
     QString getType() const override {
         return QStringLiteral("item");
     }
-    bool isDirty() const override;
-    AbstractLegacyControllerSetting* getSetting() const;
-    LegacyControllerSettingsLayoutContainer::Disposition preferredOrientation() const {
-        return m_pInternal->preferredOrientation();
+    QString name() const {
+        return m_pInternal->name();
+    }
+    QVariant value() const {
+        return m_pInternal->setting()->getVariant();
+    }
+    void setValue(const QVariant& value) {
+        m_pInternal->setting()->setVariant(value);
+        Q_EMIT valueChanged();
+    }
+    bool isDirty() const {
+        return m_pInternal->setting()->isDirty();
     }
 
+  signals:
+    void valueChanged();
+    void dirtyChanged();
+
   private:
-    const LegacyControllerSettingsLayoutItem* m_pInternal;
+    LegacyControllerSettingsLayoutItem* m_pInternal;
 };
 
 class QmlControllerSettingContainer : public QmlControllerSettingElement {
     Q_OBJECT
-    Q_PROPERTY(LegacyControllerSettingsLayoutContainer::Disposition disposition
-                    READ disposition CONSTANT)
-    Q_PROPERTY(LegacyControllerSettingsLayoutContainer::Disposition
-                    widgetOrientation READ widgetOrientation CONSTANT)
+    Q_PROPERTY(LegacyControllerSettingsLayoutContainer::Disposition disposition READ
+                    disposition CONSTANT)
+    Q_PROPERTY(LegacyControllerSettingsLayoutContainer::Disposition widgetOrientation READ
+                    widgetOrientation CONSTANT)
     QML_ANONYMOUS
     QML_UNCREATABLE("Use Mixxx.ControllerSettingElement to get devices")
   public:
@@ -265,25 +256,25 @@ class QmlControllerDeviceProxy : public QObject {
     QUrl getVisualUrl() const;
     void setVisualUrl(const QUrl& url);
     QmlControllerMappingProxy* getMapping() const;
-    void setMapping(QmlControllerMappingProxy* url);
+    void setMapping(QmlControllerMappingProxy* mapping);
     bool getEnabled() const;
     void setEnabled(bool state);
     void setEdited() {
         bool changed = !m_edited;
         m_edited = true;
         if (changed) {
-            emit editedChanged();
+            Q_EMIT editedChanged();
         }
     }
     void setMappings(const QSet<QmlControllerMappingProxy*>& mappings) {
         m_mappings = mappings;
-        emit mappingChanged();
+        Q_EMIT mappingsChanged();
     }
     void clearEdited() {
         bool changed = m_edited;
         m_edited = false;
         if (changed) {
-            emit editedChanged();
+            Q_EMIT editedChanged();
         }
     }
     QString vendor() const;
@@ -297,7 +288,8 @@ class QmlControllerDeviceProxy : public QObject {
     }
 
     std::shared_ptr<LegacyControllerMapping> instanceFor(const QString& mappingPath) const;
-    void setInstanceFor(const QString& mappingPath, std::shared_ptr<LegacyControllerMapping>);
+    void setInstanceFor(
+            const QString& mappingPath, std::shared_ptr<LegacyControllerMapping> pMapping);
   signals:
     void visualUrlChanged();
     void nameChanged();
