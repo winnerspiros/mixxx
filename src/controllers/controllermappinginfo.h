@@ -69,6 +69,19 @@ class MappingInfo {
         return m_author;
     }
 
+    inline void setAuthor(const QString& author) {
+        m_author = author;
+    }
+    inline void setDescription(const QString& description) {
+        m_description = description;
+    }
+    inline void setForumLink(const QString& forumlink) {
+        m_forumlink = forumlink;
+    }
+    inline void setWikiLink(const QString& wikilink) {
+        m_wikilink = wikilink;
+    }
+
     inline const QList<ProductInfo>& getProducts() const {
         return m_products;
     }

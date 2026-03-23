@@ -80,6 +80,8 @@ class QmlControllerSettingElement : public QObject {
             : QObject(parent) {
     }
     virtual QString getType() const = 0;
+  signals:
+    void dirtyChanged();
 };
 
 class QmlControllerSettingItem : public QmlControllerSettingElement {
@@ -199,8 +201,8 @@ class QmlControllerMappingProxy : public QObject {
     QUrl getWikiLink() const;
     // The following accessors cannot be const as the information will be lazy
     // loaded and cached into the object.
-    bool hasSettings();
-    bool hasScreens();
+    bool hasSettings() const;
+    bool hasScreens() const;
 
     const MappingInfo& definition() const {
         return m_mappingDefinition;
@@ -236,7 +238,7 @@ class QmlControllerDeviceProxy : public QObject {
     Q_PROPERTY(QUrl visualUrl READ getVisualUrl WRITE setVisualUrl NOTIFY visualUrlChanged)
     Q_PROPERTY(bool enabled READ getEnabled WRITE setEnabled NOTIFY enabledChanged)
     Q_PROPERTY(bool edited MEMBER m_edited NOTIFY editedChanged)
-    Q_PROPERTY(QSet<QmlControllerMappingProxy*> availableMappings MEMBER
+    Q_PROPERTY(QList<QmlControllerMappingProxy*> availableMappings MEMBER
                     m_mappings NOTIFY mappingsChanged)
     Q_PROPERTY(QmlControllerMappingProxy* mapping READ getMapping WRITE
                     setMapping NOTIFY mappingChanged)
@@ -251,7 +253,7 @@ class QmlControllerDeviceProxy : public QObject {
     Q_ENUM(Type)
     explicit QmlControllerDeviceProxy(Controller* pInternal,
             const std::optional<ProductInfo>& productInfo,
-            const QSet<QmlControllerMappingProxy*>& mappings,
+            const QList<QmlControllerMappingProxy*>& mappings,
             QObject* parent);
     QmlControllerDeviceProxy::Type getType() const;
     QString getName() const;
@@ -270,7 +272,7 @@ class QmlControllerDeviceProxy : public QObject {
             Q_EMIT editedChanged();
         }
     }
-    void setMappings(const QSet<QmlControllerMappingProxy*>& mappings) {
+    void setMappings(const QList<QmlControllerMappingProxy*>& mappings) {
         m_mappings = mappings;
         Q_EMIT mappingsChanged();
     }
@@ -305,24 +307,14 @@ class QmlControllerDeviceProxy : public QObject {
     void mappingAssigned(Controller* pController,
             std::shared_ptr<LegacyControllerMapping> pMapping,
             bool bEnabled);
-
-    void mappingCreated(QmlControllerDeviceProxy::Type type, const MappingInfo& mapping);
-#if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
     void mappingUpdated(QmlControllerMappingProxy* pMapping, const MappingInfo& mapping);
-#else
-    void mappingUpdated(QmlControllerMappingProxy* pMapping,
-            const MappingInfo& mapping);
-#endif
-    void deviceLearned();
-
-  private:
     bool m_edited;
     QString m_editedFriendlyName;
     QUrl m_editedVisualUrl;
     std::optional<bool> m_enabled;
     Controller* m_pInternal;
     std::optional<ProductInfo> m_productInfo;
-    QSet<QmlControllerMappingProxy*> m_mappings;
+    QList<QmlControllerMappingProxy*> m_mappings;
     QmlControllerMappingProxy* m_pMapping;
 
     QHash<QString, std::shared_ptr<LegacyControllerMapping>> m_mappingInstance;

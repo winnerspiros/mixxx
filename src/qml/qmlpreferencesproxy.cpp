@@ -31,7 +31,7 @@ QmlControllerSettingElement* loadElement(
     auto* pItem = dynamic_cast<LegacyControllerSettingsLayoutItem*>(element);
     if (pItem) {
         auto* pElement = new QmlControllerSettingItem(pItem, parent);
-        connect(pItem->setting(),
+        QObject::connect(pItem->setting(),
                 &AbstractLegacyControllerSetting::changed,
                 pElement,
                 &QmlControllerSettingElement::dirtyChanged);
@@ -229,14 +229,14 @@ QUrl QmlControllerMappingProxy::getWikiLink() const {
     return m_mappingDefinition.getWikiLink();
 }
 
-bool QmlControllerMappingProxy::hasSettings() {
+bool QmlControllerMappingProxy::hasSettings() const {
     if (!m_hasSettings.has_value()) {
         fetchMappingDetails();
     }
     return m_hasSettings.value();
 }
 
-bool QmlControllerMappingProxy::hasScreens() {
+bool QmlControllerMappingProxy::hasScreens() const {
     if (!m_hasScreens.has_value()) {
         fetchMappingDetails();
     }
@@ -244,7 +244,7 @@ bool QmlControllerMappingProxy::hasScreens() {
 }
 
 bool QmlControllerMappingProxy::isUserMapping(const QmlConfigProxy* pConfig) const {
-    return m_mappingDefinition.getPath().startsWith(settingsMappingsPath(pConfig->get()));
+    return m_mappingDefinition.getPath().startsWith(userMappingsPath(pConfig->get()));
 }
 
 void QmlControllerMappingProxy::fetchMappingDetails() const {
@@ -256,10 +256,10 @@ void QmlControllerMappingProxy::fetchMappingDetails() const {
     if (mapping) {
         m_hasSettings = mapping->hasSettings();
         m_hasScreens = mapping->hasScreens();
-        m_mappingDefinition.setAuthor(mapping->getAuthor());
-        m_mappingDefinition.setDescription(mapping->getDescription());
-        m_mappingDefinition.setForumLink(mapping->getForumLink());
-        m_mappingDefinition.setWikiLink(mapping->getWikiLink());
+        m_mappingDefinition.setAuthor(mapping->author());
+        m_mappingDefinition.setDescription(mapping->description());
+        m_mappingDefinition.setForumLink(mapping->forumlink());
+        m_mappingDefinition.setWikiLink(mapping->wikilink());
     } else {
         m_hasSettings = false;
         m_hasScreens = false;
@@ -269,7 +269,7 @@ void QmlControllerMappingProxy::fetchMappingDetails() const {
 
 QmlControllerDeviceProxy::QmlControllerDeviceProxy(Controller* pInternal,
         const std::optional<ProductInfo>& productInfo,
-        const QSet<QmlControllerMappingProxy*>& mappings,
+        const QList<QmlControllerMappingProxy*>& mappings,
         QObject* parent)
         : QObject(parent),
           m_edited(false),
@@ -475,9 +475,9 @@ void QmlControllerManagerProxy::refreshKnownDevices() {
 
     for (auto* pController : std::as_const(m_knownControllers)) {
         auto productInfo = pController->getProductInfo();
-        QSet<QmlControllerMappingProxy*> mappings;
+        QList<QmlControllerMappingProxy*> mappings;
         if (productInfo.has_value()) {
-            mappings = m_knownDevices.value(productInfo.value());
+            mappings = m_knownDevices.value(productInfo.value()).values();
         }
 
         auto* pProxy = new QmlControllerDeviceProxy(
@@ -524,11 +524,10 @@ void QmlControllerManagerProxy::loadNewMapping(
     mappings.append(pProxy);
     m_knownMappings.insert(type, mappings);
 
-    auto productInfo = mapping.getSubscriber();
-    if (productInfo.has_value()) {
-        auto deviceMappings = m_knownDevices.value(productInfo.value());
+    for (const auto& productInfo : mapping.getProducts()) {
+        auto deviceMappings = m_knownDevices.value(productInfo);
         deviceMappings.insert(pProxy);
-        m_knownDevices.insert(productInfo.value(), deviceMappings);
+        m_knownDevices.insert(productInfo, deviceMappings);
     }
 
     refreshKnownDevices();
@@ -551,12 +550,11 @@ void QmlControllerManagerProxy::loadMappingFromEnumerator(
         auto typeMappings = m_knownMappings.value(type);
         typeMappings.append(pProxy);
         m_knownMappings.insert(type, typeMappings);
-
-        auto productInfo = mapping.getSubscriber();
-        if (productInfo.has_value()) {
-            auto deviceMappings = m_knownDevices.value(productInfo.value());
+        for (const auto& productInfo : mapping.getProducts()) {
+            auto deviceMappings = m_knownDevices.value(productInfo);
             deviceMappings.insert(pProxy);
-            m_knownDevices.insert(productInfo.value(), deviceMappings);
+            m_knownDevices.insert(productInfo, deviceMappings);
+        }
         }
     }
 }
