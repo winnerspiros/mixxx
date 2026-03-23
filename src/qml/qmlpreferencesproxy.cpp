@@ -7,8 +7,8 @@
 #include <utility>
 
 #include "controllers/controller.h"
-#include "controllers/controllermanager.h"
 #include "controllers/controllermappinginfoenumerator.h"
+#include "controllers/controllermanager.h"
 #include "controllers/defs_controllers.h"
 #include "controllers/legacycontrollermappingfilehandler.h"
 #include "controllers/scripting/legacy/controllerscriptenginelegacy.h"
@@ -33,7 +33,7 @@ QmlControllerSettingElement* loadElement(
     auto* pItem = dynamic_cast<LegacyControllerSettingsLayoutItem*>(element);
     if (pItem) {
         auto* pElement = new QmlControllerSettingItem(pItem, parent);
-        QObject::connect(pItem->setting(),
+        QObject::connect(pItem->setting().get(),
                 &AbstractLegacyControllerSetting::changed,
                 pElement,
                 &QmlControllerSettingElement::dirtyChanged);
@@ -47,7 +47,6 @@ QmlControllerSettingElement* loadElement(
     if (pContainer) {
         return new QmlControllerSettingContainer(pContainer, parent);
     }
-    DEBUG_ASSERT(!"Unreachable");
     return nullptr;
 }
 
@@ -80,7 +79,7 @@ void QmlControllerScreenElement::updateFrame(
     double frameDuration =
             static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(
                     currentTimestamp - m_lastFrameTimestamp)
-                                        .count());
+                    .count());
 
     if (m_averageFrameDuration == std::numeric_limits<double>::max()) {
         m_averageFrameDuration = frameDuration;
@@ -93,22 +92,7 @@ void QmlControllerScreenElement::updateFrame(
     Q_EMIT fpsChanged();
 
 #ifndef Q_OS_ANDROID
-#if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
     Q_EMIT videoFrameAvailable(::QVideoFrame(frame));
-#else
-    auto videoFrame = ::QVideoFrame(::QVideoFrameFormat(frame.size(),
-            ::QVideoFrameFormat::pixelFormatFromImageFormat(frame.format())));
-    VERIFY_OR_DEBUG_ASSERT(videoFrame.isValid() &&
-            videoFrame.map(::QVideoFrame::MapMode::WriteOnly)) {
-        return;
-    }
-
-    std::copy(frame.bits(),
-            frame.bits() + frame.sizeInBytes(),
-            videoFrame.bits(0));
-    videoFrame.unmap();
-    Q_EMIT videoFrameAvailable(videoFrame);
-#endif
 #endif
 }
 
@@ -321,12 +305,12 @@ QmlControllerDeviceProxy::QmlControllerDeviceProxy(Controller* pInternal,
 
 QmlControllerDeviceProxy::Type QmlControllerDeviceProxy::getType() const {
     if (m_pInternal->getDataRepresentationProtocol() == DataRepresentationProtocol::MIDI) {
-        return Type::MIDI;
+        return QmlControllerDeviceProxy::Type::MIDI;
     }
     if (m_pInternal->getDataRepresentationProtocol() == DataRepresentationProtocol::HID) {
-        return Type::HID;
+        return QmlControllerDeviceProxy::Type::HID;
     }
-    return Type::BULK;
+    return QmlControllerDeviceProxy::Type::BULK;
 }
 
 QString QmlControllerDeviceProxy::getName() const {
@@ -470,14 +454,15 @@ void QmlControllerManagerProxy::refreshKnownDevices() {
     for (auto* pController : std::as_const(m_knownControllers)) {
         QList<QmlControllerMappingProxy*> mappings;
 
-        auto type = Type::BULK;
+        auto type = QmlControllerDeviceProxy::Type::BULK;
         if (pController->getDataRepresentationProtocol() == DataRepresentationProtocol::MIDI) {
-            type = Type::MIDI;
+            type = QmlControllerDeviceProxy::Type::MIDI;
         } else if (pController->getDataRepresentationProtocol() == DataRepresentationProtocol::HID) {
-            type = Type::HID;
+            type = QmlControllerDeviceProxy::Type::HID;
         }
 
-        for (auto* pMappingProxy : m_knownMappings.value(type)) {
+        const auto& typeMappings = m_knownMappings.value(type);
+        for (auto* pMappingProxy : typeMappings) {
             if (pController->matchMapping(pMappingProxy->definition())) {
                 mappings.append(pMappingProxy);
             }
@@ -526,11 +511,9 @@ void QmlControllerManagerProxy::refreshMappings() {
 }
 
 void QmlControllerManagerProxy::loadNewMapping(
-        mixxx::qml::QmlControllerDeviceProxy::Type type, const MappingInfo& mapping) {
-    auto* pProxy = new QmlControllerMappingProxy(mapping, this);
-    auto mappings = m_knownMappings.value(type);
-    mappings.append(pProxy);
-    m_knownMappings.insert(type, mappings);
+        QmlControllerDeviceProxy::Type type, const MappingInfo& mapping) {
+    auto pProxy = new QmlControllerMappingProxy(mapping, this);
+    m_knownMappings[type].append(pProxy);
 
     refreshKnownDevices();
 }
@@ -556,9 +539,7 @@ void QmlControllerManagerProxy::loadMappingFromEnumerator(
             auto type = (extension == MIDI_MAPPING_EXTENSION) ? QmlControllerDeviceProxy::Type::MIDI
                     : (extension == HID_MAPPING_EXTENSION)    ? QmlControllerDeviceProxy::Type::HID
                                                               : QmlControllerDeviceProxy::Type::BULK;
-            auto typeMappings = m_knownMappings.value(type);
-            typeMappings.append(pProxy);
-            m_knownMappings.insert(type, typeMappings);
+            m_knownMappings[type].append(pProxy);
         }
     }
 }

@@ -1,19 +1,14 @@
-#pragma once
+#ifndef QMLPREFERENCESPROXY_H
+#define QMLPREFERENCESPROXY_H
 
 #include <QImage>
 #include <QJSValue>
 #include <QList>
 #include <QObject>
-#include <QQmlEngine>
 #include <QQmlListProperty>
-#include <QSet>
-#include <QSharedPointer>
-#include <memory>
-#include <optional>
-
-#ifndef Q_OS_ANDROID
+#include <QUrl>
 #include <QVideoFrame>
-#endif
+#include <optional>
 
 #include "controllers/controllermappinginfo.h"
 #include "controllers/controllermappinginfoenumerator.h"
@@ -23,6 +18,8 @@
 
 class Controller;
 class ControllerManager;
+class QQmlEngine;
+class QJSEngine;
 
 namespace mixxx {
 namespace qml {
@@ -280,3 +277,5 @@ class QmlControllerManagerProxy : public QObject {
 } // namespace mixxx
 
 Q_DECLARE_METATYPE(mixxx::qml::QmlControllerDeviceProxy::Type)
+
+#endif // QMLPREFERENCESPROXY_H
