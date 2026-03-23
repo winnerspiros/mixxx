@@ -231,12 +231,12 @@ class PlayerManager;
 
 // We can't inherit from LibraryTest because that creates a key_notation control object that is also
 // created by the Library object itself. The duplicated CO creation causes a debug assert.
-class MappingTestFixtureBaseBase
+class MappingTestFixture
         : public MixxxDbTest,
           SoundSourceProviderRegistration,
           public ::testing::WithParamInterface<std::string> {
   public:
-    MappingTestFixtureBase()
+    MappingTestFixture()
             : MixxxDbTest(true) {
     }
 

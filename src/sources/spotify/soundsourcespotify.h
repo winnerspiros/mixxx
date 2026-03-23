@@ -31,8 +31,8 @@ class SoundSourceProviderSpotify : public SoundSourceProvider {
     QStringList getSupportedFileTypes() const override {
         return {"spotify"};
     }
-    SoundSourceProviderPriority getPriorityHint(const QString& supportedFileType) const override {
-        return SoundSourceProviderPriority::High;
+    SoundSourceProviderPriority getPriorityHint(const QString& /*supportedFileType*/) const override {
+        return SoundSourceProviderPriority::Higher;
     }
     SoundSourcePointer newSoundSource(const QUrl& url) override {
         return std::make_shared<SoundSourceSpotify>(url);

@@ -1,69 +1,40 @@
 #pragma once
 
-#include <QCommandLineParser>
+#include <QCoreApplication>
 #include <QDir>
+#include <QList>
 #include <QString>
-#include <QStringList>
-#include <QUrl>
 
 #include "util/logging.h"
-#include "util/singleton.h"
 
-namespace mixxx {
-
-class CmdlineArgs : public Singleton<CmdlineArgs> {
+/// A structure to store the parsed command-line arguments
+class CmdlineArgs final {
   public:
-    enum class ParseMode {
-        Initial,
-        ForUserFeedback,
-    };
-
+    /// The constructor is only public to make this class reusable in tests.
+    /// All operational code in Mixxx itself must access the global singleton
+    /// via `CmdlineArgs::instance()`.
     CmdlineArgs();
 
-    bool isQml() const {
-        return m_qml;
+    static inline CmdlineArgs& Instance() {
+        static CmdlineArgs cla;
+        return cla;
     }
-    bool isAwareOfRisk() const {
-        return m_awareOfRisk;
-    }
-    bool getStartInFullscreen() const {
-        return m_startInFullscreen;
-    }
-    const QString& getLocale() const {
-        return m_locale;
-    }
+
+    //! The original parser that provides the parsed values to Mixxx
+    //! This can be called before anything else is initialized
+    bool parse(int argc, char** argv);
+
+    //! The optional second run, that provides translated user feedback
+    //! This requires an initialized QCoreApplication
+    void parseForUserFeedback();
+
+    const QList<QString>& getMusicFiles() const { return m_musicFiles; }
+    bool getStartInFullscreen() const { return m_startInFullscreen; }
     bool getStartAutoDJ() const {
         return m_startAutoDJ;
     }
     bool getRescanLibrary() const {
         return m_rescanLibrary;
-    }
-    const QString& getSettingsPath() const {
-        return m_settingsPath;
-    }
-    void setSettingsPath(const QString& path) {
-        m_settingsPath = path;
-        if (!m_settingsPath.endsWith("/")) {
-            m_settingsPath.append("/");
-        }
-    }
-    bool getSettingsPathSet() const {
-        return m_settingsPathSet;
-    }
-    bool getTimelineEnabled() const {
-        return !m_timelinePath.isEmpty();
-    }
-    const QString& getResourcePath() const {
-        return m_resourcePath;
-    }
-    const QString& getTimelinePath() const {
-        return m_timelinePath;
-    }
-    bool getUseLegacyVuMeter() const {
-        return m_useLegacyVuMeter;
-    }
-    bool getUseLegacySpinny() const {
-        return m_useLegacySpinny;
     }
     bool getControllerDebug() const {
         return m_controllerDebug;
@@ -74,83 +45,86 @@ class CmdlineArgs : public Singleton<CmdlineArgs> {
     bool getControllerAbortOnWarning() const {
         return m_controllerAbortOnWarning;
     }
-    bool getDeveloper() const {
-        return m_developer;
+    bool getDeveloper() const { return m_developer; }
+#ifdef MIXXX_USE_QML
+    bool isQml() const {
+        return m_qml;
     }
-    bool getSafeMode() const {
-        return m_safeMode;
+    bool isAwareOfRisk() const {
+        return m_awareOfRisk;
     }
+#endif
+    bool getSafeMode() const { return m_safeMode; }
     bool useColors() const {
         return m_useColors;
     }
-    bool getDebugAssertBreak() const {
-        return m_debugAssertBreak;
+    bool getUseLegacyVuMeter() const {
+        return m_useLegacyVuMeter;
     }
-    const QStringList& getMusicFiles() const {
-        return m_musicFiles;
+    bool getUseLegacySpinny() const {
+        return m_useLegacySpinny;
     }
-    mixxx::LogLevel getLogLevel() const {
-        return m_logLevel;
-    }
-    mixxx::LogLevel getLogFlushLevel() const {
-        return m_logFlushLevel;
-    }
+    bool getDebugAssertBreak() const { return m_debugAssertBreak; }
+    bool getSettingsPathSet() const { return m_settingsPathSet; }
+    mixxx::LogLevel getLogLevel() const { return m_logLevel; }
+    mixxx::LogLevel getLogFlushLevel() const { return m_logFlushLevel; }
     qint64 getLogMaxFileSize() const {
         return m_logMaxFileSize;
+    }
+    bool getTimelineEnabled() const { return !m_timelinePath.isEmpty(); }
+    const QString& getLocale() const { return m_locale; }
+    const QString& getSettingsPath() const { return m_settingsPath; }
+    void setSettingsPath(const QString& newSettingsPath) {
+        m_settingsPath = newSettingsPath;
+    }
+    const QString& getResourcePath() const { return m_resourcePath; }
+    const QString& getTimelinePath() const { return m_timelinePath; }
+
+    const QString& getStyle() const {
+        return m_styleName;
+    }
+
+    void setScaleFactor(double scaleFactor) {
+        m_scaleFactor = scaleFactor;
     }
     double getScaleFactor() const {
         return m_scaleFactor;
     }
-    void setScaleFactor(double scaleFactor) {
-        m_scaleFactor = scaleFactor;
-    }
-    QString getStyle() const {
-        return m_styleName;
-    }
-    const QString& getStyleName() const {
-        return m_styleName;
-    }
-
-    bool parse(int argc, char** argv);
-    void parseForUserFeedback();
-    bool parse(const QStringList& arguments, ParseMode mode);
-
-    bool isParseForUserFeedbackRequired() const {
-        return m_parseForUserFeedbackRequired;
-    }
 
   private:
-    bool parseLogLevel(const QString& value, mixxx::LogLevel* pLogLevel);
+    enum class ParseMode {
+        Initial,
+        ForUserFeedback
+    };
 
-    bool m_qml;
-    bool m_awareOfRisk;
-    bool m_startInFullscreen;
-    QString m_locale;
+    bool parse(const QStringList& arguments, ParseMode mode);
+
+    QList<QString> m_musicFiles;    // List of files to load into players at startup
+    bool m_startInFullscreen;       // Start in fullscreen mode
     bool m_startAutoDJ;
     bool m_rescanLibrary;
-    QString m_settingsPath;
-    bool m_settingsPathSet;
-    QString m_resourcePath;
-    QString m_timelinePath;
-    bool m_useLegacyVuMeter;
-    bool m_useLegacySpinny;
     bool m_controllerDebug;
     bool m_controllerPreviewScreens;
-    bool m_controllerAbortOnWarning;
-    bool m_developer;
+    bool m_controllerAbortOnWarning; // Controller Engine will be stricter
+    bool m_developer; // Developer Mode
+#ifdef MIXXX_USE_QML
+    bool m_qml;
+    bool m_awareOfRisk;
+#endif
     bool m_safeMode;
-    bool m_useColors;
+    bool m_useLegacyVuMeter;
+    bool m_useLegacySpinny;
     bool m_debugAssertBreak;
-    QStringList m_musicFiles;
-    mixxx::LogLevel m_logLevel;
-    mixxx::LogLevel m_logFlushLevel;
-    qint64 m_logMaxFileSize;
-    QString m_styleName;
+    bool m_settingsPathSet; // has --settingsPath been set on command line ?
     double m_scaleFactor;
-
+    bool m_useColors;       // should colors be used
     bool m_parseForUserFeedbackRequired;
+    mixxx::LogLevel m_logLevel; // Level of stderr logging message verbosity
+    mixxx::LogLevel m_logFlushLevel; // Level of mixx.log file flushing
+    qint64 m_logMaxFileSize;
+    QString m_locale;
+    QString m_settingsPath;
+    QString m_resourcePath;
+    QString m_timelinePath;
+    QString m_styleName;
 };
-
-} // namespace mixxx
-
-using CmdlineArgs = mixxx::CmdlineArgs;

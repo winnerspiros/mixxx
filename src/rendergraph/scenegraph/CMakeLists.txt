@@ -38,6 +38,6 @@ else()
     message(FATAL_ERROR "ms-gsl development headers (libmsgsl-dev) not found")
   endif()
 endif()
-target_compile_definitions(rendergraph_sg PUBLIC rendergraph=rendergraph_sg)
+target_compile_definitions(rendergraph_sg PRIVATE rendergraph=rendergraph_sg)
 
 target_include_directories(rendergraph_sg PUBLIC . ../common)

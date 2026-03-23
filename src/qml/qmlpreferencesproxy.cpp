@@ -1,97 +1,124 @@
-#include "qmlpreferencesproxy.h"
+#include "qml/qmlpreferencesproxy.h"
 
-#include <QHash>
-#include <QQmlEngine>
-#include <QStringLiteral>
-#include <QtGlobal>
-#ifndef Q_OS_ANDROID
-#include <QVideoFrame>
-#include <QVideoFrameFormat>
-#include <QVideoSink>
-#endif
-#include <algorithm>
+#include <QDir>
+#include <QSet>
 #include <cmath>
-#include <cstdint>
 #include <limits>
-#include <memory>
-#include <optional>
 #include <utility>
 
-#include "util/xml.h"
-
-#ifdef __BULK__
-#include "controllers/bulk/bulkcontroller.h"
-#endif
 #include "controllers/controller.h"
-#include "controllers/controllermanager.h"
-#include "controllers/controllermappinginfo.h"
-#include "controllers/controllermappinginfoenumerator.h"
+#include "controllers/defs_controllers.h"
 #include "controllers/legacycontrollermappingfilehandler.h"
-
-namespace {
-/// Number of sample frame timestamp sample to perform a smooth average FPS label.
-constexpr double kFrameSmoothAverageFactor = 20.0;
-} // namespace
+#include "controllers/scripting/legacy/controllerscriptenginelegacy.h"
+#include "qml/qmlconfigproxy.h"
+#include "util/assert.h"
+#include "util/logger.h"
+#include "util/logging.h"
+#include "util/math.h"
 
 namespace mixxx {
 namespace qml {
 
+namespace {
+
+const mixxx::Logger kLogger("QmlPreferencesProxy");
+constexpr double kFrameSmoothAverageFactor = 10.0;
+
+} // namespace
+
+QmlControllerSettingElement* loadElement(
+        LegacyControllerSettingsLayoutElement* element, QObject* parent) {
+    auto* pItem = dynamic_cast<LegacyControllerSettingsLayoutItem*>(element);
+    if (pItem) {
+        auto* pElement = new QmlControllerSettingItem(pItem, parent);
+        connect(pItem->setting(),
+                &AbstractLegacyControllerSetting::changed,
+                pElement,
+                &QmlControllerSettingElement::dirtyChanged);
+        return pElement;
+    }
+    auto* pGroup = dynamic_cast<LegacyControllerSettingsGroup*>(element);
+    if (pGroup) {
+        return new QmlControllerSettingGroup(pGroup, parent);
+    }
+    auto* pContainer = dynamic_cast<LegacyControllerSettingsLayoutContainer*>(element);
+    if (pContainer) {
+        return new QmlControllerSettingContainer(pContainer, parent);
+    }
+    DEBUG_ASSERT(!"Unreachable");
+    return nullptr;
+}
+
 QmlControllerScreenElement::QmlControllerScreenElement(
-        QObject* parent, const ::LegacyControllerMapping::ScreenInfo& screen)
+        QObject* parent, const LegacyControllerMapping::ScreenInfo& screen)
         : QObject(parent),
           m_screenInfo(screen),
-          m_averageFrameDuration(std::numeric_limits<double>::max()) {
+          m_averageFrameDuration(0) {
+    clear();
 }
 
 void QmlControllerScreenElement::updateFrame(
-        const ::LegacyControllerMapping::ScreenInfo& screen, const QImage& frame) {
+        const LegacyControllerMapping::ScreenInfo& screen, const QImage& frame) {
     if (m_screenInfo.identifier != screen.identifier) {
         return;
     }
-
-#ifndef Q_OS_ANDROID
-    emit videoFrameAvailable(::QVideoFrame(frame));
-#endif
-
-    auto currentTimestamp = Clock::now();
-    if (m_lastFrameTimestamp == Clock::time_point()) {
+    auto currentTimestamp = mixxx::Time::now();
+    if (m_lastFrameTimestamp == mixxx::Time::time_point()) {
         m_lastFrameTimestamp = currentTimestamp;
         return;
     }
 
-    double currentDuration = static_cast<double>(
-            std::chrono::duration_cast<std::chrono::microseconds>(
-                    currentTimestamp - m_lastFrameTimestamp)
-                    .count());
-
+    double averageFrameDuration;
     if (m_averageFrameDuration == std::numeric_limits<double>::max()) {
-        m_averageFrameDuration = currentDuration;
+        averageFrameDuration =
+                std::chrono::duration_cast<std::chrono::microseconds>(
+                        currentTimestamp - m_lastFrameTimestamp)
+                        .count();
     } else {
-        m_averageFrameDuration = m_averageFrameDuration +
-                (currentDuration - m_averageFrameDuration) /
-                        kFrameSmoothAverageFactor;
+        averageFrameDuration = std::lerp(m_averageFrameDuration,
+                std::chrono::duration_cast<std::chrono::microseconds>(
+                        currentTimestamp - m_lastFrameTimestamp)
+                        .count(),
+                1.0 / kFrameSmoothAverageFactor);
     }
     m_lastFrameTimestamp = currentTimestamp;
-    emit fpsChanged();
-}
-QString QmlControllerSettingItem::description() const {
-    return m_pInternal->description();
+
+    if (fps() != static_cast<int>(1000000 / averageFrameDuration)) {
+        m_averageFrameDuration = averageFrameDuration;
+        Q_EMIT fpsChanged();
+    } else {
+        m_averageFrameDuration = averageFrameDuration;
+    }
+
+#ifndef Q_OS_ANDROID
+#if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
+    Q_EMIT videoFrameAvailable(QVideoFrame(frame));
+#else
+    auto videoFrame = QVideoFrame(QVideoFrameFormat(frame.size(),
+            QVideoFrameFormat::pixelFormatFromImageFormat(frame.format())));
+    VERIFY_OR_DEBUG_ASSERT(videoFrame.isValid() &&
+            videoFrame.map(QVideoFrame::MapMode::WriteOnly)) {
+        return;
+    }
+    VERIFY_OR_DEBUG_ASSERT(videoFrame.mappedBytes(0) == frame.sizeInBytes()) {
+        return;
+    }
+    std::memcpy(videoFrame.bits(0), frame.bits(), frame.sizeInBytes());
+    videoFrame.unmap();
+    Q_EMIT videoFrameAvailable(videoFrame);
+#endif
+#endif
 }
 
-QVariant QmlControllerSettingItem::value() const {
-    return m_pInternal->value();
+void QmlControllerScreenElement::clear() {
+    m_averageFrameDuration = std::numeric_limits<double>::max();
+    m_lastFrameTimestamp = mixxx::Time::time_point();
 }
 
-void QmlControllerSettingItem::setValue(const QVariant& value) {
-    m_pInternal->setValue(value);
-}
-
-QVariant QmlControllerSettingItem::defaultValue() const {
-    return m_pInternal->defaultValue();
-}
-
-QVariantList QmlControllerSettingItem::possibleValues() const {
-    return m_pInternal->possibleValues();
+QmlControllerSettingItem::QmlControllerSettingItem(
+        LegacyControllerSettingsLayoutItem* pInternal, QObject* parent)
+        : QmlControllerSettingElement(parent),
+          m_pInternal(pInternal) {
 }
 
 QmlControllerSettingContainer::QmlControllerSettingContainer(
@@ -112,9 +139,8 @@ QmlControllerMappingProxy::QmlControllerMappingProxy(
           m_mappingDefinition(mapping) {
 }
 
-mixxx::qml::QmlControllerSettingElement* QmlControllerMappingProxy::loadSettings(
-        const mixxx::qml::QmlConfigProxy* pConfig,
-        mixxx::qml::QmlControllerDeviceProxy* pController) {
+QmlControllerSettingElement* QmlControllerMappingProxy::loadSettings(
+        const QmlConfigProxy* pConfig, mixxx::qml::QmlControllerDeviceProxy* pController) {
     VERIFY_OR_DEBUG_ASSERT(pController->internal()) {
         return nullptr;
     }
@@ -122,14 +148,12 @@ mixxx::qml::QmlControllerSettingElement* QmlControllerMappingProxy::loadSettings
     if (!mapping) {
         mapping = LegacyControllerMappingFileHandler::loadMapping(
                 QFileInfo(m_mappingDefinition.getPath()),
-                pController->internal()->getDeviceCategory(),
-                pConfig->internal());
-        if (!mapping) {
-            return nullptr;
-        }
+                QDir(resourceMappingsPath(pConfig->get())));
+        mapping->loadSettings(pConfig->get(), pController->internal()->getName());
         pController->setInstanceFor(m_mappingDefinition.getPath(), mapping);
     }
-    return nullptr; // Simplified for now
+
+    return loadElement(mapping->getSettingsLayout(), this);
 }
 
 QList<QmlControllerScreenElement*> QmlControllerMappingProxy::loadScreens(
@@ -141,26 +165,41 @@ QList<QmlControllerScreenElement*> QmlControllerMappingProxy::loadScreens(
     if (!mapping) {
         mapping = LegacyControllerMappingFileHandler::loadMapping(
                 QFileInfo(m_mappingDefinition.getPath()),
-                pController->internal()->getDeviceCategory(),
-                pConfig->internal());
-        if (!mapping) {
-            return {};
-        }
+                QDir(resourceMappingsPath(pConfig->get())));
+        mapping->loadSettings(pConfig->get(), pController->internal()->getName());
         pController->setInstanceFor(m_mappingDefinition.getPath(), mapping);
     }
+    auto screens = mapping->getInfoScreens();
+    auto* pScriptEngine = pController->internal()->getScriptEngine().get();
 
-    QList<QmlControllerScreenElement*> screens;
-#if defined(CONTROLLER_SCREENS)
-    for (const auto& screen : mapping->screens()) {
-        screens.append(new QmlControllerScreenElement(this, screen));
+    QList<QmlControllerScreenElement*> screenElements;
+    auto connectToEngine = [](const ControllerScriptEngineLegacy* engine,
+                                   QmlControllerScreenElement* pElement) {
+        connect(engine,
+                &ControllerScriptEngineLegacy::previewRenderedScreen,
+                pElement,
+                &QmlControllerScreenElement::updateFrame);
+    };
+    for (const LegacyControllerMapping::ScreenInfo& screen : std::as_const(screens)) {
+        auto* pElement = new QmlControllerScreenElement(this, screen);
+        connect(pController->internal(),
+                &Controller::engineStarted,
+                pElement,
+                [connectToEngine, pElement](const ControllerScriptEngineLegacy* engine) {
+                    pElement->clear();
+                    connectToEngine(engine, pElement);
+                });
+        if (pController->internal()->getScriptEngine()) {
+            connectToEngine(pController->internal()->getScriptEngine().get(), pElement);
+        }
+        screenElements.append(pElement);
     }
-#endif
-    return screens;
+    return screenElements;
 }
 
 void QmlControllerMappingProxy::resetSettings(
         mixxx::qml::QmlControllerDeviceProxy* pController) {
-    auto mapping = pController->instanceFor(m_mappingDefinition.getPath());
+    auto mapping = pController->internal()->getMapping();
     if (mapping) {
         mapping->resetSettings();
     }
@@ -171,18 +210,22 @@ QString QmlControllerMappingProxy::getName() const {
 }
 
 QString QmlControllerMappingProxy::getAuthor() const {
+    fetchMappingDetails();
     return m_mappingDefinition.getAuthor();
 }
 
 QString QmlControllerMappingProxy::getDescription() const {
+    fetchMappingDetails();
     return m_mappingDefinition.getDescription();
 }
 
 QUrl QmlControllerMappingProxy::getForumLink() const {
+    fetchMappingDetails();
     return m_mappingDefinition.getForumLink();
 }
 
 QUrl QmlControllerMappingProxy::getWikiLink() const {
+    fetchMappingDetails();
     return m_mappingDefinition.getWikiLink();
 }
 
@@ -190,34 +233,38 @@ bool QmlControllerMappingProxy::hasSettings() {
     if (!m_hasSettings.has_value()) {
         fetchMappingDetails();
     }
-    return m_hasSettings.value_or(false);
+    return m_hasSettings.value();
 }
 
 bool QmlControllerMappingProxy::hasScreens() {
     if (!m_hasScreens.has_value()) {
         fetchMappingDetails();
     }
-    return m_hasScreens.value_or(false);
+    return m_hasScreens.value();
 }
 
-bool QmlControllerMappingProxy::isUserMapping(
-        const mixxx::qml::QmlConfigProxy* pConfig) const {
-    return m_mappingDefinition.getPath().startsWith(
-            pConfig->internal()->getSettingsPath());
+bool QmlControllerMappingProxy::isUserMapping(const QmlConfigProxy* pConfig) const {
+    return m_mappingDefinition.getPath().startsWith(settingsMappingsPath(pConfig->get()));
 }
 
-void QmlControllerMappingProxy::fetchMappingDetails() {
-    QFile file(m_mappingDefinition.getPath());
-    if (!file.open(QIODevice::ReadOnly)) {
+void QmlControllerMappingProxy::fetchMappingDetails() const {
+    if (m_hasSettings.has_value() && m_hasScreens.has_value()) {
         return;
     }
-    QDomDocument doc;
-    if (!doc.setContent(&file)) {
-        return;
+    auto mapping = LegacyControllerMappingFileHandler::loadMapping(
+            QFileInfo(m_mappingDefinition.getPath()), QDir());
+    if (mapping) {
+        m_hasSettings = mapping->hasSettings();
+        m_hasScreens = mapping->hasScreens();
+        m_mappingDefinition.setAuthor(mapping->getAuthor());
+        m_mappingDefinition.setDescription(mapping->getDescription());
+        m_mappingDefinition.setForumLink(mapping->getForumLink());
+        m_mappingDefinition.setWikiLink(mapping->getWikiLink());
+    } else {
+        m_hasSettings = false;
+        m_hasScreens = false;
+        Q_EMIT mappingErrored();
     }
-    auto root = doc.documentElement();
-    m_hasSettings = !root.firstChildElement(QStringLiteral("settings")).isNull();
-    m_hasScreens = !root.firstChildElement(QStringLiteral("screens")).isNull();
 }
 
 QmlControllerDeviceProxy::QmlControllerDeviceProxy(Controller* pInternal,
@@ -228,25 +275,30 @@ QmlControllerDeviceProxy::QmlControllerDeviceProxy(Controller* pInternal,
           m_edited(false),
           m_pInternal(pInternal),
           m_productInfo(productInfo),
-          m_mappings(mappings) {
+          m_mappings(mappings),
+          m_pMapping(nullptr) {
+    auto* pMapping = pInternal->getMapping().get();
+    if (pMapping) {
+        for (auto* mappingProxy : std::as_const(m_mappings)) {
+            if (mappingProxy->definition().getPath() == pMapping->getPath()) {
+                m_pMapping = mappingProxy;
+                break;
+            }
+        }
+    }
 }
 
 QmlControllerDeviceProxy::Type QmlControllerDeviceProxy::getType() const {
-    switch (m_pInternal->getDeviceCategory()) {
-    case DeviceCategory::Midi:
+    if (m_pInternal->isMidi()) {
         return Type::MIDI;
-    case DeviceCategory::Hid:
-        return Type::HID;
-    case DeviceCategory::Bulk:
-        return Type::BULK;
     }
-    return Type::MIDI;
+    if (m_pInternal->isHid()) {
+        return Type::HID;
+    }
+    return Type::BULK;
 }
 
 QString QmlControllerDeviceProxy::getName() const {
-    if (!m_editedFriendlyName.isEmpty()) {
-        return m_editedFriendlyName;
-    }
     return m_pInternal->getName();
 }
 
@@ -256,18 +308,18 @@ void QmlControllerDeviceProxy::setName(const QString& name) {
     }
     m_editedFriendlyName = name;
     setEdited();
-    emit nameChanged();
+    Q_EMIT nameChanged();
 }
 
 QString QmlControllerDeviceProxy::getSinceVersion() const {
-    return QString(); // Placeholder
+    return m_pInternal->getSinceVersion();
 }
 
 QUrl QmlControllerDeviceProxy::getVisualUrl() const {
-    if (!m_editedVisualUrl.isEmpty()) {
+    if (m_editedVisualUrl.isValid()) {
         return m_editedVisualUrl;
     }
-    return QUrl(); // Placeholder
+    return m_pInternal->getVisualUrl();
 }
 
 void QmlControllerDeviceProxy::setVisualUrl(const QUrl& url) {
@@ -276,15 +328,20 @@ void QmlControllerDeviceProxy::setVisualUrl(const QUrl& url) {
     }
     m_editedVisualUrl = url;
     setEdited();
-    emit visualUrlChanged();
+    Q_EMIT visualUrlChanged();
 }
 
 QmlControllerMappingProxy* QmlControllerDeviceProxy::getMapping() const {
-    return nullptr; // Placeholder
+    return m_pMapping;
 }
 
-void QmlControllerDeviceProxy::setMapping(QmlControllerMappingProxy* pMapping) {
-    // Placeholder
+void QmlControllerDeviceProxy::setMapping(QmlControllerMappingProxy* mapping) {
+    if (m_pMapping == mapping) {
+        return;
+    }
+    m_pMapping = mapping;
+    setEdited();
+    Q_EMIT mappingChanged();
 }
 
 bool QmlControllerDeviceProxy::getEnabled() const {
@@ -300,34 +357,64 @@ void QmlControllerDeviceProxy::setEnabled(bool state) {
     }
     m_enabled = state;
     setEdited();
-    emit enabledChanged();
+    Q_EMIT enabledChanged();
 }
 
 QString QmlControllerDeviceProxy::vendor() const {
-    return m_productInfo ? m_productInfo->vendor : QString();
+    if (m_productInfo.has_value()) {
+        return m_productInfo.value().vendor;
+    }
+    return QString();
 }
 
 QString QmlControllerDeviceProxy::product() const {
-    return m_productInfo ? m_productInfo->product : QString();
+    if (m_productInfo.has_value()) {
+        return m_productInfo.value().product;
+    }
+    return QString();
 }
 
 QString QmlControllerDeviceProxy::serialNumber() const {
-    return QString(); // Placeholder
+    return m_pInternal->getSerialNumber();
 }
 
-bool QmlControllerDeviceProxy::save(const mixxx::qml::QmlConfigProxy* pConfig) {
-    return true; // Placeholder
+bool QmlControllerDeviceProxy::save(const QmlConfigProxy* pConfig) {
+    auto pMappingProxy = getMapping();
+    if (!pMappingProxy) {
+        return false;
+    }
+
+    auto pMapping = instanceFor(pMappingProxy->definition().getPath());
+    if (!pMapping) {
+        pMapping = LegacyControllerMappingFileHandler::loadMapping(
+                QFileInfo(pMappingProxy->definition().getPath()),
+                QDir(resourceMappingsPath(pConfig->get())));
+        pMapping->loadSettings(pConfig->get(), m_pInternal->getName());
+        setInstanceFor(pMappingProxy->definition().getPath(), pMapping);
+    }
+
+    Q_EMIT mappingAssigned(m_pInternal, pMapping, getEnabled());
+    clearEdited();
+    return true;
 }
 
 void QmlControllerDeviceProxy::clear() {
-    m_edited = false;
-    m_editedFriendlyName.clear();
-    m_editedVisualUrl.clear();
-    m_enabled.reset();
-    emit editedChanged();
-    emit nameChanged();
-    emit visualUrlChanged();
-    emit enabledChanged();
+    m_enabled = std::nullopt;
+    m_pMapping = nullptr;
+    auto* pMapping = m_pInternal->getMapping().get();
+    if (pMapping) {
+        for (auto* mappingProxy : std::as_const(m_mappings)) {
+            if (mappingProxy->definition().getPath() == pMapping->getPath()) {
+                m_pMapping = mappingProxy;
+                break;
+            }
+        }
+    }
+    clearEdited();
+    Q_EMIT nameChanged();
+    Q_EMIT visualUrlChanged();
+    Q_EMIT mappingChanged();
+    Q_EMIT enabledChanged();
 }
 
 std::shared_ptr<LegacyControllerMapping> QmlControllerDeviceProxy::instanceFor(
@@ -335,15 +422,21 @@ std::shared_ptr<LegacyControllerMapping> QmlControllerDeviceProxy::instanceFor(
     return m_mappingInstance.value(mappingPath);
 }
 
-void QmlControllerDeviceProxy::setInstanceFor(const QString& mappingPath,
-        std::shared_ptr<LegacyControllerMapping> pMapping) {
+void QmlControllerDeviceProxy::setInstanceFor(
+        const QString& mappingPath, std::shared_ptr<LegacyControllerMapping> pMapping) {
     m_mappingInstance.insert(mappingPath, pMapping);
 }
 
 QmlControllerManagerProxy::QmlControllerManagerProxy(
         std::shared_ptr<ControllerManager> pControllerManager, QObject* parent)
         : QObject(parent),
-          m_pControllerManager(pControllerManager) {
+          m_pControllerManager(std::move(pControllerManager)) {
+    connect(m_pControllerManager.get(),
+            &ControllerManager::devicesChanged,
+            this,
+            &QmlControllerManagerProxy::refreshKnownDevices);
+    refreshMappings();
+    refreshKnownDevices();
 }
 
 QQmlListProperty<QmlControllerDeviceProxy> QmlControllerManagerProxy::knownDevices() {
@@ -366,31 +459,109 @@ std::shared_ptr<ControllerManager> QmlControllerManagerProxy::internal() const {
 
 QmlControllerManagerProxy* QmlControllerManagerProxy::create(
         QQmlEngine* pQmlEngine, QJSEngine* pJsEngine) {
-    return new QmlControllerManagerProxy(s_pControllerManager);
+    Q_UNUSED(pQmlEngine);
+    Q_UNUSED(pJsEngine);
+    auto* proxy = new QmlControllerManagerProxy(s_pControllerManager);
+    return proxy;
 }
 
 void QmlControllerManagerProxy::refreshKnownDevices() {
-    // Placeholder
+    m_knownControllers = m_pControllerManager->getControllers();
+
+    qDeleteAll(m_knownDevicesFound);
+    m_knownDevicesFound.clear();
+    qDeleteAll(m_unknownDevicesFound);
+    m_unknownDevicesFound.clear();
+
+    for (auto* pController : std::as_const(m_knownControllers)) {
+        auto productInfo = pController->getProductInfo();
+        QSet<QmlControllerMappingProxy*> mappings;
+        if (productInfo.has_value()) {
+            mappings = m_knownDevices.value(productInfo.value());
+        }
+
+        auto* pProxy = new QmlControllerDeviceProxy(
+                pController, productInfo, mappings, this);
+        connect(pProxy,
+                &QmlControllerDeviceProxy::mappingAssigned,
+                m_pControllerManager.get(),
+                &ControllerManager::slotAssignMapping);
+        connect(pProxy,
+                &QmlControllerDeviceProxy::mappingCreated,
+                this,
+                &QmlControllerManagerProxy::loadNewMapping);
+        connect(pProxy,
+                &QmlControllerDeviceProxy::mappingUpdated,
+                this,
+                &QmlControllerManagerProxy::updateExistingMapping);
+        connect(pController,
+                &Controller::deviceLearned,
+                pProxy,
+                &QmlControllerDeviceProxy::deviceLearned);
+
+        if (productInfo.has_value()) {
+            m_knownDevicesFound.append(pProxy);
+        } else {
+            m_unknownDevicesFound.append(pProxy);
+        }
+    }
+
+    Q_EMIT deviceListChanged();
 }
 
 void QmlControllerManagerProxy::refreshMappings() {
-    // Placeholder
+    m_knownDevices.clear();
+    m_knownMappings.clear();
+
+    loadMappingFromEnumerator(m_pControllerManager->getMidiEnumerator());
+    loadMappingFromEnumerator(m_pControllerManager->getHidEnumerator());
 }
 
 void QmlControllerManagerProxy::loadNewMapping(
         QmlControllerDeviceProxy::Type type, const MappingInfo& mapping) {
-    // Placeholder
+    auto* pProxy = new QmlControllerMappingProxy(mapping, this);
+    auto mappings = m_knownMappings.value(type);
+    mappings.append(pProxy);
+    m_knownMappings.insert(type, mappings);
+
+    auto productInfo = mapping.getSubscriber();
+    if (productInfo.has_value()) {
+        auto deviceMappings = m_knownDevices.value(productInfo.value());
+        deviceMappings.insert(pProxy);
+        m_knownDevices.insert(productInfo.value(), deviceMappings);
+    }
+
+    refreshKnownDevices();
 }
 
 void QmlControllerManagerProxy::updateExistingMapping(
         QmlControllerMappingProxy* pMapping, const MappingInfo& mapping) {
-    // Placeholder
+    Q_EMIT pMapping->mappingErrored();
+    refreshMappings();
+    refreshKnownDevices();
 }
 
 void QmlControllerManagerProxy::loadMappingFromEnumerator(
         QSharedPointer<MappingInfoEnumerator> enumerator) {
-    // Placeholder
+    auto mappings = enumerator->getMappings();
+    for (const auto& mapping : std::as_const(mappings)) {
+        auto* pProxy = new QmlControllerMappingProxy(mapping, this);
+        auto type = mapping.isMidi() ? QmlControllerDeviceProxy::Type::MIDI
+                                     : QmlControllerDeviceProxy::Type::HID;
+        auto typeMappings = m_knownMappings.value(type);
+        typeMappings.append(pProxy);
+        m_knownMappings.insert(type, typeMappings);
+
+        auto productInfo = mapping.getSubscriber();
+        if (productInfo.has_value()) {
+            auto deviceMappings = m_knownDevices.value(productInfo.value());
+            deviceMappings.insert(pProxy);
+            m_knownDevices.insert(productInfo.value(), deviceMappings);
+        }
+    }
 }
 
 } // namespace qml
 } // namespace mixxx
+
+#include "moc_qmlpreferencesproxy.cpp"

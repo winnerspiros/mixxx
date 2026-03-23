@@ -1,8 +1,8 @@
 #pragma once
 
+#include "library/youtube/youtubeservice.h"
 #include "sources/soundsource.h"
 #include "sources/soundsourceprovider.h"
-#include "library/youtube/youtubeservice.h"
 
 namespace mixxx {
 
@@ -13,6 +13,8 @@ class SoundSourceYouTube : public SoundSource {
 
     void close() override;
 
+    void onSponsorSegmentsFetched(const QString& videoId, const QList<::mixxx::SponsorSegment>& segments);
+
   protected:
     ReadableSampleFrames readSampleFramesClamped(
             const WritableSampleFrames& sampleFrames) override;
@@ -21,11 +23,8 @@ class SoundSourceYouTube : public SoundSource {
             OpenMode mode,
             const OpenParams& params) override;
 
-  private slots:
-    void onSponsorSegmentsFetched(const QString& videoId, const QList<SponsorSegment>& segments);
-
   private:
-    QList<SponsorSegment> m_sponsorSegments;
+    QList<::mixxx::SponsorSegment> m_sponsorSegments;
     bool m_segmentsLoaded;
 };
 
@@ -39,8 +38,8 @@ class SoundSourceProviderYouTube : public SoundSourceProvider {
     QStringList getSupportedFileTypes() const override {
         return {"youtube"};
     }
-    SoundSourceProviderPriority getPriorityHint(const QString& supportedFileType) const override {
-        return SoundSourceProviderPriority::High;
+    SoundSourceProviderPriority getPriorityHint(const QString& /*supportedFileType*/) const override {
+        return SoundSourceProviderPriority::Higher;
     }
     SoundSourcePointer newSoundSource(const QUrl& url) override {
         return std::make_shared<SoundSourceYouTube>(url);

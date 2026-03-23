@@ -1,20 +1,210 @@
 cmake_minimum_required(VERSION 3.21)
-include(FetchContent)
-include(CMakeDependentOption)
+# lint_cmake: -readability/wonkycase
 
-message(STATUS "Early CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
+message(STATUS "CMAKE_VERSION: ${CMAKE_VERSION}")
 
+# CMAKE_CXX_COMPILER_ID: Distinguish between "AppleClang" and "Clang"
+if(POLICY CMP0025)
+  cmake_policy(SET CMP0025 NEW)
+endif()
+
+# MACOSX_RPATH is set by default
+if(POLICY CMP0042)
+  cmake_policy(SET CMP0042 NEW)
+endif()
+
+# Support new IN_LIST if() operator
+if(POLICY CMP0057)
+  cmake_policy(SET CMP0057 NEW)
+endif()
+
+# Enforce interprocedural optimization
+if(POLICY CMP0069)
+  cmake_policy(SET CMP0069 NEW)
+endif()
+
+# Let AUTOMOC and AUTOUIC process GENERATED files
+if(POLICY CMP0071)
+  cmake_policy(SET CMP0071 NEW)
+endif()
+
+# Propagate interface link properties
+if(POLICY CMP0099)
+  # This avoids a warning when qt deals with different behaviours controlled by this policy
+  # in its cmake functions. See
+  # https://github.com/qt/qtbase/commit/e3e1007f9778d8fc629a06f7d3d216bb7f81351b
+  cmake_policy(SET CMP0099 NEW)
+endif()
+
+# Add support for cmake_dependent_option
+if(POLICY CMP0127)
+  cmake_policy(SET CMP0127 NEW)
+endif()
+
+# An imported target missing its location property fails during generation.
+if(POLICY CMP0111)
+  cmake_policy(SET CMP0111 NEW)
+endif()
+
+# Set the timestamp of extracted files to the time of the extraction instead of
+# the archived timestamp to make sure that dependent files are rebuilt if the
+# URL changes.
+if(POLICY CMP0135)
+  cmake_policy(SET CMP0135 NEW)
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL Android)
+  if(NOT DEFINED ENV{JAVA_HOME})
+    message(FATAL_ERROR "JAVA_HOME is not set. Did you source the setup file?")
+  endif()
+  if((NOT CMAKE_ANDROID_NDK) AND DEFINED ENV{ANDROID_NDK_HOME})
+    set(CMAKE_ANDROID_NDK "$ENV{ANDROID_NDK_HOME}")
+  endif()
+  set(ANDROID ON)
+  if(DEFINED ENV{QT_ANDROID_KEYSTORE_PATH})
+    set(QT_ANDROID_SIGN_APK ON)
+  endif()
+
+  set(QT_ANDROID_APP_PATH "$<TARGET_FILE:${SOURCE_TARGET}>")
+  set(
+    QT_ANDROID_APP_PACKAGE_SOURCE_ROOT
+    "${CMAKE_SOURCE_DIR}/packaging/android"
+  )
+
+  if((NOT ANDROID_SDK_ROOT) AND DEFINED ENV{ANDROID_SDK})
+    set(ANDROID_SDK_ROOT "$ENV{ANDROID_SDK}")
+  endif()
+  set(ANDROID_ABI arm64-v8a)
+  set(ANDROID_NDK_HOST_SYSTEM_NAME linux-x86_64)
+  set(CMAKE_SYSTEM_VERSION 35) # API level
+  set(ANDROID_PLATFORM "android-${CMAKE_SYSTEM_VERSION}")
+  set(ANDROID_API_VERSION "android-${CMAKE_SYSTEM_VERSION}")
+  set(CMAKE_ANDROID_ARCH_ABI "${ANDROID_ABI}") # or x86_64, armeabi-v7a, etc.
+  set(CMAKE_ANDROID_NDK_TOOLCHAIN_VERSION clang)
+  set(CMAKE_ANDROID_STL_TYPE c++_shared)
+  set(
+    CMAKE_SYSROOT
+    "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/sysroot"
+  )
+  include_directories(
+    BEFORE
+    SYSTEM
+    "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/sysroot/usr/include/"
+  )
+  set(
+    CMAKE_LIBRARY_PATH
+    "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/sysroot/usr/lib/aarch64-linux-android/${CMAKE_SYSTEM_VERSION}/;${CMAKE_LIBRARY_PATH}"
+  )
+endif()
+
+if(
+  ((APPLE AND NOT IOS) OR WIN32 OR ANDROID)
+  AND NOT IS_DIRECTORY "${MIXXX_VCPKG_ROOT}"
+)
+  if(NOT DEFINED BUILDENV_BASEPATH)
+    if(DEFINED ENV{BUILDENV_BASEPATH})
+      set(BUILDENV_BASEPATH "$ENV{BUILDENV_BASEPATH}")
+    else()
+      set(BUILDENV_BASEPATH "${CMAKE_SOURCE_DIR}/buildenv")
+    endif()
+  endif()
+
+  if(NOT DEFINED BUILDENV_URL)
+    if(DEFINED ENV{BUILDENV_URL})
+      set(BUILDENV_URL "$ENV{BUILDENV_URL}")
+    elseif(NOT DEFINED BUILDENV_URL)
+      message(FATAL_ERROR "BUILDENV_URL not specified")
+    endif()
+  endif()
+
+  # Extract the filename from the URL
+  get_filename_component(FILENAME_WITH_EXTENSION "${BUILDENV_URL}" NAME)
+
+  # Remove the extension from the filename (note that our buildenv names contain two dots)
+  string(
+    REGEX REPLACE
+    "\\.[^.]*$"
+    ""
+    BUILDENV_NAME
+    "${FILENAME_WITH_EXTENSION}"
+  )
+
+  message(STATUS "BUILDENV_NAME is: ${BUILDENV_NAME}")
+
+  if(
+    NOT EXISTS "${BUILDENV_BASEPATH}/${BUILDENV_NAME}"
+    OR NOT IS_DIRECTORY "${BUILDENV_BASEPATH}/${BUILDENV_NAME}"
+  )
+    if(NOT DEFINED BUILDENV_SHA256)
+      if(DEFINED ENV{BUILDENV_SHA256})
+        set(BUILDENV_SHA256 "$ENV{BUILDENV_SHA256}")
+      elseif(NOT DEFINED BUILDENV_SHA256)
+        message(STATUS "BUILDENV_SHA256 not specified")
+      endif()
+    endif()
+
+    if(NOT EXISTS "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip")
+      message(
+        STATUS
+        "Downloading file ${BUILDENV_URL} to ${BUILDENV_BASEPATH} ..."
+      )
+      file(
+        DOWNLOAD ${BUILDENV_URL} "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip"
+        SHOW_PROGRESS
+        TLS_VERIFY ON
+      )
+    else()
+      # Reference to suppress intentionally unused variable warnings
+      set(_dummy "${BUILDENV_URL}")
+    endif()
+
+    if(NOT ${BUILDENV_SHA256} STREQUAL "")
+      message(
+        STATUS
+        "Verify SHA256 of downloaded file ${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip ..."
+      )
+      file(SHA256 "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip" actual_sha256)
+
+      if(NOT actual_sha256 STREQUAL ${BUILDENV_SHA256})
+        message(
+          FATAL_ERROR
+          "SHA256 checksum mismatch:\nexpected: ${BUILDENV_SHA256}\n     got: ${actual_sha256}"
+        )
+      else()
+        message(STATUS "SHA256 ${BUILDENV_SHA256} is correct!")
+      endif()
+    endif()
+
+    message(
+      STATUS
+      "Unpacking file ${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip ..."
+    )
+    execute_process(
+      COMMAND ${CMAKE_COMMAND} -E tar xzf "${BUILDENV_NAME}.zip"
+      WORKING_DIRECTORY ${BUILDENV_BASEPATH}
+    )
+  else()
+    # Reference to suppress intentionally unused variable warnings
+    set(_dummy "${BUILDENV_SHA256}")
+  endif()
+else()
+  # Reference to suppress intentionally unused variable warnings
+  set(_dummy "${BUILDENV_URL} ${BUILDENV_BASEPATH} ${BUILDENV_SHA256}")
+endif()
+
+# Use this function to throw an error because the build environment is not set
+# up correctly.
 function(fatal_error_missing_env)
   if(WIN32)
     if(CMAKE_BUILD_TYPE MATCHES "Debug")
       message(
         FATAL_ERROR
-        "Did you download the Mixxx build environment using `${CMAKE_CURRENT_SOURCE_DIR}/tools/windows_buildenv.bat`?"
+        "Did you download the Mixxx build environment using `${CMAKE_SOURCE_DIR}/tools/windows_buildenv.bat`?"
       )
     else()
       message(
         FATAL_ERROR
-        "Did you download the Mixxx build environment using `${CMAKE_CURRENT_SOURCE_DIR}/tools/windows_release_buildenv.bat` OR `${CMAKE_CURRENT_SOURCE_DIR}/tools/windows_buildenv.bat`(includes Debug)?"
+        "Did you download the Mixxx build environment using `${CMAKE_SOURCE_DIR}/tools/windows_release_buildenv.bat` or `${CMAKE_SOURCE_DIR}/tools/windows_buildenv.bat`(includes Debug)?"
       )
     endif()
   elseif(APPLE AND NOT IOS)
@@ -26,44 +216,125 @@ function(fatal_error_missing_env)
     elseif(CMAKE_BUILD_TYPE MATCHES "Debug")
       message(
         FATAL_ERROR
-        "Did you download the Mixxx build environment using `source ${CMAKE_CURRENT_SOURCE_DIR}/tools/macos_buildenv.sh setup`"
+        "Did you download the Mixxx build environment using `source ${CMAKE_SOURCE_DIR}/tools/macos_buildenv.sh setup`"
       )
     else()
       message(
         FATAL_ERROR
-        "Did you download the Mixxx build environment using `source ${CMAKE_CURRENT_SOURCE_DIR}/tools/macos_release_buildenv.sh setup` OR `source ${CMAKE_CURRENT_SOURCE_DIR}/tools/macos_buildenv.sh setup` (includes Debug)?"
+        "Did you download the Mixxx build environment using `source ${CMAKE_SOURCE_DIR}/tools/macos_release_buildenv.sh setup` or `source ${CMAKE_SOURCE_DIR}/tools/macos_buildenv.sh setup` (includes Debug)?"
       )
     endif()
   elseif(UNIX AND NOT APPLE AND NOT ANDROID)
     # Linux, BSD, Solaris, Minix
-    if(EXISTS "/etc/debian_version") # EXISTS also on Ubuntu AND Mint
+    if(EXISTS "/etc/debian_version") # exists also on Ubuntu and Mint
       message(
         FATAL_ERROR
-        "Did you install the required Debian dev packages via `${CMAKE_CURRENT_SOURCE_DIR}/tools/debian_buildenv.sh setup`?"
+        "Did you install the required Debian dev packages via `${CMAKE_SOURCE_DIR}/tools/debian_buildenv.sh setup`?"
       )
-    elseif(EXISTS "/etc/redhat-release") # EXISTS also on Fedora Mageia Madndriva Alma CentOS
+    elseif(EXISTS "/etc/redhat-release") # exists also on Fedora Mageia Madndriva Alma CentOS
       message(
         FATAL_ERROR
-        "Did you install the required RPM dev packages via `${CMAKE_CURRENT_SOURCE_DIR}/tools/rpm_buildenv.sh setup`?"
+        "Did you install the required RPM dev packages via `${CMAKE_SOURCE_DIR}/tools/rpm_buildenv.sh setup`?"
       )
     else()
       message(
         FATAL_ERROR
-        "Did you install the equivalent dev packages listed in `${CMAKE_CURRENT_SOURCE_DIR}/tools/debian_buildenv.sh setup`?"
+        "Did you install the equivalent dev packages listed in `${CMAKE_SOURCE_DIR}/tools/debian_buildenv.sh setup`?"
       )
     endif()
   elseif(DEFINED VCPKG_TARGET_TRIPLET)
     message(
       FATAL_ERROR
-      "You are targeting ${VCPKG_TARGET_TRIPLET}, which does NOT have a prebuilt environment. Please make sure that -DMIXXX_VCPKG_ROOT points to a vcpkg environment containing installed dependencies for ${VCPKG_TARGET_TRIPLET}!"
+      "You are targeting ${VCPKG_TARGET_TRIPLET}, which does not have a prebuilt environment. Please make sure that -DMIXXX_VCPKG_ROOT points to a vcpkg environment containing installed dependencies for ${VCPKG_TARGET_TRIPLET}!"
     )
   else()
     message(
       FATAL_ERROR
-      "You are building for an unknown platform AND are missing a build environment. Please set -DVCPKG_TARGET_TRIPLET AND make sure that -DMIXXX_VCPKG_ROOT points to a vcpkg environment containing installed dependencies for your TARGET platform!"
+      "You are building for an unknown platform and are missing a build environment. Please set -DVCPKG_TARGET_TRIPLET and make sure that -DMIXXX_VCPKG_ROOT points to a vcpkg environment containing installed dependencies for your target platform!"
     )
   endif()
 endfunction()
+
+if(UNIX AND NOT APPLE)
+  execute_process(
+    COMMAND uname -r
+    OUTPUT_VARIABLE UNAME_R
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+  if(UNAME_R MATCHES ".*[Mm]icrosoft.*" OR UNAME_R MATCHES ".*WSL.*")
+    message(
+      FATAL_ERROR
+      "Building on Windows Subsystem for Linux (WSL) is not supported. If you want to build Mixxx from command line on Windows, you need to use the \"x64 Native Tools Command Prompt for VS 2022\"!"
+    )
+  endif()
+endif()
+if(WIN32)
+  # Check if we are running from "Visual Studio 20XX Developer Command Prompt"
+  if(NOT DEFINED ENV{INCLUDE})
+    message(
+      FATAL_ERROR
+      "The INCLUDE environment variable is not defined. Please ensure you are using the correct shell like 'x64 Native Tools Command Prompt for VS 20XX'"
+    )
+  endif()
+endif()
+if(WIN32)
+  # Check if we are running from "Visual Studio 20XX Developer Command Prompt"
+  if(NOT DEFINED ENV{INCLUDE})
+    message(
+      FATAL_ERROR
+      "The INCLUDE environment variable is not defined. Please ensure you are using the correct shell like 'x64 Native Tools Command Prompt for VS 20XX'"
+    )
+  endif()
+endif()
+
+# We use here ENV{MIXXX_VCPKG_ROOT} as a workaround to find the overlay folders
+# in manifest mode https://github.com/microsoft/vcpkg/issues/12289.
+# Note: VCPKG_ROOT, the default location for the vcpkg cli tool is later
+# adjusted by CMAKE_TOOLCHAIN_FILE.
+if(DEFINED ENV{MIXXX_VCPKG_ROOT} AND NOT DEFINED MIXXX_VCPKG_ROOT)
+  set(MIXXX_VCPKG_ROOT "$ENV{MIXXX_VCPKG_ROOT}")
+endif()
+
+if(DEFINED MIXXX_VCPKG_ROOT)
+  if(
+    EXISTS "${MIXXX_VCPKG_ROOT}/overlay/ports"
+    OR NOT EXISTS "${MIXXX_VCPKG_ROOT}/ports"
+  )
+    # MIXXX_VCPKG_ROOT points to our vcpkg environment
+    # and we configure the CMAKE_TOOLCHAIN_FILE and overlays accordingly
+    message(STATUS "Using MIXXX_VCPKG_ROOT: ${MIXXX_VCPKG_ROOT}")
+  else()
+    message(
+      STATUS
+      "MIXXX_VCPKG_ROOT not correct (missing ${MIXXX_VCPKG_ROOT}/overlay/ports)"
+    )
+    fatal_error_missing_env()
+  endif()
+
+  if(NOT DEFINED VCPKG_OVERLAY_PORTS)
+    # required for manifest mode
+    set(VCPKG_OVERLAY_PORTS "${MIXXX_VCPKG_ROOT}/overlay/ports")
+    if(APPLE)
+      list(APPEND VCPKG_OVERLAY_PORTS "${MIXXX_VCPKG_ROOT}/overlay/osx")
+    elseif(WIN32)
+      list(APPEND VCPKG_OVERLAY_PORTS "${MIXXX_VCPKG_ROOT}/overlay/windows")
+    endif()
+  endif()
+
+  if(NOT DEFINED VCPKG_OVERLAY_TRIPLETS)
+    # required for manifest mode
+    set(VCPKG_OVERLAY_TRIPLETS "${MIXXX_VCPKG_ROOT}/overlay/triplets")
+  endif()
+
+  if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+    set(
+      CMAKE_TOOLCHAIN_FILE
+      "${MIXXX_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+      CACHE STRING
+      ""
+    )
+  endif()
+endif()
 
 if(NOT DEFINED VCPKG_TARGET_TRIPLET)
   if(DEFINED ENV{VCPKG_TARGET_TRIPLET})
@@ -72,120 +343,171 @@ if(NOT DEFINED VCPKG_TARGET_TRIPLET)
     set(VCPKG_TARGET_TRIPLET "$ENV{VCPKG_DEFAULT_TRIPLET}")
   endif()
 endif()
+set(
+  X_VCPKG_APPLOCAL_DEPS_INSTALL
+  ON
+  CACHE BOOL
+  "Automatically copy dependencies into the install target directory for executables."
+  FORCE
+)
 
-if(DEFINED ENV{MIXXX_VCPKG_ROOT} AND NOT DEFINED MIXXX_VCPKG_ROOT)
-  set(MIXXX_VCPKG_ROOT "$ENV{MIXXX_VCPKG_ROOT}")
-  string(STRIP "${MIXXX_VCPKG_ROOT}" MIXXX_VCPKG_ROOT)
+# Set a default build type if none was specified
+# See https://blog.kitware.com/cmake-and-the-default-build-type/ for details.
+set(default_build_type "RelWithDebInfo")
+if(EXISTS "${CMAKE_SOURCE_DIR}/.git" AND NOT WIN32 AND NOT ANDROID)
+  # On Windows and Android, Debug builds are linked to unoptimized libs
+  # generating unusable slow Mixxx builds.
+  set(default_build_type "Debug")
 endif()
 
-if(NOT DEFINED MIXXX_VCPKG_ROOT AND NOT DEFINED ENV{MIXXX_VCPKG_ROOT})
-  if((APPLE AND NOT IOS) OR WIN32 OR ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
-    if(NOT DEFINED BUILDENV_BASEPATH)
-      if(DEFINED ENV{BUILDENV_BASEPATH})
-        set(BUILDENV_BASEPATH "$ENV{BUILDENV_BASEPATH}")
-      else()
-        set(BUILDENV_BASEPATH "${CMAKE_CURRENT_SOURCE_DIR}/buildenv")
-      endif()
-    endif()
+if(NOT CMAKE_CONFIGURATION_TYPES)
+  if(NOT CMAKE_BUILD_TYPE)
+    message(
+      STATUS
+      "Setting CMAKE_BUILD_TYPE to '${default_build_type}' as none was specified."
+    )
+    set(
+      CMAKE_BUILD_TYPE
+      "${default_build_type}"
+      CACHE STRING
+      "Choose the type of build."
+      FORCE
+    )
+    # Set the possible values of build type for cmake-gui
+    set_property(
+      CACHE CMAKE_BUILD_TYPE
+      PROPERTY STRINGS "Debug" "Release" "RelWithDebInfo"
+    )
+  elseif(NOT CMAKE_BUILD_TYPE MATCHES "^(Debug|Release|RelWithDebInfo)$")
+    message(
+      FATAL_ERROR
+      "CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} is not supported, use one of Debug, Release or RelWithDebInfo."
+    )
+  endif()
+endif()
 
-    if(NOT DEFINED BUILDENV_URL)
-      if(DEFINED ENV{BUILDENV_URL})
-        set(BUILDENV_URL "$ENV{BUILDENV_URL}")
-      elseif(NOT DEFINED BUILDENV_URL)
-        message(FATAL_ERROR "BUILDENV_URL NOT specified")
-      endif()
-    endif()
+include(CMakeDependentOption)
 
-    # Extract the filename from the URL
-    get_filename_component(FILENAME_WITH_EXTENSION "${BUILDENV_URL}" NAME)
+option(QT6 "Build with Qt6" ON)
+cmake_dependent_option(
+  QML
+  "Build with QML"
+  ON
+  "QT6"
+  OFF
+)
 
-    # Remove the extension from the filename (note that our buildenv names contain two dots)
-    string(
-      REGEX REPLACE "\\.[^.]*$"
+if(QT6)
+  set(QOPENGL ON CACHE INTERNAL "Forced ON because QT6=ON")
+else()
+  option(QOPENGL "Use QOpenGLWindow based widget instead of QGLWidget" ON)
+endif()
+
+if(QOPENGL)
+  add_compile_definitions(MIXXX_USE_QOPENGL)
+endif()
+
+if(QML)
+  add_compile_definitions(MIXXX_USE_QML)
+endif()
+
+if(VCPKG_TARGET_TRIPLET MATCHES "^wasm(32|64)-emscripten")
+  message(STATUS "Targeting Emscripten (${VCPKG_TARGET_TRIPLET})")
+  if(DEFINED ENV{EMSDK})
+    message(STATUS "Found EMSDK at $ENV{EMSDK}")
+  else()
+    message(
+      FATAL_ERROR
+      "Please make sure emsdk is installed and the environment variable EMSDK is set (see https://emscripten.org/docs/getting_started/downloads.html)"
+    )
+  endif()
+  if(NOT DEFINED VCPKG_CHAINLOAD_TOOLCHAIN_FILE)
+    set(
+      VCPKG_CHAINLOAD_TOOLCHAIN_FILE
+      "$ENV{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
+      CACHE STRING
       ""
-      BUILDENV_NAME
-      "${FILENAME_WITH_EXTENSION}"
     )
-
-    message(STATUS "BUILDENV_NAME is: ${BUILDENV_NAME}")
-
-    if(
-      NOT EXISTS "${BUILDENV_BASEPATH}/${BUILDENV_NAME}"
-      OR NOT IS_DIRECTORY "${BUILDENV_BASEPATH}/${BUILDENV_NAME}"
+  endif()
+  # Enabling this causes Qt's FindWrapRt C++ compile check to fail as it tries
+  # to run `clang-scan-deps` (because we set the C++ standard to 20). Emscripten
+  # does not ship this binary yet, though. Potentially relevant upstream bug:
+  # https://github.com/emscripten-core/emscripten/issues/21042
+  set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+elseif(APPLE)
+  # Check if xcode-select is installed
+  execute_process(
+    COMMAND xcode-select -v
+    RESULT_VARIABLE XCODE_SELECT_RESULT
+    OUTPUT_QUIET
+  )
+  if(XCODE_SELECT_RESULT)
+    # xcode-select command failed, meaning it is not installed or not configured properly
+    message(
+      FATAL_ERROR
+      "'xcode-select -v' failed with '${XCODE_SELECT_RESULT}'. You may need to install Xcode and run 'sudo xcode-select --install'."
     )
-      if(NOT DEFINED BUILDENV_SHA256)
-        if(DEFINED ENV{BUILDENV_SHA256})
-          set(BUILDENV_SHA256 "$ENV{BUILDENV_SHA256}")
-        elseif(NOT DEFINED BUILDENV_SHA256)
-          message(STATUS "BUILDENV_SHA256 NOT specified")
-        endif()
-      endif()
+  endif()
 
-      if(NOT EXISTS "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip")
-        message(
-          STATUS
-          "Downloading file ${BUILDENV_URL} to ${BUILDENV_BASEPATH} ..."
-        )
-        file(
-          DOWNLOAD "${BUILDENV_URL}"
-          "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip"
-          SHOW_PROGRESS
-          TLS_VERIFY ON
+  if(VCPKG_TARGET_TRIPLET MATCHES "^[a-zA-Z0-9]+-osx")
+    message(STATUS "Targeting macOS (${VCPKG_TARGET_TRIPLET})")
+    set(CMAKE_SYSTEM_NAME Darwin CACHE STRING "Target macOS")
+    if(VCPKG_TARGET_TRIPLET MATCHES "^arm64-")
+      # Minimum macOS version for arm64 Support
+      set(
+        CMAKE_OSX_DEPLOYMENT_TARGET
+        11.0
+        CACHE STRING
+        "Minimum macOS version the build will be able to run on"
+      )
+      set(CMAKE_OSX_ARCHITECTURES arm64 CACHE STRING "The target architecture")
+      set(
+        CMAKE_SYSTEM_PROCESSOR
+        arm64
+        CACHE STRING
+        "The target system processor"
+      )
+    else()
+      if(QT6)
+        # Minimum macOS version supported by Qt 6.5
+        set(
+          CMAKE_OSX_DEPLOYMENT_TARGET
+          11.0
+          CACHE STRING
+          "Minimum macOS version the build will be able to run on"
         )
       else()
-        # Reference to suppress intentionally unused variable warnings
-        set(_dummy "${BUILDENV_URL}")
-      endif()
-
-      if(NOT "${BUILDENV_SHA256}" STREQUAL "")
-        message(
-          STATUS
-          "Verify SHA256 of downloaded file ${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip ..."
+        # Minimum macOS version supported by Qt 5.12
+        set(
+          CMAKE_OSX_DEPLOYMENT_TARGET
+          10.12
+          CACHE STRING
+          "Minimum macOS version the build will be able to run on"
         )
-        file(SHA256 "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip" actual_sha256)
-
-        if(NOT actual_sha256 STREQUAL "${BUILDENV_SHA256}")
-          message(
-            FATAL_ERROR
-            "SHA256 checksum mismatch:\nexpected: ${BUILDENV_SHA256}\n     got: ${actual_sha256}"
-          )
-        endif()
+        # Needed for deployment target < 10.14
+        add_compile_options(-fno-aligned-allocation)
       endif()
-
-      message(
-        STATUS
-        "Extracting file ${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip to ${BUILDENV_BASEPATH} ..."
-      )
-      file(
-        ARCHIVE_EXTRACT
-        INPUT "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip"
-        DESTINATION "${BUILDENV_BASEPATH}"
-      )
     endif()
-
-    set(MIXXX_VCPKG_ROOT "${BUILDENV_BASEPATH}/${BUILDENV_NAME}")
+  elseif(VCPKG_TARGET_TRIPLET MATCHES "^[a-zA-Z0-9]+-ios")
+    message(STATUS "Targeting iOS (${VCPKG_TARGET_TRIPLET})")
+    set(CMAKE_SYSTEM_NAME iOS CACHE STRING "Target iOS")
+    set(
+      CMAKE_OSX_DEPLOYMENT_TARGET
+      14.0
+      CACHE STRING
+      "Minimum iOS version to target"
+    )
+  else()
+    message(
+      WARNING
+      "Targeting an Apple platform, but VCPKG_TARGET_TRIPLET is not set. This is not a supported scenario!"
+    )
   endif()
 endif()
 
 project(mixxx VERSION 2.7.0 LANGUAGES C CXX)
-add_compile_definitions(kiss_fft_scalar=double)
-
-option(QT6 "Build with Qt6" ON)
-option(NETWORKAUTH "Enable Spotify AND YouTube features" OFF)
-cmake_dependent_option(
-  YTDLP
-  "Support YouTube playback using yt-dlp"
-  ON
-  "NETWORKAUTH"
-  OFF
-)
-
-set(MIXXX_VERSION_PRERELEASE "alpha")
-if(MIXXX_VERSION_PRERELEASE STREQUAL "")
-  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}")
-else()
-  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}-${MIXXX_VERSION_PRERELEASE}")
-endif()
+# Work around missing version suffixes support https://gitlab.kitware.com/cmake/cmake/-/issues/16716
+set(MIXXX_VERSION_PRERELEASE "alpha") # set to "alpha" "beta" or ""
 
 set(CMAKE_PROJECT_HOMEPAGE_URL "https://www.mixxx.org")
 set(
@@ -207,23 +529,24 @@ include(IsStaticLibrary)
 # Verify VCPKG settings
 if(DEFINED _VCPKG_INSTALLED_DIR)
   if(NOT EXISTS "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}")
-    # Fail early if this part of CMAKE_PREFIX_PATH does NOT exist
+    # Fail early if this part of CMAKE_PREFIX_PATH does not exist
     # else the library lookups below will fail with misleading error messages
     message(
       STATUS
-      "VCPKG_TARGET_TRIPLET dir NOT found: ${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET} "
-      "Make sure the VCPKG build environment is installed AND contains the build for the selected triplet."
+      "VCPKG_TARGET_TRIPLET dir not found: ${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET} "
+      "Make sure the VCPKG build environment is installed and contains the build for the selected triplet."
     )
     fatal_error_missing_env()
   else()
     message(STATUS "Using VCPKG_TARGET_TRIPLET: ${VCPKG_TARGET_TRIPLET}")
   endif()
 endif()
+
 #######################################################################
-#Compilers AND toolchains
+# Compilers and toolchains
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  #GNU is GNU GCC
+  # GNU is GNU GCC
   set(GNU_GCC true)
 else()
   set(GNU_GCC false)
@@ -234,42 +557,42 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     set(LLVM_CLANG false)
     set(MSVC true)
   else()
-    # using regular Clang OR AppleClang
+    # using regular Clang or AppleClang
     set(LLVM_CLANG true)
   endif()
 else()
   set(LLVM_CLANG false)
 endif()
 
-#CMake implicitly sets the variable MSVC to true for Microsoft
-#Visual C++ OR another compiler simulating Visual C++.
-#https: // cmake.org/cmake/help/latest/variable/MSVC.html
+# CMake implicitly sets the variable MSVC to true for Microsoft
+# Visual C++ or another compiler simulating Visual C++.
+# https://cmake.org/cmake/help/latest/variable/MSVC.html
 
 #######################################################################
 
 set(CMAKE_CXX_STANDARD 20)
 if(MSVC)
-  #Ensure MSVC populates __cplusplus correctly.
+  # Ensure MSVC populates __cplusplus correctly.
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:__cplusplus")
-#Remove unreferenced code AND data
-#Since c++ 11 they can safely be removed to speed up linking.
+  # Remove unreferenced code and data
+  # Since c++11 they can safely be removed to speed up linking.
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:inline")
 
   if(NOT DEFINED MSVC_TOOLSET_VERSION OR MSVC_TOOLSET_VERSION VERSION_LESS 143)
     message(
       FATAL_ERROR
       "MSVC_TOOLSET_VERSION is ${MSVC_TOOLSET_VERSION}.\n"
-      "Mixxx requires the Microsoft Visual C++ Redistributable toolset of version 143 (VS2022) OR GREATER, "
+      "Mixxx requires the Microsoft Visual C++ Redistributable toolset of version 143 (VS2022) or greater, "
       "as the VCPKG buildenv is built with this version.\n"
       "Please use the Visual Studio 2022 toolset therefore!"
     )
   endif()
 endif()
 
-#Speed up builds on HDDs AND prevent wearing of SDDs
+# Speed up builds on HDDs and prevent wearing of SDDs
 #
-#This is only applies to gcc / clang, therefore this option is forcibly set to
-#ON on all other compilers.
+# This is only applies to gcc/clang, therefore this option is forcibly set to
+# ON on all other compilers.
 cmake_dependent_option(
   BUILD_LOW_MEMORY
   "Store temporary build files on disk by disabling the build option -pipe"
@@ -281,10 +604,10 @@ if(NOT BUILD_LOW_MEMORY)
   add_compile_options(-pipe)
 endif()
 
-#Coverage
+# Coverage
 #
-#This is only available with GCC, therefore this option is forcibly set to OFF
-#for all other compilers.
+# This is only available with GCC, therefore this option is forcibly set to OFF
+# for all other compilers.
 cmake_dependent_option(
   COVERAGE
   "Coverage (i.e. gcov) support"
@@ -297,10 +620,10 @@ if(COVERAGE)
   add_link_options(--coverage -fprofile-arcs -ftest-coverage)
 endif()
 
-#Profiling
+# Profiling
 #
-#This is only available on Linux, therefore this option is forcibly set to OFF
-#on all other platforms.
+# This is only available on Linux, therefore this option is forcibly set to OFF
+# on all other platforms.
 cmake_dependent_option(
   PROFILING
   "Profiling (e.g. gprof) support"
@@ -314,14 +637,14 @@ if(PROFILING)
 endif()
 
 #
-#Optimizations
+# Optimizations
 #
 
 set(
   OPTIMIZE
   "portable"
   CACHE STRING
-  "Optimization AND Tuning (set to off, portable, native, legacy)"
+  "Optimization and Tuning (set to off, portable, native, legacy)"
 )
 set_property(
   CACHE OPTIMIZE
@@ -331,37 +654,38 @@ string(TOLOWER "${OPTIMIZE}" OPTIMIZE)
 message(STATUS "Optimization level: ${OPTIMIZE}")
 message(STATUS "CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 
-#CMAKE_INTERPROCEDURAL_OPTIMIZATION can be DEFINED to override the default behaviour.
-#We keep CMAKE_INTERPROCEDURAL_OPTIMIZATION unset(IPO disabled) to save
-#build time at the cost of a bigger memory footprint at run - time.
-#See https://github.com/mixxxdj/mixxx/pull/3589 for some TEST results
-#Note : IPO has caused issues on Fedora https: // bugzilla.rpmfusion.org/show_bug.cgi?id=5829
-#Uncomment the following code to enable IPO for Release builds
+# CMAKE_INTERPROCEDURAL_OPTIMIZATION can be defined to override the default behaviour.
+# We keep CMAKE_INTERPROCEDURAL_OPTIMIZATION unset (IPO disabled) to save
+# build time at the cost of a bigger memory footprint at run-time.
+# See https://github.com/mixxxdj/mixxx/pull/3589 for some test results
+# Note: IPO has caused issues on Fedora https://bugzilla.rpmfusion.org/show_bug.cgi?id=5829
+# Uncomment the following code to enable IPO for Release builds
 #if(NOT DEFINED CMAKE_INTERPROCEDURAL_OPTIMIZATION AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT OPTIMIZE STREQUAL "off")
-#include(CheckIPOSupported)
-#check_ipo_supported(RESULT HAVE_IPO)
-#if(HAVE_IPO)
-#set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
-#endif()
+#  include(CheckIPOSupported)
+#  check_ipo_supported(RESULT HAVE_IPO)
+#  if(HAVE_IPO)
+#    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+#  endif()
 #endif()
 
 if(MSVC)
-#Microsoft Visual Studio Compiler
+  # Microsoft Visual Studio Compiler
   add_compile_options(/UTF8)
   if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x64|x86_64|AMD64)$")
-    # Target architecture is x64->x64 has alsways SSE AND SSE2 instruction sets
+    # Target architecture is x64 -> x64 has alsways SSE and SSE2 instruction sets
     message(STATUS "x64 Enabling SSE2 CPU optimizations (>= Pentium 4)")
-    # Define gcc / clang style defines for SSE AND SSE2 for compatibility
+    # Define gcc/clang style defines for SSE and SSE2 for compatibility
     add_compile_definitions("__SSE__" "__SSE2__")
   endif()
 
-  #Needed for sccache
+  # Needed for sccache
   if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     string(REPLACE "/Zi" "/Z7" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
     string(REPLACE "/Zi" "/Z7" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
   elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
     string(
-      REPLACE "/Zi"
+      REPLACE
+      "/Zi"
       "/Z7"
       CMAKE_CXX_FLAGS_RELEASE
       "${CMAKE_CXX_FLAGS_RELEASE}"
@@ -369,13 +693,15 @@ if(MSVC)
     string(REPLACE "/Zi" "/Z7" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
   elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
     string(
-      REPLACE "/Zi"
+      REPLACE
+      "/Zi"
       "/Z7"
       CMAKE_CXX_FLAGS_RELWITHDEBINFO
       "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
     )
     string(
-      REPLACE "/Zi"
+      REPLACE
+      "/Zi"
       "/Z7"
       CMAKE_C_FLAGS_RELWITHDEBINFO
       "${CMAKE_C_FLAGS_RELWITHDEBINFO}"
@@ -384,61 +710,65 @@ if(MSVC)
 
   if(NOT OPTIMIZE STREQUAL "off")
     # Use the fastest floating point math library
-    # http: // msdn.microsoft.com/en-us/library/e7s85ffb.aspx
-    # http: // msdn.microsoft.com/en-us/library/ms235601.aspx
+    # http://msdn.microsoft.com/en-us/library/e7s85ffb.aspx
+    # http://msdn.microsoft.com/en-us/library/ms235601.aspx
     add_compile_options(/fp:fast)
 
     # Suggested for unused code removal
-    # http: // msdn.microsoft.com/en-us/library/ms235601.aspx
-    # http: // msdn.microsoft.com/en-us/library/xsa71f43.aspx
-    # http: // msdn.microsoft.com/en-us/library/bxwfs976.aspx
+    # http://msdn.microsoft.com/en-us/library/ms235601.aspx
+    # http://msdn.microsoft.com/en-us/library/xsa71f43.aspx
+    # http://msdn.microsoft.com/en-us/library/bxwfs976.aspx
     add_compile_options(/Gy)
 
-    # For repeated local development builds, / INCREMENTAL offers much faster build times with the same performance of the executable,
-    # unless link time code generation(like CMAKE_INTERPROCEDURAL_OPTIMIZATION) is used, which is contrary to incremental linking.
+    # For repeated local development builds, /INCREMENTAL offers much faster build times with the same performance of the executable,
+    # unless link time code generation (like CMAKE_INTERPROCEDURAL_OPTIMIZATION) is used, which is contrary to incremental linking.
 
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    # Optimize Debug Builds as well, to have "normal" behavior of Mixxx during development
+      # Optimize Debug Builds as well, to have "normal" behavior of Mixxx during development
       string(REPLACE "/Od" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
       string(REPLACE "/Od" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS}")
       string(REPLACE "/Ob0" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
       string(REPLACE "/Ob0" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS}")
 
       add_compile_options(/O2) # this implies /Od2
-    # Remove / RTC1 flag set by CMAKE by default(conflicts with / O2)
+      # Remove /RTC1 flag set by CMAKE by default (conflicts with /O2)
       string(
-        REPLACE "/RTC1"
+        REPLACE
+        "/RTC1"
         ""
         CMAKE_CXX_FLAGS_DEBUG
         "${CMAKE_CXX_FLAGS_DEBUG}"
       )
       string(REPLACE "/RTC1" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
     elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
-    # For some reasons cmake uses / Ob1 in RelWithDebInfo https: // gitlab.kitware.com/cmake/cmake/-/issues/20812
-    # / O2 is applied by CMake AND this implies / Od2
+      # For some reasons cmake uses /Ob1 in RelWithDebInfo https://gitlab.kitware.com/cmake/cmake/-/issues/20812
+      # /O2 is applied by CMake and this implies /Od2
       string(
-        REPLACE "/Ob1"
+        REPLACE
+        "/Ob1"
         ""
         CMAKE_CXX_FLAGS_RELWITHDEBINFO
         "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
       )
       string(
-        REPLACE "/Ob1"
+        REPLACE
+        "/Ob1"
         ""
         CMAKE_C_FLAGS_RELWITHDEBINFO
         "${CMAKE_C_FLAGS_RELWITHDEBINFO}"
       )
 
-    # Reduce the size of the binary in RelWithDebInfo builds
-    # Do NOT use / OPT : ICF because it has no effect.
-    # https: // github.com/mixxxdj/mixxx/pull/3660#pullrequestreview-600137258
+      # Reduce the size of the binary in RelWithDebInfo builds
+      # Do not use /OPT:ICF because it has no effect.
+      # https://github.com/mixxxdj/mixxx/pull/3660#pullrequestreview-600137258
       add_link_options(/OPT:REF)
 
-    # / INCREMENTAL is incompatible with / OPT : REF, but it's the CMake default for RelWithDebInfo
-    # The CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO can be DEFINED by the user in the GUI OR in CMakeSettings.json,
-    # therefore we can't rely on the default.
+      # /INCREMENTAL is incompatible with /OPT:REF, but it's the CMake default for RelWithDebInfo
+      # The CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO can be defined by the user in the GUI or in CMakeSettings.json,
+      # therefore we can't rely on the default.
       string(
-        FIND CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO
+        FIND
+        CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO
         "/INCREMENTAL:NO"
         INCREMENTAL_NO_POSITION
       )
@@ -448,40 +778,41 @@ if(MSVC)
           "Overwriting /INCREMENTAL by /INCREMENTAL:NO to allow link time code optimization"
         )
         string(
-          REPLACE "/INCREMENTAL"
+          REPLACE
+          "/INCREMENTAL"
           "/INCREMENTAL:NO"
           CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO
           "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO}"
         )
       endif()
-    # Note : CMAKE_INTERPROCEDURAL_OPTIMIZATION sets the / GL AND / LTCG flags for us
+      # Note: CMAKE_INTERPROCEDURAL_OPTIMIZATION sets the /GL and /LTCG flags for us
     elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
-    # Reduce the size of the binary in Release builds
-    # Do NOT use / OPT : ICF because it has no effect.
-    # https: // github.com/mixxxdj/mixxx/pull/3660#pullrequestreview-600137258
+      # Reduce the size of the binary in Release builds
+      # Do not use /OPT:ICF because it has no effect.
+      # https://github.com/mixxxdj/mixxx/pull/3660#pullrequestreview-600137258
       add_link_options(/OPT:REF)
     endif()
 
     if(OPTIMIZE STREQUAL "portable")
       if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(i[3456]86|x86)$")
-    # Target architecture is x86 with SSE AND SSE2
+        # Target architecture is x86 with SSE and SSE2
         message(STATUS "x86 Enabling SSE2 CPU optimizations (>= Pentium 4)")
-    # Define gcc / clang style defines for SSE AND SSE2 for compatibility
+        # Define gcc/clang style defines for SSE and SSE2 for compatibility
         add_compile_definitions("__SSE__" "__SSE2__")
-    # Set compiler option for SSE / SSE2
+        # Set compiler option for SSE/SSE2
         add_compile_options(/arch:SSE2)
       endif()
     elseif(OPTIMIZE STREQUAL "native")
       message("Enabling optimizations for native system, specified by user")
       if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(i[3456]86|x86)$")
-    # Target architecture is x86 with SSE AND SSE2
+        # Target architecture is x86 with SSE and SSE2
         message(STATUS "x86 Enabling SSE2 CPU optimizations (>= Pentium 4)")
-    # Define gcc / clang style defines for SSE AND SSE2 for compatibility
+        # Define gcc/clang style defines for SSE and SSE2 for compatibility
         add_compile_definitions("__SSE__" "__SSE2__")
       endif()
-    # Define the TARGET processor instruction AND other compiler optimization flags here:
-  # https: // docs.microsoft.com/en-us/cpp/build/reference/arch-x64?view=msvc-160
-    # add_compile_options(/ arch : AVX512)
+      # Define the target processor instruction and other compiler optimization flags here:
+      # https://docs.microsoft.com/en-us/cpp/build/reference/arch-x64?view=msvc-160
+      # add_compile_options(/arch:AVX512)
       message(
         FATAL_ERROR
         "User need to set the MSVC compiler flags for the native processor here!"
@@ -500,18 +831,20 @@ if(MSVC)
       )
     endif()
   else()
-    # OPTIMIZE = off
+    # OPTIMIZE=off
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    # Remove optimize flags set by cmake defaults
+      # Remove optimize flags set by cmake defaults
       string(
-        REPLACE "/O2"
+        REPLACE
+        "/O2"
         ""
         CMAKE_CXX_FLAGS_RELEASE
         "${CMAKE_CXX_FLAGS_RELEASE}"
       )
       string(REPLACE "/O2" "" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
       string(
-        REPLACE "/Ob2"
+        REPLACE
+        "/Ob2"
         ""
         CMAKE_CXX_FLAGS_RELEASE
         "${CMAKE_CXX_FLAGS_RELEASE}"
@@ -520,28 +853,32 @@ if(MSVC)
       add_compile_options(/Od) # this implies /Ob0
       add_compile_options(/RTC1)
     elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
-    # Remove optimize flags set by cmake defaults
+      # Remove optimize flags set by cmake defaults
       string(
-        REPLACE "/O2"
+        REPLACE
+        "/O2"
         ""
         CMAKE_CXX_FLAGS_RELWITHDEBINFO
         "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
       )
       string(
-        REPLACE "/O2"
+        REPLACE
+        "/O2"
         ""
         CMAKE_C_FLAGS_RELWITHDEBINFO
         "${CMAKE_C_FLAGS_RELWITHDEBINFO}"
       )
-    # For some reasons cmake uses / Ob1 in RelWithDebInfo https: // gitlab.kitware.com/cmake/cmake/-/issues/20812
+      # For some reasons cmake uses /Ob1 in RelWithDebInfo https://gitlab.kitware.com/cmake/cmake/-/issues/20812
       string(
-        REPLACE "/Ob1"
+        REPLACE
+        "/Ob1"
         ""
         CMAKE_CXX_FLAGS_RELWITHDEBINFO
         "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
       )
       string(
-        REPLACE "/Ob1"
+        REPLACE
+        "/Ob1"
         ""
         CMAKE_C_FLAGS_RELWITHDEBINFO
         "${CMAKE_C_FLAGS_RELWITHDEBINFO}"
@@ -553,40 +890,40 @@ if(MSVC)
 elseif(GNU_GCC OR LLVM_CLANG)
   if(NOT OPTIMIZE STREQUAL "off")
     # Common flags to all optimizations.
-    # - ffast - math will prevent a performance penalty by denormals
+    # -ffast-math will prevent a performance penalty by denormals
     # (floating point values almost Zero are treated as Zero)
-    # unfortunately that work only on 64 bit CPUs OR with sse2 enabled
+    # unfortunately that work only on 64 bit CPUs or with sse2 enabled
     # The following optimisation flags makes the engine code ~3 times
     # faster, measured on a Atom CPU.
     add_compile_options(-ffast-math -funroll-loops)
     if(EMSCRIPTEN)
-    # Optimize for size + speed when targeting Emscripten / WebAssembly
-    # This is recommended as we use asyncify:
-    # See https: // doc.qt.io/qt-6/wasm.html#asyncify
+      # Optimize for size + speed when targeting Emscripten/WebAssembly
+      # This is recommended as we use asyncify:
+      # See https://doc.qt.io/qt-6/wasm.html#asyncify
       add_compile_options(-Os)
     else()
       add_compile_options(-O3)
     endif()
-    # set - fomit - frame - pointer when we don't profile AND are NOT using
+    # set -fomit-frame-pointer when we don't profile and are not using
     # Clang sanitizers.
-    # Note : It is only included in - O on machines where it does NOT
+    # Note: It is only included in -O on machines where it does not
     # interfere with debugging
     if(NOT PROFILING AND NOT SANITIZERS)
       add_compile_options(-fomit-frame-pointer)
     endif()
 
     if(OPTIMIZE STREQUAL "portable")
-    # portable : sse2 CPU(>= Pentium 4)
+      # portable: sse2 CPU (>= Pentium 4)
       if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(i[3456]86|x86|x64|x86_64|AMD64)$")
         message(STATUS "Enabling SSE2 CPU optimizations (>= Pentium 4)")
         if(NOT EMSCRIPTEN)
           add_compile_options(-mtune=generic)
         endif()
-    # - mtune = generic picks the most common, but compatible options.
-    # on arm platforms equivalent to - march = arch
+        # -mtune=generic picks the most common, but compatible options.
+        # on arm platforms equivalent to -march=arch
         if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
-    # the sse flags are NOT set by default on 32 bit builds
-    # but are NOT supported on arm builds
+          # the sse flags are not set by default on 32 bit builds
+          # but are not supported on arm builds
           add_compile_options(-msse2)
           if(EMSCRIPTEN)
             add_compile_options(-msimd128)
@@ -594,38 +931,38 @@ elseif(GNU_GCC OR LLVM_CLANG)
             add_compile_options(-mfpmath=sse)
           endif()
         endif()
-    # TODO(rryan) : macOS can use SSE3, AND possibly SSE 4.1 once
-    # we require macOS 10.12.
-    # https: // stackoverflow.com/questions/45917280/mac-osx-minumum-support-sse-version
-      elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|armv7.*)$") # but NOT armv8
+        # TODO(rryan): macOS can use SSE3, and possibly SSE 4.1 once
+        # we require macOS 10.12.
+        # https://stackoverflow.com/questions/45917280/mac-osx-minumum-support-sse-version
+      elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|armv7.*)$") # but not armv8
         add_compile_options(-mfloat-abi=hard -mfpu=neon)
       endif()
-    # this sets macros __SSE2_MATH__ __SSE_MATH__ __SSE2__ __SSE__
-    # This should be our default build for distribution
-    # It's a little sketchy, but turning on SSE2 will gain
-    # 100 % performance in our filter code AND allows us to
-    # turns on denormal zeroing.
-    # We don 't really support CPU' s earlier than Pentium 4,
-    # which is the class of CPUs this decision affects.
-    # The downside of this is that we aren't truly
-    # i386 compatible, so builds that claim 'i386' will crash.
-    # -- rryan 2 / 2011
-    # Note : SSE2 is a core part of x64 CPUs
+      # this sets macros __SSE2_MATH__ __SSE_MATH__ __SSE2__ __SSE__
+      # This should be our default build for distribution
+      # It's a little sketchy, but turning on SSE2 will gain
+      # 100% performance in our filter code and allows us to
+      # turns on denormal zeroing.
+      # We don't really support CPU's earlier than Pentium 4,
+      # which is the class of CPUs this decision affects.
+      # The downside of this is that we aren't truly
+      # i386 compatible, so builds that claim 'i386' will crash.
+      # -- rryan 2/2011
+      # Note: SSE2 is a core part of x64 CPUs
     elseif(OPTIMIZE STREQUAL "native")
       message("Enabling native optimizations for ${CMAKE_SYSTEM_PROCESSOR}")
       add_compile_options(-march=native)
-    # Note : requires gcc >= 4.2.0
-    # macros like __SSE2_MATH__ __SSE_MATH__ __SSE2__ __SSE__
-    # are set automatically
-      if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|armv7.*)$") # but NOT armv8
+      # Note: requires gcc >= 4.2.0
+      # macros like __SSE2_MATH__ __SSE_MATH__ __SSE2__ __SSE__
+      # are set automatically
+      if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|armv7.*)$") # but not armv8
         add_compile_options(-mfloat-abi=hard -mfpu=neon)
       endif()
     elseif(OPTIMIZE STREQUAL "legacy")
       if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(i[3456]86|x86|x64|x86_64|AMD64)$")
         message("Enabling pure i386 code")
         add_compile_options(-mtune=generic)
-    # - mtune = generic pick the most common, but compatible options.
-    # on arm platforms equivalent to - march = arch
+        # -mtune=generic pick the most common, but compatible options.
+        # on arm platforms equivalent to -march=arch
       endif()
     else()
       message(
@@ -641,7 +978,7 @@ set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 set(CMAKE_VISIBILITY_INLINES_HIDDEN TRUE)
 
 if(WIN32)
-  #Add support for lib prefix on Windows
+  # Add support for lib prefix on Windows
   set(CMAKE_FIND_LIBRARY_PREFIXES "" "lib")
 endif()
 
@@ -657,7 +994,7 @@ if(MSVC)
     "Disable precompiled headers"
   )
 
-#sccache support
+  # sccache support
   find_program(SCCACHE_EXECUTABLE "sccache")
   if(SCCACHE_EXECUTABLE)
     message(STATUS "Found sccache: ${SCCACHE_EXECUTABLE}")
@@ -670,14 +1007,14 @@ if(MSVC)
     if(NOT CMAKE_DISABLE_PRECOMPILE_HEADERS)
       message(
         WARNING
-        "sccache: Does NOT work with precompiled headers. Set CMAKE_DISABLE_PRECOMPILE_HEADERS=ON"
+        "sccache: Does not work with precompiled headers. Set CMAKE_DISABLE_PRECOMPILE_HEADERS=ON"
       )
     endif()
     set(CMAKE_C_COMPILER_LAUNCHER "${SCCACHE_EXECUTABLE}")
     set(CMAKE_CXX_COMPILER_LAUNCHER "${SCCACHE_EXECUTABLE}")
   endif()
 else()
-#ccache support
+  # ccache support
   find_program(CCACHE_EXECUTABLE "ccache")
   if(CCACHE_EXECUTABLE)
     message(STATUS "Found ccache: ${CCACHE_EXECUTABLE}")
@@ -698,7 +1035,7 @@ else()
 
   if(CCACHE_SUPPORT)
     if(GNU_GCC OR LLVM_CLANG)
-    # without this compiler messages in `make` backend would be uncolored
+      # without this compiler messages in `make` backend would be uncolored
       set(
         CMAKE_CXX_FLAGS
         "${CMAKE_CXX_FLAGS} -fdiagnostics-color=${BUILD_COLORS}"
@@ -720,7 +1057,7 @@ else()
           WARNING
           "ccache: For use with precompiled headers, the setting \"sloppiness\" needs to "
           "be set to \"pch_defines,time_macros\". This can be done via the environment variable "
-          "\"CCACHE_SLOPPINESS=pch_defines,time_macros\" OR permanent via "
+          "\"CCACHE_SLOPPINESS=pch_defines,time_macros\" or permanent via "
           "\"ccache --set-config=sloppiness=pch_defines,time_macros\"."
         )
       endif()
@@ -732,7 +1069,7 @@ else()
 endif()
 
 if(NOT MSVC)
-#Try to configure mold as linker via - fuse - ld = mold, support from gcc 12.1, gcc 11.2.0 - 16 OR clang
+  # Try to configure mold as linker via -fuse-ld=mold, support from gcc 12.1, gcc 11.2.0-16 or clang
   execute_process(
     COMMAND ${CMAKE_CXX_COMPILER} -fuse-ld=mold -Wl,--version
     ERROR_QUIET
@@ -774,7 +1111,8 @@ if(NOT MSVC)
     )
     if(LLD_VERSION_STRING)
       string(
-        REGEX MATCH "LLD ([0-9]+\\.[0-9]+\\.[0-9]+)"
+        REGEX MATCH
+        "LLD ([0-9]+\\.[0-9]+\\.[0-9]+)"
         LLD_VERSION_MATCH
         "${LLD_VERSION_STRING}"
       )
@@ -788,7 +1126,7 @@ if(NOT MSVC)
         )
       endif()
     endif()
-    # LLD 10.0.0 does NOT work because of https: // bugs.llvm.org/show_bug.cgi?id=45769
+    # LLD 10.0.0 does not work because of https://bugs.llvm.org/show_bug.cgi?id=45769
     default_option(LLD_SUPPORT "Use 'ld.lld' for linking" "LLD_VERSION VERSION_GREATER 10.0.0")
     if(LLD_SUPPORT)
       if(LLD_VERSION_STRING)
@@ -813,10 +1151,10 @@ set(
   CLANG_TIDY
   ""
   CACHE STRING
-  "CMAKE_CXX_CLANG_TIDY equivalent that only applies to mixxx sources, NOT bundled dependencies"
+  "CMAKE_CXX_CLANG_TIDY equivalent that only applies to mixxx sources, not bundled dependencies"
 )
 
-#Mixxx itself
+# Mixxx itself
 add_library(
   mixxx-lib
   STATIC
@@ -855,7 +1193,6 @@ add_library(
   src/control/controlproxy.cpp
   src/control/controlpushbutton.cpp
   src/control/controlttrotary.cpp
-  src/control/controlmodel.cpp
   src/controllers/controller.cpp
   src/controllers/controllerenumerator.cpp
   src/controllers/controllerinputmappingtablemodel.cpp
@@ -883,6 +1220,7 @@ add_library(
   src/controllers/dlgprefcontrollersdlg.ui
   src/controllers/keyboard/keyboardeventfilter.cpp
   src/controllers/learningutils.cpp
+  src/controllers/legacycontrollermappingfilehandler.cpp
   src/controllers/midi/legacymidicontrollermapping.cpp
   src/controllers/midi/legacymidicontrollermappingfilehandler.cpp
   src/controllers/midi/midicontroller.cpp
@@ -1175,7 +1513,10 @@ add_library(
   src/network/networktask.cpp
   src/network/webtask.cpp
   src/preferences/colorpaletteeditor.cpp
+  src/preferences/colorpaletteeditor.cpp
   src/preferences/colorpaletteeditormodel.cpp
+  src/preferences/colorpaletteeditormodel.cpp
+  src/preferences/colorpalettesettings.cpp
   src/preferences/colorpalettesettings.cpp
   src/preferences/configobject.cpp
   src/preferences/constants.cpp
@@ -1246,7 +1587,6 @@ add_library(
   src/sources/soundsourceprovider.cpp
   src/sources/soundsourceproviderregistry.cpp
   src/sources/soundsourceproxy.cpp
-  src/sources/soundsourcestem.cpp
   src/sources/soundsourcesndfile.cpp
   src/track/albuminfo.cpp
   src/track/beatfactory.cpp
@@ -1312,6 +1652,7 @@ add_library(
   src/util/filename.cpp
   src/util/font.cpp
   src/util/imagefiledata.cpp
+  src/util/imagefiledata.cpp
   src/util/imageutils.cpp
   src/util/indexrange.cpp
   src/util/logger.cpp
@@ -1339,6 +1680,7 @@ add_library(
   src/util/time.cpp
   src/util/timer.cpp
   src/util/valuetransformer.cpp
+  src/util/versionstore.cpp
   src/util/widgethelper.cpp
   src/util/workerthread.cpp
   src/util/workerthreadscheduler.cpp
@@ -1366,23 +1708,6 @@ add_library(
   src/waveform/renderers/waveformrendermarkrange.cpp
   src/waveform/renderers/waveformsignalcolors.cpp
   src/waveform/renderers/waveformwidgetrenderer.cpp
-  src/waveform/renderers/allshader/digitsrenderer.cpp
-  src/waveform/renderers/allshader/matrixforwidgetgeometry.cpp
-  src/waveform/renderers/allshader/waveformrenderbackground.cpp
-  src/waveform/renderers/allshader/waveformrenderbeat.cpp
-  src/waveform/renderers/allshader/waveformrenderer.cpp
-  src/waveform/renderers/allshader/waveformrendererendoftrack.cpp
-  src/waveform/renderers/allshader/waveformrendererfiltered.cpp
-  src/waveform/renderers/allshader/waveformrendererhsv.cpp
-  src/waveform/renderers/allshader/waveformrendererpreroll.cpp
-  src/waveform/renderers/allshader/waveformrendererrgb.cpp
-  src/waveform/renderers/allshader/waveformrenderersignalbase.cpp
-  src/waveform/renderers/allshader/waveformrenderersimple.cpp
-  src/waveform/renderers/allshader/waveformrendererslipmode.cpp
-  src/waveform/renderers/allshader/waveformrendererstem.cpp
-  src/waveform/renderers/allshader/waveformrenderertextured.cpp
-  src/waveform/renderers/allshader/waveformrendermark.cpp
-  src/waveform/renderers/allshader/waveformrendermarkrange.cpp
   src/waveform/sharedglcontext.cpp
   src/waveform/visualplayposition.cpp
   src/waveform/visualsmanager.cpp
@@ -1486,39 +1811,7 @@ add_library(
   src/widget/wwidgetgroup.cpp
   src/widget/wwidgetstack.cpp
   src/controllers/scripting/javascriptplayerproxy.cpp
-  src/analyzer/plugins/analyzerkeyfinder.cpp
-  src/control/controlsortfiltermodel.cpp
-  src/controllers/controllerenginethreadcontrol.cpp
-  src/controllers/controllerscreenpreview.cpp
-  src/library/export/libraryexporter.cpp
-  src/library/export/dlglibraryexport.cpp
-  src/library/export/engineprimeexportjob.cpp
-  src/sources/soundsourceffmpeg.cpp
-  src/sources/soundsourcewv.cpp
-  src/track/steminfo.cpp
-  src/track/steminfoimporter.cpp
-  src/util/gitinfostore.cpp
-  src/util/rlimit.cpp
-  src/util/versionstore.cpp
-  src/waveform/widgets/allshader/waveformwidget.cpp
-  src/shaders/endoftrackshader.cpp
-  src/shaders/patternshader.cpp
-  src/shaders/rgbashader.cpp
-  src/shaders/rgbshader.cpp
-  src/shaders/shader.cpp
-  src/shaders/slipmodeshader.cpp
-  src/shaders/textureshader.cpp
-  src/shaders/unicolorshader.cpp
-  src/shaders/vinylqualityshader.cpp
-  src/util/opengltexture2d.cpp
-  src/widget/tooltipqopengl.cpp
-  $<$<NOT:$<BOOL:${QOPENGL}>>:src/widget/wglwidgetqglwidget.cpp>
-  $<$<BOOL:${QOPENGL}>:src/widget/wglwidgetqopengl.cpp>
-  src/widget/openglwindow.cpp
-  src/widget/wspinnyglsl.cpp
-  src/widget/wstemlabel.cpp
-  src/widget/wtrackstemmenu.cpp
-  src/widget/wvumeterglsl.cpp
+  src/controllers/scripting/javascriptplayerproxy.h
 )
 set(MIXXX_COMMON_PRECOMPILED_HEADER src/util/assert.h)
 set(
@@ -1678,13 +1971,80 @@ set(
   src/util/workerthreadscheduler.h
   src/util/xml.h
 )
+if(NOT QML)
+  target_sources(
+    mixxx-lib
+    PRIVATE
+      # The following sources need to be in the QML target in order to get QML_ELEMENT properly interpreted.
+      # However, if we build Mixxx without QML support, these are still required, so it gets appended to the
+      # main target
+      src/control/controlmodel.cpp
+      src/control/controlsortfiltermodel.cpp
+  )
+else()
+  target_sources(
+    mixxx-lib
+    PRIVATE
+      # The following source depends of QML being available but aren't part of the new QML UI
+      src/controllers/rendering/controllerrenderingengine.cpp
+      src/controllers/controllerenginethreadcontrol.cpp
+      src/controllers/controllerscreenpreview.cpp
+  )
+endif()
+if(QOPENGL)
+  target_sources(
+    mixxx-lib
+    PRIVATE
+      src/shaders/endoftrackshader.cpp
+      src/shaders/slipmodeshader.cpp
+      src/shaders/patternshader.cpp
+      src/shaders/rgbashader.cpp
+      src/shaders/rgbshader.cpp
+      src/shaders/shader.cpp
+      src/shaders/textureshader.cpp
+      src/shaders/unicolorshader.cpp
+      src/shaders/vinylqualityshader.cpp
+      src/util/opengltexture2d.cpp
+      src/waveform/renderers/allshader/digitsrenderer.cpp
+      src/waveform/renderers/allshader/matrixforwidgetgeometry.cpp
+      src/waveform/renderers/allshader/waveformrenderbackground.cpp
+      src/waveform/renderers/allshader/waveformrenderbeat.cpp
+      src/waveform/renderers/allshader/waveformrenderer.cpp
+      src/waveform/renderers/allshader/waveformrendererendoftrack.cpp
+      src/waveform/renderers/allshader/waveformrendererslipmode.cpp
+      src/waveform/renderers/allshader/waveformrendererfiltered.cpp
+      src/waveform/renderers/allshader/waveformrendererhsv.cpp
+      src/waveform/renderers/allshader/waveformrendererpreroll.cpp
+      src/waveform/renderers/allshader/waveformrendererrgb.cpp
+      src/waveform/renderers/allshader/waveformrenderertextured.cpp
+      src/waveform/renderers/allshader/waveformrenderersignalbase.cpp
+      src/waveform/renderers/allshader/waveformrenderersimple.cpp
+      src/waveform/renderers/allshader/waveformrendermark.cpp
+      src/waveform/renderers/allshader/waveformrendermarkrange.cpp
+      src/waveform/widgets/allshader/waveformwidget.cpp
+      src/widget/openglwindow.cpp
+      src/widget/tooltipqopengl.cpp
+      src/widget/wglwidgetqopengl.cpp
+      src/widget/winitialglwidget.cpp
+      src/widget/wspinnyglsl.cpp
+      src/widget/wvumeterglsl.cpp
+  )
+else()
+  target_sources(
+    mixxx-lib
+    PRIVATE
+      src/waveform/renderers/qtvsynctestrenderer.cpp
+      src/waveform/renderers/qtwaveformrendererfilteredsignal.cpp
+      src/waveform/renderers/qtwaveformrenderersimplesignal.cpp
+      src/widget/wglwidgetqglwidget.cpp
+  )
+endif()
 
 set_source_files_properties(
   src/util/moc_included_test.cpp
   PROPERTIES SKIP_PRECOMPILE_HEADERS ON
 )
 
-add_dependencies(mixxx-lib mixxx-gitinfo)
 set_target_properties(
   mixxx-lib
   PROPERTIES AUTOMOC ON AUTOUIC ON CXX_CLANG_TIDY "${CLANG_TIDY}"
@@ -1693,36 +2053,57 @@ target_include_directories(
   mixxx-lib
   PUBLIC src "${CMAKE_CURRENT_BINARY_DIR}/src"
 )
-if(UNIX AND NOT APPLE AND NOT ANDROID)
+if(UNIX AND NOT APPLE)
+  target_sources(mixxx-lib PRIVATE src/util/rlimit.cpp)
   set(MIXXX_SETTINGS_PATH ".mixxx/")
 endif()
 
 if(APPLE)
   enable_language(OBJC OBJCXX)
 
-#Enable Automatic Reference Counting(ARC) when compiling Objective - C(++).
-#This frees us from having to worry about memory management when interfacing
-#with Apple frameworks(e.g.as in itunesmacosimporter.mm) since the compiler
-#will automatically insert retain / release calls on Objective - C objects.
+  # Enable Automatic Reference Counting (ARC) when compiling Objective-C(++).
+  # This frees us from having to worry about memory management when interfacing
+  # with Apple frameworks (e.g. as in itunesmacosimporter.mm) since the compiler
+  # will automatically insert retain/release calls on Objective-C objects.
   target_compile_options(mixxx-lib PUBLIC -fobjc-arc)
 
-#Disable deprecation warnings for OpenGL on macOS as we won't switch to
-#Apple's Metal API in the foreseeable future.
+  # Disable deprecation warnings for OpenGL on macOS as we won't switch to
+  # Apple's Metal API in the foreseeable future.
   target_compile_definitions(mixxx-lib PUBLIC GL_SILENCE_DEPRECATION)
 
+  target_sources(mixxx-lib PRIVATE src/util/appleosversion.mm)
+
   if(IOS)
+    target_sources(
+      mixxx-lib
+      PRIVATE src/soundio/soundmanagerios.mm src/util/screensaverios.mm
+    )
+
     option(IOS_ITUNES_LIBRARY "Native iOS music library integration" ON)
     if(IOS_ITUNES_LIBRARY)
+      target_sources(
+        mixxx-lib
+        PRIVATE
+          src/library/itunes/itunesiosassetexporter.mm
+          src/library/itunes/itunesiosimporter.mm
+          src/library/itunes/itunesiostrackresolver.cpp
+      )
       target_link_libraries(mixxx-lib PRIVATE "-weak_framework MediaPlayer")
       target_compile_definitions(mixxx-lib PUBLIC __IOS_ITUNES_LIBRARY__)
     endif()
   else()
+    target_sources(mixxx-lib PRIVATE src/util/darkappearance.mm)
+
     option(
       MACOS_ITUNES_LIBRARY
       "Native macOS iTunes/Music.app library integration"
       ON
     )
     if(MACOS_ITUNES_LIBRARY)
+      target_sources(
+        mixxx-lib
+        PRIVATE src/library/itunes/itunesmacosimporter.mm
+      )
       target_link_libraries(mixxx-lib PRIVATE "-weak_framework iTunesLibrary")
       target_compile_definitions(mixxx-lib PUBLIC __MACOS_ITUNES_LIBRARY__)
     endif()
@@ -1730,6 +2111,14 @@ if(APPLE)
 
   option(AU_EFFECTS "Audio Unit (AU) effects integration" ON)
   if(AU_EFFECTS)
+    target_sources(
+      mixxx-lib
+      PRIVATE
+        src/effects/backends/audiounit/audiounitbackend.mm
+        src/effects/backends/audiounit/audiounitmanager.mm
+        src/effects/backends/audiounit/audiouniteffectprocessor.mm
+        src/effects/backends/audiounit/audiounitmanifest.mm
+    )
     target_link_libraries(
       mixxx-lib
       PRIVATE "-weak_framework AudioToolbox" "-weak_framework AVFAudio"
@@ -1739,13 +2128,13 @@ if(APPLE)
 endif()
 
 if(EMSCRIPTEN)
-#We need asyncify to support asynchronous calls(e.g.QDialog::exec)
-#when targeting Emscripten / WebAssembly.
-#See https: // doc.qt.io/qt-6/wasm.html#asyncify
+  # We need asyncify to support asynchronous calls (e.g. QDialog::exec)
+  # when targeting Emscripten/WebAssembly.
+  # See https://doc.qt.io/qt-6/wasm.html#asyncify
   target_link_options(mixxx-lib PUBLIC -sASYNCIFY)
 endif()
 
-#QML Debugging
+# QML Debugging
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
   target_compile_definitions(mixxx-lib PUBLIC QT_QML_DEBUG)
   message(
@@ -1764,7 +2153,7 @@ if(MSVC)
       PUBLIC
         /W3 # Warning Level 3 (production quality)
         /wd4200 # C4200: nonstandard extension used: zero-sized array in struct/union
-    # Note : Even with CMAKE_C_STANDARD = 99 MSVC does NOT complain about C99 flexible array members
+      # Note: Even with CMAKE_C_STANDARD = 99 MSVC does not complain about C99 flexible array members
     )
     target_compile_definitions(
       mixxx-lib
@@ -1774,7 +2163,7 @@ if(MSVC)
     )
   endif()
 else()
-  #TODO : Add - Wtrampolines, NOT yet supported by clazy
+  # TODO: Add -Wtrampolines, not yet supported by clazy
   target_compile_options(
     mixxx-lib
     PUBLIC
@@ -1802,7 +2191,7 @@ if(INFO_VECTORIZE)
   elseif(LLVM_CLANG)
     target_compile_options(mixxx-lib PUBLIC -Rpass=loop-vectorize)
   else()
-    message(STATUS "INFO_VECTORIZE NOT implemented for this compiler.")
+    message(STATUS "INFO_VECTORIZE not implemented for this compiler.")
   endif()
 endif()
 
@@ -1811,7 +2200,7 @@ if(RELATIVE_MACRO_PATHS)
   if(NOT MSVC)
     target_compile_options(
       mixxx-lib
-      PUBLIC "-fmacro-prefix-map=${CMAKE_CURRENT_SOURCE_DIR}=."
+      PUBLIC "-fmacro-prefix-map=${CMAKE_SOURCE_DIR}=."
     )
   endif()
 endif()
@@ -1834,10 +2223,10 @@ target_compile_definitions(
     $<$<NOT:$<CONFIG:Debug>>:MIXXX_BUILD_RELEASE>
 )
 
-#Mac - specific options
+# Mac-specific options
 #
-#These options are OFF by default, AND since they are only available on macOS,
-#they are forcibly set to OFF on all other platforms.
+# These options are OFF by default, and since they are only available on macOS,
+# they are forcibly set to OFF on all other platforms.
 cmake_dependent_option(
   MACOS_BUNDLE
   "Install files to proper locations to make an .app bundle"
@@ -1856,10 +2245,10 @@ if(MACAPPSTORE)
   target_compile_definitions(mixxx-lib PUBLIC __MACAPPSTORE__)
 endif()
 
-#Windows - specific options
+# Windows-specific options
 if(WIN32)
-  #https: // docs.microsoft.com/en-us/cpp/porting/modifying-winver-AND-win32-winnt
-  #_WIN32_WINNT_WIN7 = 0x0601
+  # https://docs.microsoft.com/en-us/cpp/porting/modifying-winver-and-win32-winnt
+  # _WIN32_WINNT_WIN7 = 0x0601
   target_compile_definitions(mixxx-lib PUBLIC WINVER=0x0601)
   target_compile_definitions(mixxx-lib PUBLIC _WIN32_WINNT=0x0601)
   if(MSVC)
@@ -1868,7 +2257,7 @@ if(WIN32)
 endif()
 
 #
-#Installation directories
+# Installation directories
 #
 set(MIXXX_INSTALL_BINDIR ".")
 set(MIXXX_INSTALL_DATADIR ".")
@@ -1880,7 +2269,7 @@ if(APPLE AND MACOS_BUNDLE)
     MACOS_BUNDLE_NAME
     Mixxx
     CACHE STRING
-    "The macOS app bundle AND executable name"
+    "The macOS app bundle and executable name"
   )
   set(
     MACOS_BUNDLE_IDENTIFIER
@@ -1898,7 +2287,7 @@ elseif(APPLE AND IOS)
     IOS_BUNDLE_NAME
     Mixxx
     CACHE STRING
-    "The iOS app bundle AND executable name"
+    "The iOS app bundle and executable name"
   )
   set(
     IOS_BUNDLE_IDENTIFIER
@@ -1921,24 +2310,24 @@ if(WIN32)
 
   # Need this on Windows until we have UTF16 support in Mixxx use stl min max
   # defines
-  # http: // connect.microsoft.com/VisualStudio/feedback/details/553420/std-cpp-
-  # max - AND - std - cpp - min - NOT - available - in - visual - c - 2010
+  # http://connect.microsoft.com/VisualStudio/feedback/details/553420/std-cpp-
+  # max-and-std-cpp-min-not-available-in-visual-c-2010
   target_compile_definitions(mixxx-lib PUBLIC NOMINMAX UNICODE)
 
-  # shoutidjc / shout.h checks for WIN32 to see if we are on Windows.
+  # shoutidjc/shout.h checks for WIN32 to see if we are on Windows.
   target_compile_definitions(mixxx-lib PUBLIC WIN32)
 
   target_link_libraries(mixxx-lib PRIVATE comctl32 shell32)
 
   if(MSVC)
     target_link_options(mixxx-lib PUBLIC /entry:mainCRTStartup)
-    # Force MSVS to generate a manifest(MSVC2010)
+    # Force MSVS to generate a manifest (MSVC2010)
     target_link_options(mixxx-lib PUBLIC /manifest)
   endif()
 elseif(UNIX)
   if(APPLE)
     target_compile_definitions(mixxx-lib PUBLIC __APPLE__)
-  elseif(ANDROID OR CMAKE_SYSTEM_NAME STREQUAL "Android")
+  elseif(ANDROID)
     target_compile_definitions(mixxx-lib PUBLIC __ANDROID__)
   else()
     target_compile_definitions(mixxx-lib PUBLIC __UNIX__)
@@ -1950,122 +2339,18 @@ elseif(UNIX)
   endif()
 endif()
 
-#The mixxx executable
+# The mixxx executable
 if(QT6)
-  set(QT_VERSION_MAJOR 6)
-  set(
-    QT_COMPONENTS
-    Core
-    Concurrent
-    Gui
-    Network
-    OpenGL
-    Qml
-    Quick
-    Sql
-    Svg
-    Test
-    Widgets
-    Xml
-    SvgWidgets
-    Core5Compat
-    ShaderTools
-    QmlIntegration
-  )
-  if(NOT APPLE AND NOT WIN32 AND NOT ANDROID)
-    list(APPEND QT_COMPONENTS DBus)
-  endif()
-  if(NOT ANDROID)
-    list(APPEND QT_COMPONENTS PrintSupport Multimedia MultimediaWidgets)
-  else()
-    # Multimedia is missing from Android v2 .7 bundle and unused
-    list(REMOVE_ITEM
-      QT_COMPONENTS
-      Multimedia
-      MultimediaWidgets)
-  endif()
-
-  find_package(Qt6 COMPONENTS ${QT_COMPONENTS} QUIET)
-  if(NOT TARGET Qt6::Core)
-    # Try again without some potentially problematic or optional components
-    list(
-      REMOVE_ITEM
-      QT_COMPONENTS
-      Multimedia
-      MultimediaWidgets
-      QmlIntegration
-      ShaderTools
-      SvgWidgets
-      Core5Compat
-      PrintSupport
-    )
-    find_package(Qt6 COMPONENTS ${QT_COMPONENTS} QUIET)
-  endif()
-  if(NOT TARGET Qt6::Core AND MIXXX_VCPKG_ROOT)
-    message(
-      STATUS
-      "Qt6 NOT found. Searching manually in ${MIXXX_VCPKG_ROOT}..."
-    )
-    # Specifically look in the triplet share directory first
-    set(
-      QT6_SEARCH_PATH
-      "${MIXXX_VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/share/Qt6"
-    )
-    if(EXISTS "${QT6_SEARCH_PATH}/Qt6Config.cmake")
-      set(Qt6_DIR "${QT6_SEARCH_PATH}" CACHE PATH "Path to Qt6 directory" FORCE)
-      message(STATUS "Found Qt6 in search path: ${Qt6_DIR}")
-    else()
-      file(
-        GLOB_RECURSE FOUND_QT6_CONFIG
-        "${MIXXX_VCPKG_ROOT}/*/Qt6Config.cmake"
-      )
-      if(FOUND_QT6_CONFIG)
-        list(GET FOUND_QT6_CONFIG 0 FIRST_QT6_CONFIG)
-        get_filename_component(QT6_DIR_TMP "${FIRST_QT6_CONFIG}" DIRECTORY)
-        set(Qt6_DIR "${QT6_DIR_TMP}" CACHE PATH "Path to Qt6 directory" FORCE)
-        message(STATUS "Auto-detected Qt6_DIR from GLOB: ${Qt6_DIR}")
-      endif()
-    endif()
-    if(Qt6_DIR)
-      find_package(Qt6 COMPONENTS ${QT_COMPONENTS} QUIET)
-    endif()
-  endif()
-
-  if(TARGET Qt6::Core)
-    set(Qt6_FOUND TRUE)
-  endif()
-
-  foreach(component ${QT_COMPONENTS})
-    if(TARGET Qt6::${component})
-      target_link_libraries(mixxx-lib PUBLIC Qt6::${component})
-    endif()
-  endforeach()
-  if(NETWORKAUTH)
-    find_package(Qt6 COMPONENTS NetworkAuth QUIET)
-    if(Qt6NetworkAuth_FOUND OR TARGET Qt6::NetworkAuth)
-      message(STATUS "Found Qt6 NetworkAuth")
-      target_link_libraries(mixxx-lib PUBLIC Qt6::NetworkAuth)
-    else()
-      message(WARNING "Qt6 NetworkAuth NOT found. Disabling NETWORKAUTH.")
-      set(
-        NETWORKAUTH
-        OFF
-        CACHE BOOL
-        "Enable network authentication features"
-        FORCE
-      )
-    endif()
-  endif()
-
-  #This is the first package form the environment, if this fails give hints how to install the environment
-  if(NOT TARGET Qt6::Core AND NOT ANDROID)
+  find_package(Qt6 COMPONENTS Core) # For Qt Core cmake functions
+  # This is the first package form the environment, if this fails give hints how to install the environment
+  if(NOT Qt6_FOUND)
     fatal_error_missing_env()
   endif()
-  #qt_add_executable() is the recommended initial call for qt_finalize_target()
-  #below that takes care of the correct object order in the resulting binary
-  #According to https: // doc.qt.io/qt-6/qt-finalize-target.html it is important for
-  #builds with Qt < 3.21
-  if(ANDROID OR (CMAKE_SYSTEM_NAME STREQUAL "Android"))
+  # qt_add_executable() is the recommended initial call for qt_finalize_target()
+  # below that takes care of the correct object order in the resulting binary
+  # According to https://doc.qt.io/qt-6/qt-finalize-target.html it is importand for
+  # builds with Qt < 3.21
+  if(ANDROID)
     target_compile_definitions(
       mixxx-lib
       PUBLIC __STDC_CONSTANT_MACROS __STDC_LIMIT_MACROS __STDC_FORMAT_MACROS
@@ -2075,9 +2360,6 @@ if(QT6)
       mixxx-lib
       PUBLIC ANDROID_PACKAGE_NAME="org.mixxx"
     )
-    if(EXISTS "${Qt6Core_DIR}/Qt6AndroidMacros.cmake")
-      include("${Qt6Core_DIR}/Qt6AndroidMacros.cmake")
-    endif()
     qt_add_executable(mixxx src/main.cpp MANUAL_FINALIZATION)
     set_property(
       TARGET mixxx
@@ -2093,27 +2375,51 @@ if(QT6)
     set_target_properties(
       mixxx
       PROPERTIES
-        QT_ANDROID_APPLICATION_ARGUMENTS "--log-level debug --developer"
+        QT_ANDROID_APPLICATION_ARGUMENTS "--qml --log-level debug --developer"
     )
-    qt_add_android_permission(mixxx NAME android.permission.ACCESS_NETWORK_STATE)
-    qt_add_android_permission(mixxx NAME android.permission.INTERNET)
-    qt_add_android_permission(mixxx NAME android.permission.MODIFY_AUDIO_SETTINGS)
-    qt_add_android_permission(mixxx NAME android.permission.RECORD_AUDIO)
-    qt_add_android_permission(mixxx NAME android.permission.WRITE_EXTERNAL_STORAGE)
-    qt_add_android_permission(mixxx NAME android.permission.MANAGE_EXTERNAL_STORAGE)
-    qt_add_android_permission(mixxx NAME android.permission.WAKE_LOCK)
-    qt_add_android_permission(mixxx NAME android.permission.USB_PERMISSION)
-    file(
-      GLOB OMP_LIB
-      "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/lib/clang/*/lib/linux/aarch64/libomp.so"
+    qt_add_android_permission(mixxx
+    NAME android.permission.ACCESS_NETWORK_STATE
     )
-    if(OMP_LIB)
-      list(GET OMP_LIB 0 OMP_LIB_PATH)
-      set_target_properties(
-        mixxx
-        PROPERTIES QT_ANDROID_EXTRA_LIBS "${OMP_LIB_PATH}"
-      )
-    endif()
+    qt_add_android_permission(mixxx
+    NAME android.permission.INTERNET
+    )
+    qt_add_android_permission(mixxx
+    NAME android.permission.MODIFY_AUDIO_SETTINGS
+    )
+    qt_add_android_permission(mixxx
+    NAME android.permission.RECORD_AUDIO
+    )
+    qt_add_android_permission(mixxx
+    NAME android.permission.WRITE_EXTERNAL_STORAGE
+    )
+    qt_add_android_permission(mixxx
+    NAME android.permission.MANAGE_EXTERNAL_STORAGE
+    )
+    qt_add_android_permission(mixxx
+    NAME android.permission.WAKE_LOCK
+    )
+    qt_add_android_permission(mixxx
+    NAME android.permission.USB_PERMISSION
+    )
+    set(
+      CMAKE_LINKER
+      "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/bin/ld"
+    )
+    set(
+      CMAKE_C_COMPILER
+      "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/bin/clang"
+    )
+    set(
+      CMAKE_CXX_COMPILER
+      "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/bin/clang++"
+    )
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fPIC")
+    set_target_properties(
+      mixxx
+      PROPERTIES
+        QT_ANDROID_EXTRA_LIBS
+          ${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/lib/clang/18/lib/linux/aarch64/libomp.so
+    )
     add_custom_target(
       copy-resource-android
       COMMENT "Copy resources folder to Android build asset directory"
@@ -2126,79 +2432,35 @@ if(QT6)
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     )
     add_dependencies(mixxx copy-resource-android)
-    find_package(OpenMP REQUIRED COMPONENTS CXX)
-    target_link_libraries(mixxx-lib PUBLIC OpenMP::OpenMP_CXX)
+    target_link_libraries(mixxx PUBLIC omp)
   else()
     qt_add_executable(mixxx WIN32 src/main.cpp MANUAL_FINALIZATION)
   endif()
 else()
-  set(QT_VERSION_MAJOR 5)
-  set(
-    QT_COMPONENTS
-    Core
-    Concurrent
-    Gui
-    Network
-    OpenGL
-    Qml
-    Quick
-    Sql
-    Svg
-    Test
-    Widgets
-    Xml
-    SvgWidgets
-    Core5Compat
-    PrintSupport
-    Core5Compat
-  )
-  if(NOT APPLE AND NOT WIN32 AND NOT ANDROID)
-    list(APPEND QT_COMPONENTS DBus)
-  endif()
-  if(NOT ANDROID)
-    list(APPEND QT_COMPONENTS PrintSupport Multimedia MultimediaWidgets)
-  endif()
-
-  find_package(Qt5 COMPONENTS ${QT_COMPONENTS} QUIET)
+  find_package(Qt5 COMPONENTS Core) # For Qt Core cmake functions
+  # This is the first package form the environment, if this fails give hints how to install the environment
   if(NOT Qt5_FOUND)
-    list(
-      REMOVE_ITEM
-      QT_COMPONENTS
-      Multimedia
-      MultimediaWidgets
-      SvgWidgets
-      Core5Compat
-      PrintSupport
-    )
-    find_package(Qt5 COMPONENTS ${QT_COMPONENTS} QUIET)
-  endif()
-  foreach(component ${QT_COMPONENTS})
-    if(TARGET Qt5::${component})
-      target_link_libraries(mixxx-lib PUBLIC Qt5::${component})
-    endif()
-  endforeach()
-  #This is the first package form the environment, if this fails give hints how to install the environment
-  if(NOT Qt5_FOUND AND NOT ANDROID)
     fatal_error_missing_env()
   endif()
   add_executable(mixxx WIN32 src/main.cpp)
 endif()
 
 set_target_properties(mixxx-lib PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY}")
-target_link_libraries(mixxx PRIVATE mixxx-lib)
+target_link_libraries(mixxx PRIVATE mixxx-lib mixxx-gitinfostore)
 
 #
-#Installation AND Packaging
+# Installation and Packaging
 #
 if(APPLE)
   if(IOS)
     set(IOS_BUNDLE_VERSION "${CMAKE_PROJECT_VERSION}")
     set(IOS_BUNDLE_SHORTVERSION "${CMAKE_PROJECT_VERSION}")
 
-    # https: // stackoverflow.com/questions/54830302/how-to-add-the-copy-bundle-resources-phase-with-cmake-in-xcode
-    # https: // discourse.cmake.org/t/ios-resource-management/758/7
+    # https://stackoverflow.com/questions/54830302/how-to-add-the-copy-bundle-resources-phase-with-cmake-in-xcode
+    # https://discourse.cmake.org/t/ios-resource-management/758/7
     file(GLOB IOS_RESOURCES res/**)
     list(APPEND IOS_RESOURCES packaging/ios/Assets.xcassets)
+    target_sources(mixxx PUBLIC ${IOS_RESOURCES})
     set_source_files_properties(
       ${IOS_RESOURCES}
       PROPERTIES MACOSX_PACKAGE_LOCATION Resources
@@ -2268,43 +2530,43 @@ if(NOT ANDROID)
     RUNTIME DESTINATION "${MIXXX_INSTALL_BINDIR}"
     BUNDLE DESTINATION .
   )
+
+  # Skins
+  install(
+    DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/res/skins"
+    DESTINATION "${MIXXX_INSTALL_DATADIR}"
+  )
+
+  # Controller mappings
+  install(
+    DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/res/controllers"
+    DESTINATION "${MIXXX_INSTALL_DATADIR}"
+  )
+
+  # Effect presets
+  install(
+    DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/res/effects"
+    DESTINATION "${MIXXX_INSTALL_DATADIR}"
+  )
+
+  # Translation files
+  install(
+    DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/res/translations"
+    DESTINATION "${MIXXX_INSTALL_DATADIR}"
+    FILES_MATCHING
+    PATTERN "*.qm"
+  )
+  # else()
+  #   qt_finalize_target(mixxx-lib)
 endif()
-
-# Skins
-install(
-  DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/res/skins"
-  DESTINATION "${MIXXX_INSTALL_DATADIR}"
-)
-
-# Controller mappings
-install(
-  DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/res/controllers"
-  DESTINATION "${MIXXX_INSTALL_DATADIR}"
-)
-
-# Effect presets
-install(
-  DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/res/effects"
-  DESTINATION "${MIXXX_INSTALL_DATADIR}"
-)
-
-# Translation files
-install(
-  DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/res/translations"
-  DESTINATION "${MIXXX_INSTALL_DATADIR}"
-  FILES_MATCHING
-  PATTERN "*.qm"
-)
-# else()
-#   qt_finalize_target(mixxx-lib)
 
 # Font files
 #
-# Font installation is only enabled on Windows AND macOS, because on Linux/BSD
+# Font installation is only enabled on Windows and macOS, because on Linux/BSD
 # fonts should be installed via the package manager. Whenever a new font is
 # added to Mixxx, its package name also needs to be added to
-# tools/debian_buildenv.sh. If that font is NOT packaged on most distros, we
-# need to re-enable font installation on Linux/BSD AND exclude the packaged
+# tools/debian_buildenv.sh. If that font is not packaged on most distros, we
+# need to re-enable font installation on Linux/BSD and exclude the packaged
 # fonts here.
 if(APPLE OR WIN32)
   install(
@@ -2342,7 +2604,7 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/res/Mixxx-Manual.pdf")
 endif()
 
 # Additional Linux-only files
-if(UNIX AND NOT APPLE AND NOT ANDROID)
+if(UNIX AND NOT APPLE)
   # .desktop file for KDE/GNOME menu
   install(
     FILES "${CMAKE_CURRENT_SOURCE_DIR}/res/linux/org.mixxx.Mixxx.desktop"
@@ -2365,7 +2627,7 @@ if(UNIX AND NOT APPLE AND NOT ANDROID)
 
   option(
     INSTALL_USER_UDEV_RULES
-    "Install user udev rule file for USB HID AND Bulk controllers"
+    "Install user udev rule file for USB HID and Bulk controllers"
     ON
   )
   if(INSTALL_USER_UDEV_RULES)
@@ -2374,7 +2636,7 @@ if(UNIX AND NOT APPLE AND NOT ANDROID)
       CMAKE_INSTALL_PREFIX STREQUAL "/usr"
       OR CMAKE_INSTALL_PREFIX STREQUAL "/"
     )
-      # /usr AND / install prefixes at treated by cmake GNUInstallDirs as
+      # /usr and / install prefixes at treated by cmake GNUInstallDirs as
       # synonym for "system location". In this case we can look up the correct udevdir
       # using pkg-config.
       # See: https://cmake.org/cmake/help/latest/module/GNUInstallDirs.html#special-cases
@@ -2399,100 +2661,21 @@ if(UNIX AND NOT APPLE AND NOT ANDROID)
         DESTINATION "${MIXXX_UDEVDIR}/rules.d"
       )
       install(
-        CODE ""
-        message
-        (
-          STATUS
-          \"Important
-          Note:
-          Installation
-          of
-          udev
-          rules\n\"
-          \"The
-          udev
-          rule
-          file
-          for
-          USB
-          HID
-          AND
-          Bulk
-          controller
-          permissions
-          have
-          been\n\"
-          \"installed
-          to:\n\"
-          \"
-          ${MIXXX_UDEVDIR}/rules.d.\n\"
-          \"If
-          you
-          are
-          installing
-          Mixxx
-          from
-          source
-          for
-          your
-          own
-          use,
-          copy\n\"
-          \"mixxx-usb-uaccess.rules
-          to
-          /etc/udev/rules.d/
-          AND
-          run:\n\"
-          \"
-          udevadm
-          control
-          --reload-rules
-          &&
-          udevadm
-          trigger\n\"
-          \"as
-          root
-          to
-          load
-          the
-          rules.\n\"
-          \"If
-          you
-          are
-          building
-          a
-          package
-          for
-          a
-          distribution,
-          the
-          correct
-          directory
-          for\n\"
-          \"system
-          rules
-          is
-          either
-          /lib/udev/rules.d
-          (e.g. Debian, Fedora)
-          OR\n\"
-          \"/usr/lib/udev/rules.d
-          (e.g. Arch Linux)
-          with
-          an
-          appropriate
-          priority
-          prefix.\n\"
-          \"Adjust
-          your
-          package
-          script
-          accordingly
-          AND
-          set
-          -DINSTALL_USER_UDEV_RULES=OFF\"
-        )
-        ""
+        CODE
+          "
+      message(STATUS \"Important Note: Installation of udev rules\n\"
+          \"The udev rule file for USB HID and Bulk controller permissions have been\n\"
+          \"installed to:\n\"
+          \"    ${MIXXX_UDEVDIR}/rules.d.\n\"
+          \"If you are installing Mixxx from source for your own use, copy\n\"
+          \"mixxx-usb-uaccess.rules to /etc/udev/rules.d/ and run:\n\"
+          \"    udevadm control --reload-rules && udevadm trigger\n\"
+          \"as root to load the rules.\n\"
+          \"If you are building a package for a distribution, the correct directory for\n\"
+          \"system rules is either /lib/udev/rules.d (e.g. Debian, Fedora) or\n\"
+          \"/usr/lib/udev/rules.d (e.g. Arch Linux) with an appropriate priority prefix.\n\"
+          \"Adjust your package script accordingly and set -DINSTALL_USER_UDEV_RULES=OFF\")
+      "
       )
     else()
       install(
@@ -2517,8 +2700,8 @@ endif()
 
 if(WIN32 AND NOT QT6)
   # Qt 5 loads these ANGLE DLLs at runtime if the graphics driver is on the ignore list.
-  # It does NOT work with Debug, because the debug version is compiled without the a d suffix
-  find_package(unofficial-angle CONFIG QUIET)
+  # It does not work with Debug, because the debug version is compiled without the a d suffix
+  find_package(unofficial-angle CONFIG REQUIRED)
   install(
     IMPORTED_RUNTIME_ARTIFACTS
       unofficial::angle::libEGL
@@ -2531,21 +2714,20 @@ if(WIN32 AND NOT QT6)
       COMPONENT
       applocal
   )
-  set(APPLOCAL_COMPONENT_defined true)
+  set(APPLOCAL_COMPONENT_DEFINED true)
 endif()
 
 #
 # Tests
 #
 
-include(GoogleTest)
 find_package(GTest CONFIG)
 default_option(BUILD_TESTING "Build with Unittests" "GTest_FOUND")
 if(BUILD_TESTING)
   if(GTest_FOUND)
     message(STATUS "Found GTest: Unittests enabled")
   else()
-    message(FATAL_ERROR "GTest: NOT found")
+    message(FATAL_ERROR "GTest: not found")
   endif()
   add_compile_definitions(BUILD_TESTING)
 endif()
@@ -2556,7 +2738,7 @@ if(BUILD_BENCH AND BUILD_TESTING)
   if(benchmark_FOUND)
     message(STATUS "Found google-benchmark: mixxx-benchmark enabled")
   else()
-    message(FATAL_ERROR "google-benchmark: NOT found")
+    message(FATAL_ERROR "google-benchmark: not found")
   endif()
 elseif(BUILD_BENCH AND NOT BUILD_TESTING)
   message(FATAL_ERROR "Benchmark needs Unittests (-DBUILD_TESTING=ON)")
@@ -2565,15 +2747,15 @@ endif()
 # FFmpeg support
 # FFmpeg is multimedia library that can be found http://ffmpeg.org/
 find_package(FFMPEG COMPONENTS libavcodec libavformat libavutil libswresample)
-default_option(FFMPEG "FFmpeg support (version 4.1.9 OR later)" "FFMPEG_FOUND")
+default_option(FFMPEG "FFmpeg support (version 4.1.9 or later)" "FFMPEG_FOUND")
 if(FFMPEG)
   if(NOT FFMPEG_FOUND)
-    message(FATAL_ERROR "FFMPEG was NOT found")
+    message(FATAL_ERROR "FFMPEG was not found")
   endif()
 
   # Check minimum required versions
   # Minimum library versions according to <https://ffmpeg.org/download.html>
-  # Windows: Version numbers are NOT available!?
+  # Windows: Version numbers are not available!?
   # macOS: Untested
   if(
     FFMPEG_libavcodec_VERSION
@@ -2612,6 +2794,18 @@ if(FFMPEG)
     )
   endif()
 
+  target_sources(mixxx-lib PRIVATE src/sources/soundsourceffmpeg.cpp)
+if(NETWORKAUTH)
+  target_sources(
+    mixxx-lib
+    PRIVATE
+      src/library/spotify/spotifyfeature.cpp
+      src/library/youtube/youtubefeature.cpp
+      src/library/youtube/youtubeservice.cpp
+      src/sources/spotify/soundsourcespotify.cpp
+      src/sources/youtube/soundsourceyoutube.cpp
+  )
+endif()
   target_compile_definitions(
     mixxx-lib
     PUBLIC
@@ -2633,11 +2827,26 @@ if(STEM)
   endif()
   target_compile_definitions(mixxx-lib PUBLIC __STEM__)
   list(APPEND MIXXX_LIB_PRECOMPILED_HEADER src/track/steminfo.h)
+  target_sources(
+    mixxx-lib
+    PRIVATE
+      src/sources/soundsourcestem.cpp
+      src/track/steminfoimporter.cpp
+      src/track/steminfo.cpp
+      src/widget/wtrackstemmenu.cpp
+      src/widget/wstemlabel.cpp
+  )
+  if(QOPENGL)
+    target_sources(
+      mixxx-lib
+      PRIVATE src/waveform/renderers/allshader/waveformrendererstem.cpp
+    )
+  endif()
 endif()
 
 if(BUILD_TESTING)
   set(
-    src-mixxx-TEST
+    src-mixxx-test
     src/test/analyserwaveformtest.cpp
     src/test/analyzersilence_test.cpp
     src/test/audiotaperpot_test.cpp
@@ -2658,7 +2867,6 @@ if(BUILD_TESTING)
     src/test/colormapperjsproxy_test.cpp
     src/test/colorpalette_test.cpp
     src/test/configobject_test.cpp
-    src/test/controller_mapping_validation_test.h
     src/test/controller_mapping_validation_test.cpp
     src/test/controller_mapping_settings_test.cpp
     src/test/controllers/controller_columnid_regression_test.cpp
@@ -2714,6 +2922,8 @@ if(BUILD_TESTING)
     src/test/playcountertest.cpp
     src/test/playermanagertest.cpp
     src/test/playlisttest.cpp
+    src/test/portmidicontroller_test.cpp
+    src/test/portmidienumeratortest.cpp
     src/test/queryutiltest.cpp
     src/test/rangelist_test.cpp
     src/test/readaheadmanager_test.cpp
@@ -2754,8 +2964,8 @@ if(BUILD_TESTING)
   )
   if(STEM)
     set(
-      src-mixxx-TEST
-      ${src-mixxx-TEST}
+      src-mixxx-test
+      ${src-mixxx-test}
       src/test/stemtest.cpp
       src/test/steminfotest.cpp
       src/test/stemcontrolobjecttest.cpp
@@ -2763,8 +2973,8 @@ if(BUILD_TESTING)
   endif()
   if(BUILD_BENCH)
     set(
-      src-mixxx-TEST
-      ${src-mixxx-TEST}
+      src-mixxx-test
+      ${src-mixxx-test}
       src/test/engineeffectsdelay_test.cpp
       src/test/movinginterquartilemean_test.cpp
       src/test/nativeeffects_test.cpp
@@ -2774,12 +2984,49 @@ if(BUILD_TESTING)
     )
   endif()
 
-  add_executable(mixxx-TEST ${src-mixxx-TEST})
-  target_include_directories(
-    mixxx-TEST
-    PRIVATE src "${CMAKE_CURRENT_BINARY_DIR}/src"
+  add_executable(mixxx-test ${src-mixxx-test})
+  target_compile_definitions(
+    mixxx-test
+    PUBLIC RESOURCE_FOLDER="${CMAKE_CURRENT_SOURCE_DIR}/res"
   )
-  target_link_libraries(mixxx-TEST PRIVATE mixxx-lib)
+
+  if(HID)
+    target_sources(
+      mixxx-test
+      PRIVATE src/test/controller_hid_reportdescriptor_test.cpp
+    )
+  endif()
+
+  if(QML)
+    target_sources(
+      mixxx-test
+      PRIVATE
+        src/test/controller_mapping_file_handler_test.cpp
+        src/test/controllerrenderingengine_test.cpp
+        src/test/qmlcontrolproxytest.cpp
+    )
+  endif()
+
+  if(AU_EFFECTS)
+    target_sources(mixxx-test PRIVATE src/test/audiounitmanager_test.mm)
+  endif()
+
+  set_target_properties(mixxx-test PROPERTIES AUTOMOC ON)
+  target_link_libraries(
+    mixxx-test
+    PRIVATE mixxx-lib mixxx-gitinfostore GTest::gtest GTest::gmock
+  )
+
+  if(BUILD_BENCH)
+    add_compile_definitions(USE_BENCH)
+    target_link_libraries(mixxx-test PRIVATE benchmark::benchmark)
+  endif()
+
+  # Test Suite
+  include(CTest)
+  include(GoogleTest)
+  enable_testing()
+
   file(
     GLOB_RECURSE CONTROLLER_BULK_MAPPING_LIST
     "${CMAKE_CURRENT_SOURCE_DIR}/res/controllers/*.bulk.xml"
@@ -2792,20 +3039,19 @@ if(BUILD_TESTING)
     GLOB_RECURSE CONTROLLER_MIDI_MAPPING_LIST
     "${CMAKE_CURRENT_SOURCE_DIR}/res/controllers/*.midi.xml"
   )
-  list(JOIN CONTROLLER_BULK_MAPPING_LIST "|" CONTROLLER_BULK_MAPPINGS)
-  list(JOIN CONTROLLER_HID_MAPPING_LIST "|" CONTROLLER_HID_MAPPINGS)
-  list(JOIN CONTROLLER_MIDI_MAPPING_LIST "|" CONTROLLER_MIDI_MAPPINGS)
+  list(JOIN CONTROLLER_BULK_MAPPING_LIST "\",\"" CONTROLLER_BULK_MAPPINGS)
+  list(JOIN CONTROLLER_HID_MAPPING_LIST "\",\"" CONTROLLER_HID_MAPPINGS)
+  list(JOIN CONTROLLER_MIDI_MAPPING_LIST "\",\"" CONTROLLER_MIDI_MAPPINGS)
 
   target_compile_definitions(
-    mixxx-TEST
-    PUBLIC RESOURCE_FOLDER="${CMAKE_CURRENT_SOURCE_DIR}/res"
+    mixxx-test
     PUBLIC CONTROLLER_BULK_MAPPINGS="${CONTROLLER_BULK_MAPPINGS}"
     PUBLIC CONTROLLER_HID_MAPPINGS="${CONTROLLER_HID_MAPPINGS}"
     PUBLIC CONTROLLER_MIDI_MAPPINGS="${CONTROLLER_MIDI_MAPPINGS}"
   )
 
   gtest_discover_tests(
-    mixxx-TEST
+    mixxx-test
     EXTRA_ARGS --logLevel info
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     TEST_LIST testsuite
@@ -2816,21 +3062,21 @@ if(BUILD_TESTING)
     # Benchmarking
     add_custom_target(
       mixxx-benchmark
-      COMMAND $<TARGET_FILE:mixxx-TEST> --benchmark
+      COMMAND $<TARGET_FILE:mixxx-test> --benchmark
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
       COMMENT "Mixxx Benchmarks"
       VERBATIM
     )
-    add_dependencies(mixxx-benchmark mixxx-TEST)
+    add_dependencies(mixxx-benchmark mixxx-test)
   endif()
 endif() # BUILD_TESTING
 
 #
 # Resources
 #
-# Add resources to mixxx AND mixxx-TEST binaries, NOT the mixxx-lib static
+# Add resources to mixxx and mixxx-test binaries, not the mixxx-lib static
 # library. Doing this would require initialization using Q_INIT_RESOURCE()
-# calls that are NOT present at the moment. Further information can be found
+# calls that are not present at the moment. Further information can be found
 # at: https://doc.qt.io/qt5/resources.html#using-resources-in-a-library
 option(DOWNLOAD_MANUAL "Download Manual PDF from Mixxx website" OFF)
 if(
@@ -2843,275 +3089,43 @@ if(
   )
   message(STATUS "Downloading manual from ${MANUAL_URL}...")
   file(
-    DOWNLOAD "${MANUAL_URL}"
-    "${CMAKE_CURRENT_BINARY_DIR}/res/Mixxx-Manual.pdf"
+    DOWNLOAD "${MANUAL_URL}" "${CMAKE_CURRENT_BINARY_DIR}/res/Mixxx-Manual.pdf"
     SHOW_PROGRESS
     STATUS MANUAL_PDF_DOWNLOAD
     TLS_VERIFY ON
   )
   list(GET MANUAL_PDF_DOWNLOAD 0 MANUAL_PDF_DOWNLOAD_ERROR)
   if(NOT MANUAL_PDF_DOWNLOAD_ERROR EQUAL 0)
-    list(GET MANUAL_PDF_DOWNLOAD 1 MANUAL_PDF_DOWNLOAD_MESSAGE)
+    list(GET MANUAL_PDF_DOWNLOAD 1 MANUAL_PDF_DOWNLOAD_MESSGAE)
     message(
       FATAL_ERROR
       "Manual PDF download failed with: "
-      "${MANUAL_PDF_DOWNLOAD_MESSAGE} Code: ${MANUAL_PDF_DOWNLOAD_ERROR}. "
-      "Either download it yourself AND move it to "
-      "'${CMAKE_CURRENT_SOURCE_DIR}/res/Mixxx-Manual.pdf' OR "
+      "${MANUAL_PDF_DOWNLOAD_MESSGAE} Code: ${MANUAL_PDF_DOWNLOAD_ERROR}. "
+      "Either download it yourself and move it to "
+      "'${CMAKE_CURRENT_SOURCE_DIR}/res/Mixxx-Manual.pdf' or "
       "reconfigure with -DDOWNLOAD_MANUAL=OFF to build without included "
       "manual."
     )
   endif()
   file(
-    RENAME "${CMAKE_CURRENT_BINARY_DIR}/res/Mixxx-Manual.pdf"
+    RENAME
+    "${CMAKE_CURRENT_BINARY_DIR}/res/Mixxx-Manual.pdf"
     "${CMAKE_CURRENT_SOURCE_DIR}/res/Mixxx-Manual.pdf"
   )
 endif()
 
+target_sources(mixxx PRIVATE res/mixxx.qrc)
 set_target_properties(mixxx PROPERTIES AUTORCC ON)
 if(BUILD_TESTING)
-  set_target_properties(mixxx-TEST PROPERTIES AUTOMOC ON AUTORCC ON)
+  target_sources(mixxx-test PRIVATE res/mixxx.qrc)
+  set_target_properties(mixxx-test PROPERTIES AUTORCC ON)
 endif()
 
-set(SOURCE_TARGET "mixxx")
-if(QT6)
-  set(QT_VERSION_MAJOR 6)
+if(MIXXX_VERSION_PRERELEASE STREQUAL "")
+  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}")
 else()
-  set(QT_VERSION_MAJOR 5)
+  set(MIXXX_VERSION "${CMAKE_PROJECT_VERSION}-${MIXXX_VERSION_PRERELEASE}")
 endif()
-
-# lint_cmake: -readability/wonkycase
-
-message(STATUS "CMAKE_VERSION: ${CMAKE_VERSION}")
-
-# CMAKE_CXX_COMPILER_ID: Distinguish between "AppleClang" AND "Clang"
-if(POLICY CMP0025)
-  cmake_policy(SET CMP0025 NEW)
-endif()
-
-# MACOSX_RPATH is set by default
-if(POLICY CMP0042)
-  cmake_policy(SET CMP0042 NEW)
-endif()
-
-# Support new IN_LIST if() operator
-if(POLICY CMP0057)
-  cmake_policy(SET CMP0057 NEW)
-endif()
-
-# Enforce interprocedural optimization
-if(POLICY CMP0069)
-  cmake_policy(SET CMP0069 NEW)
-endif()
-
-# Let AUTOMOC AND AUTOUIC process GENERATED files
-if(POLICY CMP0071)
-  cmake_policy(SET CMP0071 NEW)
-endif()
-
-# Propagate interface link properties
-if(POLICY CMP0099)
-  # This avoids a warning when qt deals with different behaviours controlled by this POLICY
-  # in its cmake functions. See
-  # https://github.com/qt/qtbase/commit/e3e1007f9778d8fc629a06f7d3d216bb7f81351b
-  cmake_policy(SET CMP0099 NEW)
-endif()
-
-# Add support for cmake_dependent_option
-if(POLICY CMP0127)
-  cmake_policy(SET CMP0127 NEW)
-endif()
-
-# An imported TARGET missing its location property fails during generation.
-if(POLICY CMP0111)
-  cmake_policy(SET CMP0111 NEW)
-endif()
-
-# Set the timestamp of extracted files to the time of the extraction instead of
-# the archived timestamp to make sure that dependent files are rebuilt if the
-# URL changes.
-if(POLICY CMP0135)
-  cmake_policy(SET CMP0135 NEW)
-endif()
-
-# Use this function to throw an error because the build environment is NOT set
-# up correctly.
-
-if(UNIX AND NOT APPLE AND NOT ANDROID)
-  execute_process(
-    COMMAND uname -r
-    OUTPUT_VARIABLE UNAME_R
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-  )
-  if(UNAME_R MATCHES ".*[Mm]icrosoft.*" OR UNAME_R MATCHES ".*WSL.*")
-    message(
-      FATAL_ERROR
-      "Building on Windows Subsystem for Linux (WSL) is NOT supported. If you want to build Mixxx from COMMAND line on Windows, you need to use the \"x64 Native Tools Command Prompt for VS 2022\"!"
-    )
-  endif()
-endif()
-if(WIN32)
-  # Check if we are running from "Visual Studio 20XX Developer Command Prompt"
-  if(NOT DEFINED ENV{INCLUDE})
-    message(
-      FATAL_ERROR
-      "The INCLUDE environment variable is NOT DEFINED. Please ensure you are using the correct shell like 'x64 Native Tools Command Prompt for VS 20XX'"
-    )
-  endif()
-endif()
-
-set(
-  X_VCPKG_APPLOCAL_DEPS_INSTALL
-  ON
-  CACHE BOOL
-  "Automatically copy dependencies into the install TARGET directory for executables."
-  FORCE
-)
-
-# Set a default build type if none was specified
-# See https://blog.kitware.com/cmake-AND-the-default-build-type/ for details.
-set(default_build_type "RelWithDebInfo")
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git" AND NOT WIN32 AND NOT ANDROID)
-  # On Windows AND Android, Debug builds are linked to unoptimized libs
-  # generating unusable slow Mixxx builds.
-  set(default_build_type "Debug")
-endif()
-
-if(NOT CMAKE_CONFIGURATION_TYPES)
-  if(NOT CMAKE_BUILD_TYPE)
-    message(
-      STATUS
-      "Setting CMAKE_BUILD_TYPE to '${default_build_type}' as none was specified."
-    )
-    set(
-      CMAKE_BUILD_TYPE
-      "${default_build_type}"
-      CACHE STRING
-      "Choose the type of build."
-      FORCE
-    )
-    # Set the possible values of build type for cmake-gui
-    set_property(
-      CACHE CMAKE_BUILD_TYPE
-      PROPERTY STRINGS "Debug" "Release" "RelWithDebInfo"
-    )
-  elseif(NOT CMAKE_BUILD_TYPE MATCHES "^(Debug|Release|RelWithDebInfo)$")
-    message(
-      FATAL_ERROR
-      "CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} is NOT supported, use one of Debug, Release OR RelWithDebInfo."
-    )
-  endif()
-endif()
-
-if(QT6)
-  set(QOPENGL ON CACHE INTERNAL "Forced ON because QT6=ON")
-else()
-  option(QOPENGL "Use QOpenGLWindow based widget instead of QGLWidget" ON)
-endif()
-
-if(QOPENGL)
-  add_compile_definitions(MIXXX_USE_QOPENGL)
-endif()
-
-if(QML)
-  add_compile_definitions(MIXXX_USE_QML)
-endif()
-
-if(VCPKG_TARGET_TRIPLET MATCHES "^wasm(32|64)-emscripten")
-  message(STATUS "Targeting Emscripten (${VCPKG_TARGET_TRIPLET})")
-  if(DEFINED ENV{EMSDK})
-    message(STATUS "Found EMSDK at $ENV{EMSDK}")
-  else()
-    message(
-      FATAL_ERROR
-      "Please make sure emsdk is installed AND the environment variable EMSDK is set (see https://emscripten.org/docs/getting_started/downloads.html)"
-    )
-  endif()
-  if(NOT DEFINED VCPKG_CHAINLOAD_TOOLCHAIN_FILE)
-    set(
-      VCPKG_CHAINLOAD_TOOLCHAIN_FILE
-      "$ENV{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
-      CACHE STRING
-      ""
-    )
-  endif()
-  # Enabling this causes Qt's FindWrapRt C++ compile check to fail as it tries
-  # to run `clang-scan-deps` (because we set the C++ standard to 20). Emscripten
-  # does NOT ship this binary yet, though. Potentially relevant upstream bug:
-  # https://github.com/emscripten-core/emscripten/issues/21042
-  set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
-elseif(APPLE)
-  # Check if xcode-select is installed
-  execute_process(
-    COMMAND xcode-select -v
-    RESULT_VARIABLE XCODE_SELECT_RESULT
-    OUTPUT_QUIET
-  )
-  if(XCODE_SELECT_RESULT)
-    # xcode-select COMMAND failed, meaning it is NOT installed OR NOT configured properly
-    message(
-      FATAL_ERROR
-      "'xcode-select -v' failed with '${XCODE_SELECT_RESULT}'. You may need to install Xcode AND run 'sudo xcode-select --install'."
-    )
-  endif()
-
-  if(VCPKG_TARGET_TRIPLET MATCHES "^[a-zA-Z0-9]+-osx")
-    message(STATUS "Targeting macOS (${VCPKG_TARGET_TRIPLET})")
-    set(CMAKE_SYSTEM_NAME Darwin CACHE STRING "Target macOS")
-    if(VCPKG_TARGET_TRIPLET MATCHES "^arm64-")
-      # Minimum macOS version for arm64 Support
-      set(
-        CMAKE_OSX_DEPLOYMENT_TARGET
-        11.0
-        CACHE STRING
-        "Minimum macOS version the build will be able to run on"
-      )
-      set(CMAKE_OSX_ARCHITECTURES arm64 CACHE STRING "The TARGET architecture")
-      set(
-        CMAKE_SYSTEM_PROCESSOR
-        arm64
-        CACHE STRING
-        "The TARGET system processor"
-      )
-    else()
-      if(QT6)
-        # Minimum macOS version supported by Qt 6.5
-        set(
-          CMAKE_OSX_DEPLOYMENT_TARGET
-          11.0
-          CACHE STRING
-          "Minimum macOS version the build will be able to run on"
-        )
-      else()
-        # Minimum macOS version supported by Qt 5.12
-        set(
-          CMAKE_OSX_DEPLOYMENT_TARGET
-          10.12
-          CACHE STRING
-          "Minimum macOS version the build will be able to run on"
-        )
-        # Needed for deployment TARGET < 10.14
-        add_compile_options(-fno-aligned-allocation)
-      endif()
-    endif()
-  elseif(VCPKG_TARGET_TRIPLET MATCHES "^[a-zA-Z0-9]+-ios")
-    message(STATUS "Targeting iOS (${VCPKG_TARGET_TRIPLET})")
-    set(CMAKE_SYSTEM_NAME iOS CACHE STRING "Target iOS")
-    set(
-      CMAKE_OSX_DEPLOYMENT_TARGET
-      14.0
-      CACHE STRING
-      "Minimum iOS version to TARGET"
-    )
-  else()
-    message(
-      WARNING
-      "Targeting an Apple platform, but VCPKG_TARGET_TRIPLET is NOT set. This is NOT a supported scenario!"
-    )
-  endif()
-endif()
-
-# Work around missing version suffixes support https://gitlab.kitware.com/cmake/cmake/-/issues/16716
 
 get_target_property(MIXXX_BUILD_FLAGS mixxx-lib COMPILE_OPTIONS)
 
@@ -3132,13 +3146,57 @@ if(
   )
 endif()
 
-if(MIXXX_VERSION_PRERELEASE STREQUAL "")
-  set(MIXXX_PRERELEASE 0)
-else()
-  set(MIXXX_PRERELEASE 1)
-endif()
+add_custom_target(
+  mixxx-gitinfo
+  # Note: We don't quote the paths in the command since CMake already inserts
+  # escapes (which, if quoted, lead to paths wrongly containing backslashes).
+  # See https://stackoverflow.com/questions/8925396/why-does-cmake-prefixes-spaces-with-backslashes-when-executing-a-command
+  COMMAND
+    ${CMAKE_COMMAND} -DGIT_DESCRIBE=${GIT_DESCRIBE}
+    -DGIT_COMMIT_DATE=${GIT_COMMIT_DATE}
+    -DINPUT_FILE=${CMAKE_CURRENT_SOURCE_DIR}/src/gitinfo.h.in
+    -DOUTPUT_FILE=${CMAKE_CURRENT_BINARY_DIR}/src/gitinfo.h -P
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/scripts/gitinfo.cmake
+  COMMENT "Update git version information in gitinfo.h"
+  BYPRODUCTS "${CMAKE_CURRENT_BINARY_DIR}/src/gitinfo.h"
+  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+)
 
-# uses MIXXX_YEAR MIXXX_FILEVERSION MIXXX_PRODUCTVERSION MIXXX_VERSION MIXXX_DEBUG MIXXX_PRERELEASE
+# Windows-only resource file
+if(WIN32)
+  string(TIMESTAMP MIXXX_YEAR "%Y")
+
+  set(
+    MIXXX_FILEVERSION
+    "${CMAKE_PROJECT_VERSION_MAJOR},${CMAKE_PROJECT_VERSION_MINOR},${CMAKE_PROJECT_VERSION_PATCH}"
+  )
+  set(MIXXX_PRODUCTVERSION "${MIXXX_FILEVERSION}")
+
+  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(MIXXX_DEBUG 1)
+  else()
+    set(MIXXX_DEBUG 0)
+  endif()
+
+  if(MIXXX_VERSION_PRERELEASE STREQUAL "")
+    set(MIXXX_PRERELEASE 0)
+  else()
+    set(MIXXX_PRERELEASE 1)
+  endif()
+
+  # uses MIXXX_YEAR MIXXX_FILEVERSION MIXXX_PRODUCTVERSION MIXXX_VERSION MIXXX_DEBUG MIXXX_PRERELEASE
+  configure_file("src/mixxx.rc.include.in" "src/mixxx.rc.include" @ONLY)
+  add_dependencies(mixxx mixxx-gitinfo)
+
+  target_sources(
+    mixxx
+    PRIVATE
+      src/mixxx.rc
+      "${CMAKE_CURRENT_BINARY_DIR}/src/mixxx.rc.include"
+      "${CMAKE_CURRENT_BINARY_DIR}/src/gitinfo.h"
+  )
+  target_include_directories(mixxx PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+endif()
 
 # Chromaprint
 find_package(Chromaprint)
@@ -3153,7 +3211,7 @@ find_package(SQLite3)
 # For LOCALECOMPARE we call directly sqlite functions to the database opened by
 # Qt. It only works without crashing when Mixxx links to the same sqlite
 # library as Qt.
-# This is difficult on macOS where system the SQLite can be installed AND linked
+# This is difficult on macOS where system the SQLite can be installed and linked
 # dynamically from various locations. There is no issue in case of static
 # linking which would result in a duplicate symbol error.
 if(NOT SQLite3_FOUND)
@@ -3177,7 +3235,7 @@ if(LOCALECOMPARE)
   if(NOT SQLite3_FOUND)
     message(
       FATAL_ERROR
-      "Locale Aware Compare for SQLite requires libsqlite AND its development headers."
+      "Locale Aware Compare for SQLite requires libsqlite and its development headers."
     )
   endif()
   target_compile_definitions(mixxx-lib PUBLIC __SQLITE3__)
@@ -3190,10 +3248,10 @@ endif()
 # Denon Engine Prime library export support (using libdjinterop)
 option(ENGINEPRIME "Support for library export to Denon Engine Prime" ON)
 if(ENGINEPRIME)
-  # libdjinterop does NOT currently have a stable ABI, so we fetch sources for a specific tag, build here, AND link
+  # libdjinterop does not currently have a stable ABI, so we fetch sources for a specific tag, build here, and link
   # statically.  This situation should be reviewed once libdjinterop hits version 1.x.
   set(LIBDJINTEROP_VERSION 0.27.0)
-  # Look whether an existing installation of libdjinterop MATCHES the required version.
+  # Look whether an existing installation of libdjinterop matches the required version.
   find_package(DjInterop ${LIBDJINTEROP_VERSION} EXACT CONFIG)
   if(NOT DjInterop_FOUND)
     find_package(DjInterop ${LIBDJINTEROP_VERSION} EXACT MODULE)
@@ -3204,7 +3262,7 @@ if(ENGINEPRIME)
     message(STATUS "STATIC link existing system installation of libdjinterop")
     target_link_libraries(mixxx-lib PUBLIC DjInterop::DjInterop)
   else()
-    # On MacOS, Mixxx does NOT use system SQLite, so we will use libdjinterop's
+    # On MacOS, Mixxx does not use system SQLite, so we will use libdjinterop's
     # embedded SQLite in such a case.
     if(APPLE AND NOT SQLite3_IS_STATIC)
       message(
@@ -3229,21 +3287,22 @@ if(ENGINEPRIME)
       "lib/${CMAKE_STATIC_LIBRARY_PREFIX}djinterop${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
 
-    # CMake does NOT pass lists of paths properly to external projects.
+    # CMake does not pass lists of paths properly to external projects.
     # This is worked around by changing the list separator.
     string(
-      REPLACE ";"
+      REPLACE
+      ";"
       "|"
       PIPE_DELIMITED_CMAKE_PREFIX_PATH
       "${CMAKE_PREFIX_PATH}"
     )
 
-    # For offline builds download the archive file from the URL AND
+    # For offline builds download the archive file from the URL and
     # copy it into DOWNLOAD_DIR under DOWNLOAD_NAME prior to starting
     # the configuration.
     #
-    # If you want to TEST (locally) an experimental fork/branch of libdjinterop,
-    # you can comment out URL AND URL_HASH AND use GIT_REPOSITORY instead:
+    # If you want to test (locally) an experimental fork/branch of libdjinterop,
+    # you can comment out URL and URL_HASH and use GIT_REPOSITORY instead:
     #
     # GIT_REPOSITORY "https://github.com/abcd/your-fork-of-libdjinterop"
     # GIT_TAG "origin/name-of-your-branch"
@@ -3279,24 +3338,24 @@ if(ENGINEPRIME)
     )
 
     # Since we have built libdjinterop from sources as a static library, its
-    # transitive dependencies are NOT automatically recognised.  libdjinterop
-    # depends on zlib AND optionally sqlite3.  If libdjinterop was configured
+    # transitive dependencies are not automatically recognised.  libdjinterop
+    # depends on zlib and optionally sqlite3.  If libdjinterop was configured
     # to depend on system SQLite, Mixxx will already have the dependency.
-    # But it does NOT have zlib, so we explicitly add that here.
-    find_package(ZLIB 1.2.8 QUIET)
-    # The include folder needs to already exist, otherwise INTERFACE_INCLUDE_DIRECTORIES will NOT be propagated
+    # But it does not have zlib, so we explicitly add that here.
+    find_package(ZLIB 1.2.8 REQUIRED)
+    # The include folder needs to already exist, otherwise INTERFACE_INCLUDE_DIRECTORIES will not be propagated
     file(MAKE_DIRECTORY "${DJINTEROP_INSTALL_DIR}/include")
 
     if(NOT CMAKE_GENERATOR STREQUAL "Ninja")
       # Required for 'CMakeFiles/mixxx-lib_autogen_timestamp_deps'
-      # This tells 'make' that the libdjinterop is required for the djinterop library
-      # BUILD_BYPRODUCTS work for Ninja only, while this workaround does NOT work for Ninja on macOS
+      # This tells 'make" that the libdjinterop is required for the djinterop library
+      # BUILD_BYPRODUCTS work for Ninja only, while this workaround does not work for Ninja on macOS
       add_custom_command(
         OUTPUT "${DJINTEROP_INSTALL_DIR}/${DJINTEROP_LIBRARY}"
         DEPENDS libdjinterop
         COMMAND echo libdjinterop installed
         COMMENT
-          "Tell 'make' that libdjinterop is required for the djinterop TARGET"
+          "Tell 'make' that libdjinterop is required for the djinterop target"
       )
     endif()
 
@@ -3311,7 +3370,7 @@ if(ENGINEPRIME)
     )
     add_dependencies(mixxx-libdjinterop libdjinterop)
     # Add the local include directory explicitly before linking the library
-    # to make sure NOT the system provided headers are used
+    # to make sure not the system provided headers are used
     target_include_directories(
       mixxx-lib
       BEFORE
@@ -3321,11 +3380,18 @@ if(ENGINEPRIME)
   endif()
 
   # Include conditional sources only required with Engine Prime export support.
+  target_sources(
+    mixxx-lib
+    PRIVATE
+      src/library/export/dlglibraryexport.cpp
+      src/library/export/engineprimeexportjob.cpp
+      src/library/export/libraryexporter.cpp
+  )
   target_compile_definitions(mixxx-lib PUBLIC __ENGINEPRIME__)
 endif()
 
 # Ebur128
-find_package(Ebur128 QUIET)
+find_package(Ebur128 REQUIRED)
 target_link_libraries(mixxx-lib PRIVATE Ebur128::Ebur128)
 
 # FidLib
@@ -3375,7 +3441,7 @@ if(KEYFINDER)
     target_link_libraries(mixxx-lib PRIVATE KeyFinder::KeyFinder)
   else()
     # If KeyFinder is built statically, we need FFTW
-    find_package(FFTW3 QUIET)
+    find_package(FFTW3 REQUIRED)
     set(
       KeyFinder_INSTALL_DIR
       "${CMAKE_CURRENT_BINARY_DIR}/lib/keyfinder-install"
@@ -3385,16 +3451,17 @@ if(KEYFINDER)
       "${CMAKE_INSTALL_LIBDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}keyfinder${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
 
-    # CMake does NOT pass lists of paths properly to external projects.
+    # CMake does not pass lists of paths properly to external projects.
     # This is worked around by changing the list separator.
     string(
-      REPLACE ";"
+      REPLACE
+      ";"
       "|"
       PIPE_DELIMITED_CMAKE_PREFIX_PATH
       "${CMAKE_PREFIX_PATH}"
     )
 
-    # For offline builds download the archive file from the URL AND
+    # For offline builds download the archive file from the URL and
     # copy it into DOWNLOAD_DIR under DOWNLOAD_NAME prior to starting
     # the configuration.
     ExternalProject_Add(
@@ -3425,25 +3492,25 @@ if(KEYFINDER)
     )
 
     # This is a bit of a hack to make sure that the include directory actually
-    # EXISTS when configuring the build.
+    # exists when configuring the build.
     # ExternalProject_Add() will create it
     # at compile time, but CMake already
     # checks that all directories passed to
     # target_include_directories() exist
-    # during configuration AND will throw
-    # an error if NOT.
+    # during configuration and will throw
+    # an error if not.
     file(MAKE_DIRECTORY "${KeyFinder_INSTALL_DIR}/include")
 
     if(NOT CMAKE_GENERATOR STREQUAL "Ninja")
       # Required for 'CMakeFiles/mixxx-lib_autogen_timestamp_deps'
-      # This tells 'make' that the libkeyfinder is required for the mixxx-keyfinder library
-      # BUILD_BYPRODUCTS work for Ninja only, while this workaround does NOT work for Ninja on macOS
+      # This tells 'make" that the libkeyfinder is required for the mixxx-keyfinder library
+      # BUILD_BYPRODUCTS work for Ninja only, while this workaround does not work for Ninja on macOS
       add_custom_command(
         OUTPUT "${KeyFinder_INSTALL_DIR}/${KeyFinder_LIBRARY}"
         DEPENDS libkeyfinder
         COMMAND echo libkeyfinder installed
         COMMENT
-          "Tell 'make' that libkeyfinder is required for the mixxx-keyfinder TARGET"
+          "Tell 'make' that libkeyfinder is required for the mixxx-keyfinder target"
       )
     endif()
 
@@ -3462,20 +3529,21 @@ if(KEYFINDER)
     target_link_libraries(mixxx-lib PRIVATE mixxx-keyfinder)
   endif()
 
+  target_sources(mixxx-lib PRIVATE src/analyzer/plugins/analyzerkeyfinder.cpp)
   target_compile_definitions(mixxx-lib PUBLIC __KEYFINDER__)
 endif()
 
 # FLAC
-find_package(FLAC QUIET)
+find_package(FLAC REQUIRED)
 target_link_libraries(mixxx-lib PRIVATE FLAC::FLAC)
 
 # FpClassify This is a wrapper around the fpclassify function that prevents
-# inlining It is compiled without optimization AND allows to use these function
-# from -ffast-math optimized objects. The MSVC option /fp:fast does NOT suffer this issue
+# inlining It is compiled without optimization and allows to use these function
+# from -ffast-math optimized objects. The MSVC option /fp:fast does not suffer this issue
 add_library(FpClassify STATIC EXCLUDE_FROM_ALL src/util/fpclassify.cpp)
-# With gcc >= 14 AND -flto some code is inlined to fast-math code AND then
+# With gcc >= 14 and -flto some code is inlined to fast-math code and then
 # optimized away. Disable it explicit for all compiler just in case.
-# Note: This does NOT set -fno-lto to override an external provided -flto=auto like on
+# Note: This does not set -fno-lto to override an external provided -flto=auto like on
 # Launchpad. Setting it explicit below.
 set_target_properties(FpClassify PROPERTIES INTERPROCEDURAL_OPTIMIZATION OFF)
 
@@ -3495,7 +3563,7 @@ endif()
 target_link_libraries(mixxx-lib PRIVATE FpClassify)
 
 # LAME
-find_package(mp3lame QUIET)
+find_package(mp3lame REQUIRED)
 target_link_libraries(mixxx-lib PRIVATE mp3lame::mp3lame)
 
 add_library(
@@ -3511,10 +3579,8 @@ target_include_directories(
   PUBLIC lib/rekordbox-metadata
 )
 target_link_libraries(mixxx-lib PRIVATE rekordbox_metadata)
-find_package(SoundTouch QUIET)
-target_link_libraries(mixxx-lib PUBLIC SoundTouch::SoundTouch)
 
-#silence "enumeration values NOT handled in switch" in generated code
+#silence "enumeration values not handled in switch" in generated code
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(rekordbox_metadata PRIVATE -Wno-switch)
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
@@ -3548,7 +3614,7 @@ target_include_directories(MP3GuessEnc SYSTEM PUBLIC lib/mp3guessenc-0.27.4)
 target_link_libraries(mixxx-lib PRIVATE MP3GuessEnc)
 
 # OpenGL
-option(QGLES2 "Use GLES 2.0 (OR higher) instead of full OpenGL for UNIX" OFF)
+option(QGLES2 "Use GLES 2.0 (or higher) instead of full OpenGL for UNIX" OFF)
 if(IOS)
   target_link_libraries(mixxx-lib PRIVATE "-framework OpenGLES")
   target_compile_definitions(mixxx-lib PUBLIC QT_OPENGL_ES_2)
@@ -3563,25 +3629,25 @@ else()
   endif()
   set(OpenGL_GL_PREFERENCE "GLVND")
   if(EMSCRIPTEN)
-    find_package(OpenGL QUIET)
-    # Emscripten's FindOpenGL.cmake does NOT create OpenGL::GL
+    find_package(OpenGL REQUIRED)
+    # Emscripten's FindOpenGL.cmake does not create OpenGL::GL
     target_link_libraries(mixxx-lib PRIVATE ${OPENGL_gl_LIBRARY})
     target_compile_definitions(mixxx-lib PUBLIC QT_OPENGL_ES_2)
-    # Require WebGL 2.0 (for a WebGL-friendly subset of OpenGL ES 3.0) AND
+    # Require WebGL 2.0 (for a WebGL-friendly subset of OpenGL ES 3.0) and
     # enable full OpenGL ES 2.0 emulation as per
     # https://emscripten.org/docs/porting/multimedia_and_graphics/OpenGL-support.html
     target_link_options(
       mixxx-lib
       PUBLIC -sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2 -sFULL_ES2=1
     )
-  elseif(ANDROID OR CMAKE_SYSTEM_NAME STREQUAL "Android")
+  elseif(ANDROID)
     find_library(GLESv2_LIBRARY GLESv2)
     target_link_libraries(mixxx-lib PRIVATE "${GLESv2_LIBRARY}")
     target_compile_definitions(mixxx-lib PUBLIC QT_OPENGL_ES_2)
   else()
-    find_package(OpenGL QUIET)
+    find_package(WrapOpenGL REQUIRED)
     if(OPENGL_opengl_LIBRARY)
-      target_link_libraries(mixxx-lib PRIVATE OpenGL::GL)
+      target_link_libraries(mixxx-lib PRIVATE OpenGL::OpenGL)
     else()
       target_link_libraries(mixxx-lib PRIVATE OpenGL::GL)
     endif()
@@ -3596,21 +3662,21 @@ else()
 endif()
 
 # Ogg
-find_package(Ogg QUIET)
+find_package(Ogg REQUIRED)
 target_link_libraries(mixxx-lib PRIVATE Ogg::ogg)
 
 # Vorbis
-find_package(Vorbis QUIET)
+find_package(Vorbis REQUIRED)
 target_link_libraries(
   mixxx-lib
   PRIVATE Vorbis::vorbis Vorbis::vorbisenc Vorbis::vorbisfile
 )
 
 # PortAudio
-find_package(PortAudio QUIET)
+find_package(PortAudio REQUIRED)
 target_link_libraries(mixxx-lib PUBLIC PortAudio::PortAudio)
 
-if(ANDROID OR CMAKE_SYSTEM_NAME STREQUAL "Android")
+if(ANDROID)
   target_link_libraries(mixxx-lib PUBLIC OpenSLES android)
   target_compile_definitions(mixxx-lib PUBLIC PA_USE_OBOE)
 endif()
@@ -3628,34 +3694,21 @@ target_link_libraries(mixxx-lib PRIVATE PortAudioRingBuffer)
 # PortMidi
 default_option(PORTMIDI "Enable the PortMidi backend for MIDI controllers" "NOT ANDROID")
 if(PORTMIDI)
+  target_compile_definitions(mixxx-lib PUBLIC __PORTMIDI__)
+  find_package(PortMidi REQUIRED)
+  target_include_directories(mixxx-lib SYSTEM PUBLIC ${PortMidi_INCLUDE_DIRS})
+  target_link_libraries(mixxx-lib PRIVATE ${PortMidi_LIBRARIES})
   target_sources(
     mixxx-lib
     PRIVATE
       src/controllers/midi/portmidicontroller.cpp
       src/controllers/midi/portmidienumerator.cpp
   )
-  target_compile_definitions(mixxx-lib PUBLIC __PORTMIDI__)
-  find_package(PortMidi QUIET)
-  target_include_directories(mixxx-lib SYSTEM PUBLIC ${PortMidi_INCLUDE_DIRS})
-  target_link_libraries(mixxx-lib PRIVATE ${PortMidi_LIBRARIES})
-  target_sources(
-    mixxx-lib
-    PRIVATE
-      src/test/portmidicontroller_test.cpp
-      src/test/portmidienumeratortest.cpp
-  )
 endif()
 
 # Protobuf
-add_subdirectory(src/controllers/rendering)
-add_subdirectory(src/qml)
 add_subdirectory(src/proto)
-add_subdirectory(src/rendergraph)
-add_subdirectory(lib)
-target_link_libraries(
-  mixxx-lib
-  PUBLIC mixxx-proto rendergraph_gl qmdsp replaygain reverb
-)
+target_link_libraries(mixxx-lib PUBLIC mixxx-proto)
 
 # Rigtorp SPSC Queue
 # https://github.com/rigtorp/SPSCQueue
@@ -3673,7 +3726,6 @@ set(
   Gui
   Network
   OpenGL
-  PrintSupport
   Qml # for QJSEngine
   Sql
   Svg
@@ -3681,75 +3733,1533 @@ set(
   Widgets
   Xml
 )
-
-if(NETWORKAUTH)
-  target_compile_definitions(mixxx-lib PUBLIC NETWORKAUTH)
-
-  # Ensure spdlog is available for librespot-cpp
-  FetchContent_Declare(
-    spdlog
-    URL https://github.com/gabime/spdlog/archive/refs/tags/v1.12.0.zip
+if(NOT ANDROID)
+  list(APPEND QT_COMPONENTS "PrintSupport")
+endif()
+set(QT_EXTRA_COMPONENTS "")
+if(QT6)
+  find_package(QT 6.2 NAMES Qt6 COMPONENTS Core REQUIRED)
+  list(APPEND QT_EXTRA_COMPONENTS "ShaderTools")
+  list(APPEND QT_EXTRA_COMPONENTS "SvgWidgets")
+  list(APPEND QT_EXTRA_COMPONENTS "Core5Compat")
+  if(QT_VERSION VERSION_GREATER_EQUAL 6.10)
+    # from Qt 6.10 GuiPrivate required for QShader/rendergraph (rhi/qshader.h)
+    list(APPEND QT_EXTRA_COMPONENTS "GuiPrivate")
+  endif()
+else()
+  find_package(QT 5.12 NAMES Qt5 COMPONENTS Core REQUIRED)
+endif()
+if(QML)
+  list(APPEND QT_EXTRA_COMPONENTS "LabsQmlModels")
+  if(NOT ANDROID)
+    list(APPEND QT_EXTRA_COMPONENTS "Multimedia")
+  endif()
+  list(APPEND QT_EXTRA_COMPONENTS "Quick")
+  list(APPEND QT_EXTRA_COMPONENTS "QuickControls2")
+  list(APPEND QT_EXTRA_COMPONENTS "QuickControls2Impl")
+  list(APPEND QT_EXTRA_COMPONENTS "QuickLayouts")
+  list(APPEND QT_EXTRA_COMPONENTS "QuickShapesPrivate")
+  list(APPEND QT_EXTRA_COMPONENTS "QuickTemplates2")
+  list(APPEND QT_EXTRA_COMPONENTS "QuickWidgets")
+  list(APPEND QT_EXTRA_COMPONENTS "ShaderTools")
+  if(QT_VERSION VERSION_GREATER_EQUAL 6.7)
+    list(APPEND QT_EXTRA_COMPONENTS "QuickControls2Basic")
+    list(APPEND QT_EXTRA_COMPONENTS "QuickControls2BasicStyleImpl")
+    list(APPEND QT_EXTRA_COMPONENTS "QuickControls2Fusion")
+    list(APPEND QT_EXTRA_COMPONENTS "QuickControls2FusionStyleImpl")
+  endif()
+  if(QT_VERSION VERSION_LESS 6.8)
+    # From Qt 6.8 integrated in Qml via QmlMeta
+    list(APPEND QT_EXTRA_COMPONENTS "QmlWorkerScript")
+  endif()
+endif()
+find_package(
+  Qt${QT_VERSION_MAJOR}
+  COMPONENTS ${QT_COMPONENTS} ${QT_EXTRA_COMPONENTS}
+  REQUIRED
+)
+# Re-run find_package for extra components added later (like NetworkAuth)
+if(QT_EXTRA_COMPONENTS)
+  find_package(
+    Qt${QT_VERSION_MAJOR}
+    COMPONENTS ${QT_EXTRA_COMPONENTS}
+    QUIET
   )
-  FetchContent_Declare(
-    librespot-cpp
-    URL https://github.com/iscle/librespot-cpp/archive/refs/heads/master.zip
+endif()
+# PUBLIC is required below to find included headers
+macro(mixxx_link_qt_components components)
+  foreach(component ${components})
+    if(TARGET Qt${QT_VERSION_MAJOR}::${component})
+      target_link_libraries(mixxx-lib PUBLIC Qt${QT_VERSION_MAJOR}::${component})
+    endif()
+  endforeach()
+endmacro()
+
+mixxx_link_qt_components("${QT_COMPONENTS}")
+mixxx_link_qt_components("${QT_EXTRA_COMPONENTS}")
+
+if(QT_KNOWN_POLICY_QTP0002 AND ANDROID)
+  qt6_policy(SET QTP0002 NEW)
+endif()
+
+if(QML)
+  if(QT_KNOWN_POLICY_QTP0004)
+    # See: https://doc.qt.io/qt-6/qt-cmake-policy-qtp0004.html
+    # OLD (Qt < 6.8) requires to import qml modules with a folder e.g.:
+    # fragmentShader: "qrc:/shaders/rgbsignal_qml.frag.qsb"
+    # For using NEW, we need to back-port:
+    # https://github.com/qt/qtdeclarative/commit/6314d305ee0d9064ca848980ef2dab1793c191b8
+    # until Qt 6.8 lands in all supported distros
+    qt6_policy(SET QTP0004 OLD)
+  endif()
+
+  add_subdirectory(res/shaders)
+
+  set(QT_QML_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/qml)
+  qt_add_library(mixxx-qml-lib STATIC)
+
+  if(WIN32)
+    target_compile_definitions(mixxx-qml-lib PUBLIC __WINDOWS__)
+  endif()
+
+  if(ENGINEPRIME)
+    target_compile_definitions(mixxx-qml-lib PUBLIC __ENGINEPRIME__)
+  endif()
+
+  foreach(component ${QT_COMPONENTS})
+    target_link_libraries(
+      mixxx-qml-lib
+      PUBLIC Qt${QT_VERSION_MAJOR}::${component}
+    )
+  endforeach()
+  if(QT_EXTRA_COMPONENTS)
+    foreach(component ${QT_EXTRA_COMPONENTS})
+      target_link_libraries(
+        mixxx-qml-lib
+        PUBLIC Qt${QT_VERSION_MAJOR}::${component}
+      )
+    endforeach()
+  endif()
+  set_target_properties(mixxx-qml-lib PROPERTIES AUTOMOC ON)
+  qt_add_qml_module(mixxx-qml-lib
+    URI Mixxx
+    VERSION 1.0
+    RESOURCE_PREFIX /mixxx.org/imports
+    IMPORTS QtQuick
+    QML_FILES
+      res/qml/Mixxx/MathUtils.mjs
+      res/qml/Mixxx/PlayerDropArea.qml
   )
-  FetchContent_MakeAvailable(spdlog)
-  FetchContent_Populate(librespot-cpp)
-  if(NOT EXISTS "${librespot-cpp_SOURCE_DIR}/lib/spdlog/CMakeLists.txt")
-    file(MAKE_DIRECTORY "${librespot-cpp_SOURCE_DIR}/lib/spdlog")
+  target_link_libraries(mixxx-lib PRIVATE mixxx-qml-lib)
+
+  # FIXME: Currently we need to add these include directories due to
+  # QTBUG-87221. We should figure out a better way to fix this.
+  # See: https://bugreports.qt.io/browse/QTBUG-87221
+  target_include_directories(mixxx-qml-lib PRIVATE src/control src/qml)
+  target_include_directories(mixxx-qml-lib PUBLIC src/ ${CMAKE_BINARY_DIR}/src)
+  target_include_directories(
+    mixxx-qml-lib
+    SYSTEM
+    PUBLIC lib/rigtorp/SPSCQueue/include lib/portaudio
+  )
+
+  target_link_libraries(mixxx-qml-lib PUBLIC mixxx-proto)
+  target_link_libraries(mixxx-qml-libplugin PUBLIC mixxx-proto)
+
+  target_precompile_headers(
+    mixxx-qml-lib
+    PUBLIC ${MIXXX_COMMON_PRECOMPILED_HEADER}
+  )
+
+  target_link_libraries(mixxx-qml-lib PRIVATE mixxx-qml-libplugin)
+
+  qt_add_library(mixxx-qml-mixxxcontrols STATIC)
+  set_target_properties(mixxx-qml-mixxxcontrols PROPERTIES AUTOMOC ON)
+  qt_add_qml_module(mixxx-qml-mixxxcontrols
+    URI Mixxx.Controls
+    VERSION 1.0
+    RESOURCE_PREFIX /mixxx.org/imports
+    OPTIONAL_IMPORTS Mixxx
+    QML_FILES
+      res/qml/Mixxx/Controls/Knob.qml
+      res/qml/Mixxx/Controls/Fader.qml
+      res/qml/Mixxx/Controls/Spinny.qml
+      res/qml/Mixxx/Controls/WaveformOverviewHotcueMarker.qml
+      res/qml/Mixxx/Controls/WaveformOverviewMarker.qml
+      res/qml/Mixxx/Controls/WaveformOverview.qml
+      res/qml/Mixxx/Controls/WaveformDisplay.qml
+  )
+  target_link_libraries(mixxx-qml-lib PRIVATE mixxx-qml-mixxxcontrolsplugin)
+
+  target_sources(
+    mixxx-qml-lib
+    PRIVATE
+      src/qml/asyncimageprovider.cpp
+      src/qml/qmlapplication.cpp
+      src/qml/qmlautoreload.cpp
+      src/qml/qmlbeatsmodel.cpp
+      src/qml/qmlchainpresetmodel.cpp
+      src/qml/qmlconfigproxy.cpp
+      src/qml/qmlcontrolproxy.cpp
+      src/qml/qmlcuesmodel.cpp
+      src/qml/qmldlgpreferencesproxy.cpp
+      src/qml/qmleffectmanifestparametersmodel.cpp
+      src/qml/qmleffectslotproxy.cpp
+      src/qml/qmleffectsmanagerproxy.cpp
+      src/qml/qmllibraryproxy.cpp
+      src/qml/qmllibrarysource.cpp
+      src/qml/qmllibrarysourcetree.cpp
+      src/qml/qmllibrarytracklistmodel.cpp
+      src/qml/qmlmixxxcontrollerscreen.cpp
+      src/qml/qmlplayermanagerproxy.cpp
+      src/qml/qmlplayerproxy.cpp
+      src/qml/qmlsidebarmodelproxy.cpp
+      src/qml/qmllibrarytracklistcolumn.cpp
+      src/qml/qmltrackproxy.cpp
+      src/qml/qmlvisibleeffectsmodel.cpp
+      src/qml/qmlwaveformdisplay.cpp
+      src/qml/qmlwaveformoverview.cpp
+      src/qml/qmlwaveformrenderer.cpp
+      src/qml/qmlsettingparameter.cpp
+      src/qml/qmltrackproxy.cpp
+      src/qml/qmlsoundmanagerproxy.cpp
+      src/qml/qmlpreferencesproxy.cpp
+      src/waveform/renderers/allshader/digitsrenderer.cpp
+      src/waveform/renderers/allshader/waveformrenderbeat.cpp
+      src/waveform/renderers/allshader/waveformrenderer.cpp
+      src/waveform/renderers/allshader/waveformrendererendoftrack.cpp
+      src/waveform/renderers/allshader/waveformrendererpreroll.cpp
+      src/waveform/renderers/allshader/waveformrendererrgb.cpp
+      src/waveform/renderers/allshader/waveformrenderersignalbase.cpp
+      src/waveform/renderers/allshader/waveformrendermark.cpp
+      src/waveform/renderers/allshader/waveformrendermarkrange.cpp
+      src/waveform/renderers/allshader/waveformrendererslipmode.cpp
+      src/waveform/renderers/allshader/waveformrendererfiltered.cpp
+      src/waveform/renderers/allshader/waveformrendererhsv.cpp
+      src/waveform/renderers/allshader/waveformrenderersimple.cpp
+      # The following sources need to be in this target to get QML_ELEMENT properly interpreted
+      src/control/controlmodel.cpp
+      src/control/controlsortfiltermodel.cpp
+      # needed for qml/qmlautoreload.cpp
+      src/util/autofilereloader.cpp
+  )
+
+  if(STEM)
+    target_compile_definitions(mixxx-qml-lib PUBLIC __STEM__)
+    target_sources(
+      mixxx-qml-lib
+      PRIVATE
+        src/waveform/renderers/allshader/waveformrendererstem.cpp
+        src/qml/qmlstemsmodel.cpp
+    )
+  endif()
+
+  # qt_finalize_target takes care that the resources :/mixxx.org/imports/Mixxx/
+  # and :/mixxx.org/imports/Mixxx/Controls are placed into beginning of the binary
+  qt_finalize_target(mixxx)
+
+  install(
+    DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/res/qml"
+    DESTINATION "${MIXXX_INSTALL_DATADIR}"
+  )
+endif()
+
+option(DEBUG_ASSERTIONS_FATAL "Fail if debug become true assertions" OFF)
+if(DEBUG_ASSERTIONS_FATAL)
+  target_compile_definitions(
+    mixxx-lib
+    PUBLIC MIXXX_DEBUG_ASSERTIONS_FATAL MIXXX_DEBUG_ASSERTIONS_ENABLED
+  )
+  if(QML)
+    target_compile_definitions(
+      mixxx-qml-lib
+      PUBLIC MIXXX_DEBUG_ASSERTIONS_FATAL MIXXX_DEBUG_ASSERTIONS_ENABLED
+    )
+  endif()
+  if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+    message(
+      STATUS
+      "DEBUG_ASSERT statements have been enabled because DEBUG_ASSERTIONS_FATAL is ON."
+    )
+  endif()
+endif()
+
+if(EMSCRIPTEN)
+  option(
+    WASM_ASSERTIONS
+    "Enable additional checks when targeting Emscripten/WebAssembly"
+    OFF
+  )
+  if(WASM_ASSERTIONS)
+    target_link_options(mixxx-lib PUBLIC -sASSERTIONS)
+  endif()
+endif()
+
+target_compile_definitions(
+  mixxx-lib
+  PUBLIC QT_TABLET_SUPPORT QT_USE_QSTRINGBUILDER
+)
+is_static_library(Qt_IS_STATIC Qt${QT_VERSION_MAJOR}::Core)
+if(Qt_IS_STATIC)
+  # NOTE(rryan): If you are adding a plugin here, you must also
+  # update src/mixxxapplication.cpp to define a Q_IMPORT_PLUGIN
+  # for it. Not all imageformats plugins are built as .libs when
+  # building Qt statically on Windows. Check the build environment
+  # to see exactly what's available as a standalone .lib vs linked
+  # into Qt .libs by default.
+
+  target_link_libraries(
+    mixxx-lib
+    PRIVATE
+      # imageformats plugins
+      Qt${QT_VERSION_MAJOR}::QGifPlugin
+      Qt${QT_VERSION_MAJOR}::QICOPlugin
+      Qt${QT_VERSION_MAJOR}::QJpegPlugin
+      Qt${QT_VERSION_MAJOR}::QSvgPlugin
+      # sqldrivers
+      Qt${QT_VERSION_MAJOR}::QSQLiteDriverPlugin
+  )
+
+  if(NOT IOS)
+    target_link_libraries(
+      mixxx-lib
+      PRIVATE
+        # network plugins
+        Qt${QT_VERSION_MAJOR}::QTlsBackendOpenSSLPlugin
+    )
+  endif()
+
+  if(EMSCRIPTEN)
+    target_link_libraries(
+      mixxx-lib
+      PRIVATE Qt${QT_VERSION_MAJOR}::QWasmIntegrationPlugin
+    )
+  else()
+    target_link_libraries(
+      mixxx-lib
+      PRIVATE
+        # platform plugins
+        Qt${QT_VERSION_MAJOR}::QOffscreenIntegrationPlugin
+        Qt${QT_VERSION_MAJOR}::QMinimalIntegrationPlugin
+    )
+  endif()
+
+  if(WIN32)
+    target_link_libraries(
+      mixxx-lib
+      PRIVATE Qt${QT_VERSION_MAJOR}::QWindowsIntegrationPlugin
+    )
+    if(QT_VERSION VERSION_LESS 6.7)
+      target_link_libraries(
+        mixxx-lib
+        PRIVATE Qt${QT_VERSION_MAJOR}::QWindowsVistaStylePlugin
+      )
+    else()
+      target_link_libraries(
+        mixxx-lib
+        PRIVATE Qt${QT_VERSION_MAJOR}::QModernWindowsStylePlugin
+      )
+    endif()
+  endif()
+
+  if(APPLE)
+    if(IOS)
+      target_link_libraries(
+        mixxx-lib
+        PRIVATE Qt${QT_VERSION_MAJOR}::QIOSIntegrationPlugin
+      )
+    else()
+      target_link_libraries(
+        mixxx-lib
+        PRIVATE
+          Qt${QT_VERSION_MAJOR}::QCocoaIntegrationPlugin
+          Qt${QT_VERSION_MAJOR}::QMacStylePlugin
+      )
+    endif()
+  endif()
+else()
+  if(QT6 AND (WIN32 OR APPLE))
+    # Qt6 does not automatically install plugins like in Qt 5
+
+    find_package(libjpeg-turbo CONFIG REQUIRED)
+    install(
+      IMPORTED_RUNTIME_ARTIFACTS
+        # QJpegPlugin dependency
+        libjpeg-turbo::jpeg
+        DESTINATION
+        "${MIXXX_INSTALL_DATADIR}"
+        COMPONENT
+        applocal
+    )
+
+    install(
+      IMPORTED_RUNTIME_ARTIFACTS
+        # platform plugins
+        Qt${QT_VERSION_MAJOR}::QOffscreenIntegrationPlugin
+        Qt${QT_VERSION_MAJOR}::QMinimalIntegrationPlugin
+        DESTINATION
+        "${MIXXX_INSTALL_DATADIR}/platforms"
+        COMPONENT
+        applocal
+    )
+
+    install(
+      IMPORTED_RUNTIME_ARTIFACTS
+        Qt${QT_VERSION_MAJOR}::QGifPlugin
+        Qt${QT_VERSION_MAJOR}::QICOPlugin
+        Qt${QT_VERSION_MAJOR}::QJpegPlugin
+        Qt${QT_VERSION_MAJOR}::QSvgPlugin
+        DESTINATION
+        "${MIXXX_INSTALL_DATADIR}/imageformats"
+        COMPONENT
+        applocal
+    )
+
+    install(
+      IMPORTED_RUNTIME_ARTIFACTS
+        Qt${QT_VERSION_MAJOR}::QSQLiteDriverPlugin
+        DESTINATION
+        "${MIXXX_INSTALL_DATADIR}/sqldrivers"
+        COMPONENT
+        applocal
+    )
+
+    if(NOT IOS)
+      install(
+        IMPORTED_RUNTIME_ARTIFACTS
+          Qt${QT_VERSION_MAJOR}::QTlsBackendOpenSSLPlugin
+          DESTINATION
+          "${MIXXX_INSTALL_DATADIR}/tls"
+          COMPONENT
+          applocal
+      )
+    endif()
+
+    if(QML)
+      install(
+        IMPORTED_RUNTIME_ARTIFACTS
+          Qt${QT_VERSION_MAJOR}::LabsQmlModels
+          DESTINATION
+          "${MIXXX_INSTALL_DATADIR}"
+          COMPONENT
+          applocal
+      )
+
+      install(
+        IMPORTED_RUNTIME_ARTIFACTS
+          Qt${QT_VERSION_MAJOR}::QuickControls2Impl
+          DESTINATION
+          "${MIXXX_INSTALL_DATADIR}"
+          COMPONENT
+          applocal
+      )
+
+      if(QT_VERSION VERSION_GREATER_EQUAL 6.7)
+        install(
+          IMPORTED_RUNTIME_ARTIFACTS
+            Qt${QT_VERSION_MAJOR}::QuickControls2Basic
+            Qt${QT_VERSION_MAJOR}::QuickControls2BasicStyleImpl
+            Qt${QT_VERSION_MAJOR}::QuickControls2Fusion
+            Qt${QT_VERSION_MAJOR}::QuickControls2FusionStyleImpl
+            DESTINATION
+            "${MIXXX_INSTALL_DATADIR}"
+            COMPONENT
+            applocal
+        )
+      else()
+        install(
+          IMPORTED_RUNTIME_ARTIFACTS
+            Qt${QT_VERSION_MAJOR}::QuickControls2
+            DESTINATION
+            "${MIXXX_INSTALL_DATADIR}"
+            COMPONENT
+            applocal
+        )
+      endif()
+
+      if(QT_VERSION VERSION_LESS 6.8)
+        # From Qt 6.8 integrated in Qml via QmlMeta
+        install(
+          IMPORTED_RUNTIME_ARTIFACTS
+            Qt${QT_VERSION_MAJOR}::QmlWorkerScript
+            DESTINATION
+            "${MIXXX_INSTALL_DATADIR}"
+            COMPONENT
+            applocal
+        )
+      endif()
+
+      install(
+        IMPORTED_RUNTIME_ARTIFACTS
+          Qt${QT_VERSION_MAJOR}::QuickLayouts
+          DESTINATION
+          "${MIXXX_INSTALL_DATADIR}"
+          COMPONENT
+          applocal
+      )
+
+      install(
+        IMPORTED_RUNTIME_ARTIFACTS
+          Qt${QT_VERSION_MAJOR}::QuickShapesPrivate
+          DESTINATION
+          "${MIXXX_INSTALL_DATADIR}"
+          COMPONENT
+          applocal
+      )
+
+      if(QT_VERSION VERSION_LESS 6.4)
+        # From Qt 6.4 integrated in QuickControls2
+        install(
+          IMPORTED_RUNTIME_ARTIFACTS
+            Qt${QT_VERSION_MAJOR}::QuickTemplates2
+            DESTINATION
+            "${MIXXX_INSTALL_DATADIR}"
+            COMPONENT
+            applocal
+        )
+      endif()
+
+      install(
+        IMPORTED_RUNTIME_ARTIFACTS
+          Qt${QT_VERSION_MAJOR}::ShaderTools
+          DESTINATION
+          "${MIXXX_INSTALL_DATADIR}"
+          COMPONENT
+          applocal
+      )
+
+      #install qml6-module-qt5compat-graphicaleffects
+      install(
+        DIRECTORY
+          "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}$<$<CONFIG:Debug>:/debug>/Qt6/qml/Qt5Compat/GraphicalEffects"
+        DESTINATION "${MIXXX_INSTALL_DATADIR}/Qt6/qml/Qt5Compat"
+        COMPONENT applocal
+      )
+
+      # install qml6-module-qtmultimedia
+      install(
+        DIRECTORY
+          "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}$<$<CONFIG:Debug>:/debug>/Qt6/qml/QtMultimedia"
+        DESTINATION "${MIXXX_INSTALL_DATADIR}/Qt6/qml"
+        COMPONENT applocal
+      )
+
+      # install qml6-module-qtqml-workerscript
+      install(
+        DIRECTORY
+          "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}$<$<CONFIG:Debug>:/debug>/Qt6/qml/QtQml/WorkerScript"
+        DESTINATION "${MIXXX_INSTALL_DATADIR}/Qt6/qml/QtQml"
+        COMPONENT applocal
+      )
+
+      # install qml6-module-qtquick-controls
+      install(
+        DIRECTORY
+          "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}$<$<CONFIG:Debug>:/debug>/Qt6/qml/QtQuick/Controls"
+        DESTINATION "${MIXXX_INSTALL_DATADIR}/Qt6/qml/QtQuick"
+        COMPONENT applocal
+      )
+
+      # install qml6-module-qtquick-layouts
+      install(
+        DIRECTORY
+          "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}$<$<CONFIG:Debug>:/debug>/Qt6/qml/QtQuick/Layouts"
+        DESTINATION "${MIXXX_INSTALL_DATADIR}/Qt6/qml/QtQuick"
+        COMPONENT applocal
+      )
+
+      # install qml6-module-qtquick-nativestyle
+      install(
+        DIRECTORY
+          "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}$<$<CONFIG:Debug>:/debug>/Qt6/qml/QtQuick/NativeStyle"
+        DESTINATION "${MIXXX_INSTALL_DATADIR}/Qt6/qml/QtQuick"
+        COMPONENT applocal
+      )
+
+      # install qml6-module-qtquick-shapes
+      install(
+        DIRECTORY
+          "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}$<$<CONFIG:Debug>:/debug>/Qt6/qml/QtQuick/Shapes"
+        DESTINATION "${MIXXX_INSTALL_DATADIR}/Qt6/qml/QtQuick"
+        COMPONENT applocal
+      )
+
+      # install qml6-module-qtquick-templates
+      install(
+        DIRECTORY
+          "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}$<$<CONFIG:Debug>:/debug>/Qt6/qml/QtQuick/Templates"
+        DESTINATION "${MIXXX_INSTALL_DATADIR}/Qt6/qml/QtQuick"
+        COMPONENT applocal
+      )
+
+      # qml6-module-qtquick-window
+      install(
+        DIRECTORY
+          "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}$<$<CONFIG:Debug>:/debug>/Qt6/qml/QtQuick/Window"
+        DESTINATION "${MIXXX_INSTALL_DATADIR}/Qt6/qml/QtQuick"
+        COMPONENT applocal
+      )
+
+      # install qml6-module-qt-labs-qmlmodels
+      install(
+        DIRECTORY
+          "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}$<$<CONFIG:Debug>:/debug>/Qt6/qml/Qt/labs/qmlmodels"
+        DESTINATION "${MIXXX_INSTALL_DATADIR}/Qt6/qml/Qt/labs"
+        COMPONENT applocal
+      )
+
+      # install qml6-module-qtquick-dialogs
+      install(
+        DIRECTORY
+          "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}$<$<CONFIG:Debug>:/debug>/Qt6/qml/QtQuick/Dialogs"
+        DESTINATION "${MIXXX_INSTALL_DATADIR}/Qt6/qml/QtQuick"
+        COMPONENT applocal
+      )
+
+      # install qml6-module-qt-labs-folderlistmodel
+      install(
+        DIRECTORY
+          "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}$<$<CONFIG:Debug>:/debug>/Qt6/qml/Qt/labs/folderlistmodel"
+        DESTINATION "${MIXXX_INSTALL_DATADIR}/Qt6/qml/Qt/labs"
+        COMPONENT applocal
+      )
+    endif()
+
+    if(WIN32)
+      install(
+        IMPORTED_RUNTIME_ARTIFACTS
+          Qt${QT_VERSION_MAJOR}::QWindowsIntegrationPlugin
+          DESTINATION
+          "${MIXXX_INSTALL_DATADIR}/platforms"
+          COMPONENT
+          applocal
+      )
+      if(QT_VERSION VERSION_LESS 6.7)
+        install(
+          IMPORTED_RUNTIME_ARTIFACTS
+            Qt${QT_VERSION_MAJOR}::QWindowsVistaStylePlugin
+            DESTINATION
+            "${MIXXX_INSTALL_DATADIR}/styles"
+            COMPONENT
+            applocal
+        )
+      else()
+        install(
+          IMPORTED_RUNTIME_ARTIFACTS
+            Qt${QT_VERSION_MAJOR}::QModernWindowsStylePlugin
+            DESTINATION
+            "${MIXXX_INSTALL_DATADIR}/styles"
+            COMPONENT
+            applocal
+        )
+      endif()
+    endif()
+    if(APPLE)
+      install(
+        IMPORTED_RUNTIME_ARTIFACTS
+          Qt${QT_VERSION_MAJOR}::QCocoaIntegrationPlugin
+          DESTINATION
+          "${MIXXX_INSTALL_DATADIR}/platforms"
+          COMPONENT
+          applocal
+      )
+      install(
+        IMPORTED_RUNTIME_ARTIFACTS
+          Qt${QT_VERSION_MAJOR}::QMacStylePlugin
+          DESTINATION
+          "${MIXXX_INSTALL_DATADIR}/styles"
+          COMPONENT
+          applocal
+      )
+    endif()
+
+    set(APPLOCAL_COMPONENT_DEFINED true)
+  endif()
+endif()
+
+if(APPLE)
+  if(Qt_IS_STATIC OR QT6)
+    target_link_libraries(
+      mixxx-lib
+      PRIVATE
+        "-weak_framework Accelerate"
+        "-weak_framework AudioToolbox"
+        "-weak_framework AVFoundation"
+        "-weak_framework CoreAudio"
+        "-weak_framework CoreFoundation"
+        "-weak_framework CoreImage"
+        "-weak_framework CoreMedia"
+        "-weak_framework CoreMidi"
+        "-weak_framework CoreServices"
+        "-weak_framework CoreVideo"
+        "-weak_framework IOSurface"
+        "-weak_framework VideoToolbox"
+    )
+    if(IOS)
+      target_link_libraries(mixxx-lib PRIVATE "-weak_framework UIKit")
+    else()
+      target_link_libraries(
+        mixxx-lib
+        PRIVATE "-weak_framework AppKit" "-weak_framework AudioUnit"
+      )
+    endif()
+  else()
+    # Used for battery measurements and controlling the screensaver on macOS.
+    target_link_libraries(mixxx-lib PRIVATE "-weak_framework IOKit")
+  endif()
+elseif(UNIX AND NOT APPLE AND NOT EMSCRIPTEN AND NOT ANDROID)
+  if(QT6)
+    find_package(X11)
+  else()
+    find_package(X11 REQUIRED)
+    find_package(Qt5 COMPONENTS X11Extras REQUIRED)
+    target_link_libraries(mixxx-lib PUBLIC Qt5::X11Extras)
+  endif()
+  if(${X11_FOUND})
+    target_include_directories(mixxx-lib SYSTEM PUBLIC "${X11_INCLUDE_DIR}")
+    target_link_libraries(mixxx-lib PRIVATE "${X11_LIBRARIES}")
+    target_compile_definitions(mixxx-lib PUBLIC __X11__)
+  endif()
+  if(NOT ANDROID)
+    find_package(Qt${QT_VERSION_MAJOR} COMPONENTS DBus REQUIRED)
+      target_link_libraries(mixxx-lib PUBLIC Qt${QT_VERSION_MAJOR}::DBus)
+  endif()
+elseif(WIN32)
+  if(Qt_IS_STATIC)
+    target_link_libraries(
+      mixxx-lib
+      PRIVATE
+        # Pulled from qt-4.8.2-source\mkspecs\win32-msvc2010\qmake.conf
+        # QtCore
+        kernel32
+        user32 # QtGui, QtOpenGL, libHSS1394
+        shell32
+        uuid
+        ole32 # QtGui,
+        advapi32 # QtGui, portaudio, portmidi
+        ws2_32 # QtGui, QtNetwork, libshout
+        # QtGui
+        gdi32 # QtOpenGL, libshout
+        comdlg32
+        oleaut32
+        imm32
+        winmm
+        winspool
+        # QtOpenGL
+        glu32
+        opengl32
+        # QtNetwork openssl-linked
+        crypt32
+        dwmapi # qtwindows
+        iphlpapi # qt5network
+        mpr # qt5core
+        netapi32 # qt5core
+        userenv # qt5core
+        uxtheme # ?
+        version # ?
+        wtsapi32 # ?
+    )
+
+    find_library(
+      QTFONTDATABASESUPPORT_LIBRARY
+      Qt${QT_VERSION_MAJOR}FontDatabaseSupport
+    )
+    target_link_libraries(mixxx-lib PRIVATE "${QTFONTDATABASESUPPORT_LIBRARY}")
+    find_library(
+      QTWINDOWSUIAUTOMATIONSUPPORT_LIBRARY
+      Qt${QT_VERSION_MAJOR}WindowsUIAutomationSupport
+    )
+    target_link_libraries(
+      mixxx-lib
+      PRIVATE "${QTWINDOWSUIAUTOMATIONSUPPORT_LIBRARY}"
+    )
+    find_library(
+      QTEVENTDISPATCHERSUPPORT_LIBRARY
+      Qt${QT_VERSION_MAJOR}EventDispatcherSupport
+    )
+    target_link_libraries(
+      mixxx-lib
+      PRIVATE "${QTEVENTDISPATCHERSUPPORT_LIBRARY}"
+    )
+    find_library(QTTHEMESUPPORT_LIBRARY Qt${QT_VERSION_MAJOR}ThemeSupport)
+    target_link_libraries(mixxx-lib PRIVATE "${QTTHEMESUPPORT_LIBRARY}")
+
+    find_library(QTFREETYPE_LIBRARY qtfreetype)
+    target_link_libraries(mixxx-lib PRIVATE "${QTFREETYPE_LIBRARY}")
+    find_library(QTHARFBUZZ_LIBRARY qtharfbuzz)
+    target_link_libraries(mixxx-lib PRIVATE "${QTHARFBUZZ_LIBRARY}")
+    find_library(QTLIBPNG_LIBRARY qtlibpng)
+    target_link_libraries(mixxx-lib PRIVATE "${QTLIBPNG_LIBRARY}")
+    find_library(QTPCRE2_LIBRARY qtpcre2)
+    target_link_libraries(mixxx-lib PRIVATE "${QTPCRE2_LIBRARY}")
+  else()
+    #libshout is always built statically
+    target_link_libraries(
+      mixxx-lib
+      PRIVATE
+        ws2_32 # libshout
+        gdi32 # libshout
+    )
+  endif()
+endif()
+
+if(APPLE OR WIN32)
+  # qt_de.qm is just one arbitrary file in the directory that needs to be located;
+  # there is no particular reason to look for this file versus any other one in the directory.
+  if(QT6)
+    find_file(
+      QT_TRANSLATION_FILE
+      qt_de.qm
+      PATHS "${Qt6_DIR}/../../translations/Qt6"
+      REQUIRED
+      NO_DEFAULT_PATH
+    )
+  else()
+    find_file(
+      QT_TRANSLATION_FILE
+      qt_de.qm
+      PATHS
+        "${Qt5_DIR}/../../../translations"
+        "${Qt5_DIR}/../../qt5/translations"
+      REQUIRED
+      NO_DEFAULT_PATH
+    )
+  endif()
+  get_filename_component(QT_TRANSLATIONS ${QT_TRANSLATION_FILE} DIRECTORY)
+  install(
+    DIRECTORY "${QT_TRANSLATIONS}/"
+    DESTINATION "${MIXXX_INSTALL_DATADIR}/translations"
+    # QT 5 translations have been separated into several files, and most of the qt_xx.qm files
+    # contain just shortcuts to load the qtbase, qtmultimedia etc files.
+    FILES_MATCHING
+    REGEX
+    "qt_.+\.qm|qtbase_.*\.qm|qtmultimedia_.*\.qm|qtscript_.*\.qm|qtxmlpatterns_.*\.qm"
+  )
+endif()
+
+add_library(
+  mixxx-gitinfostore
+  STATIC
+  EXCLUDE_FROM_ALL
+  src/util/gitinfostore.cpp
+)
+# QtCore for QString
+target_link_libraries(mixxx-gitinfostore PUBLIC Qt${QT_VERSION_MAJOR}::Core)
+target_include_directories(
+  mixxx-gitinfostore
+  PUBLIC src ${CMAKE_BINARY_DIR}/src
+)
+add_dependencies(mixxx-gitinfostore mixxx-gitinfo)
+
+# Queen Mary DSP
+add_library(
+  QueenMaryDsp
+  STATIC
+  EXCLUDE_FROM_ALL
+  # lib/qm-dsp/base/KaiserWindow.cpp
+  lib/qm-dsp/base/Pitch.cpp
+  # lib/qm-dsp/base/SincWindow.cpp
+  lib/qm-dsp/dsp/chromagram/Chromagram.cpp
+  lib/qm-dsp/dsp/chromagram/ConstantQ.cpp
+  lib/qm-dsp/dsp/keydetection/GetKeyMode.cpp
+  # lib/qm-dsp/dsp/mfcc/MFCC.cpp
+  lib/qm-dsp/dsp/onsets/DetectionFunction.cpp
+  lib/qm-dsp/dsp/onsets/PeakPicking.cpp
+  lib/qm-dsp/dsp/phasevocoder/PhaseVocoder.cpp
+  lib/qm-dsp/dsp/rateconversion/Decimator.cpp
+  # lib/qm-dsp/dsp/rateconversion/DecimatorB.cpp
+  # lib/qm-dsp/dsp/rateconversion/Resampler.cpp
+  # lib/qm-dsp/dsp/rhythm/BeatSpectrum.cpp
+  # lib/qm-dsp/dsp/segmentation/ClusterMeltSegmenter.cpp
+  # lib/qm-dsp/dsp/segmentation/Segmenter.cpp
+  # lib/qm-dsp/dsp/segmentation/cluster_melt.c
+  # lib/qm-dsp/dsp/segmentation/cluster_segmenter.c
+  lib/qm-dsp/dsp/signalconditioning/DFProcess.cpp
+  lib/qm-dsp/dsp/signalconditioning/FiltFilt.cpp
+  lib/qm-dsp/dsp/signalconditioning/Filter.cpp
+  lib/qm-dsp/dsp/signalconditioning/Framer.cpp
+  lib/qm-dsp/dsp/tempotracking/DownBeat.cpp
+  lib/qm-dsp/dsp/tempotracking/TempoTrack.cpp
+  lib/qm-dsp/dsp/tempotracking/TempoTrackV2.cpp
+  lib/qm-dsp/dsp/tonal/ChangeDetectionFunction.cpp
+  lib/qm-dsp/dsp/tonal/TCSgram.cpp
+  lib/qm-dsp/dsp/tonal/TonalEstimator.cpp
+  lib/qm-dsp/dsp/transforms/FFT.cpp
+  # lib/qm-dsp/dsp/wavelet/Wavelet.cpp
+  lib/qm-dsp/ext/kissfft/kiss_fft.c
+  lib/qm-dsp/ext/kissfft/tools/kiss_fftr.c
+  # lib/qm-dsp/hmm/hmm.c
+  lib/qm-dsp/maths/Correlation.cpp
+  # lib/qm-dsp/maths/CosineDistance.cpp
+  lib/qm-dsp/maths/KLDivergence.cpp
+  lib/qm-dsp/maths/MathUtilities.cpp
+  # lib/qm-dsp/maths/pca/pca.c
+  # lib/qm-dsp/thread/Thread.cpp
+)
+
+target_compile_definitions(QueenMaryDsp PRIVATE kiss_fft_scalar=double)
+if(UNIX)
+  target_compile_definitions(QueenMaryDsp PRIVATE USE_PTHREADS)
+elseif(MSVC)
+  # Causes the cmath headers to declare M_PI and friends.
+  # http://msdn.microsoft.com/en-us/library/4hwaceh6.aspx We could define this
+  # in our headers but then include order matters since headers we don't control
+  # may include cmath first.
+  target_compile_definitions(QueenMaryDsp PRIVATE _USE_MATH_DEFINES)
+endif()
+target_include_directories(
+  QueenMaryDsp
+  SYSTEM
+  PUBLIC lib/qm-dsp lib/qm-dsp/include
+)
+target_link_libraries(mixxx-lib PRIVATE QueenMaryDsp)
+
+# ReplayGain
+add_library(ReplayGain STATIC EXCLUDE_FROM_ALL lib/replaygain/replaygain.cpp)
+target_include_directories(mixxx-lib SYSTEM PRIVATE lib/replaygain)
+target_link_libraries(mixxx-lib PRIVATE ReplayGain)
+
+# Reverb
+add_library(Reverb STATIC EXCLUDE_FROM_ALL lib/reverb/Reverb.cc)
+if(MSVC)
+  target_compile_definitions(Reverb PRIVATE _USE_MATH_DEFINES)
+endif()
+target_include_directories(Reverb PRIVATE src)
+target_link_libraries(Reverb PRIVATE Qt${QT_VERSION_MAJOR}::Core)
+target_include_directories(mixxx-lib SYSTEM PRIVATE lib/reverb)
+target_link_libraries(mixxx-lib PRIVATE Reverb)
+
+# Rubberband
+option(RUBBERBAND "Enable the rubberband engine for pitch-bending" ON)
+if(RUBBERBAND)
+  find_package(rubberband REQUIRED)
+  target_link_libraries(mixxx-lib PUBLIC rubberband::rubberband)
+  target_compile_definitions(mixxx-lib PUBLIC __RUBBERBAND__)
+  if(QML)
+    target_link_libraries(mixxx-qml-lib PRIVATE rubberband::rubberband)
+    target_compile_definitions(mixxx-qml-lib PUBLIC __RUBBERBAND__)
+  endif()
+  target_sources(
+    mixxx-lib
+    PRIVATE
+      src/effects/backends/builtin/pitchshifteffect.cpp
+      src/engine/bufferscalers/enginebufferscalerubberband.cpp
+      src/engine/bufferscalers/rubberbandwrapper.cpp
+      src/engine/bufferscalers/rubberbandtask.cpp
+      src/engine/bufferscalers/rubberbandworkerpool.cpp
+  )
+endif()
+
+# SndFile
+find_package(SndFile REQUIRED)
+target_link_libraries(mixxx-lib PRIVATE SndFile::sndfile)
+target_compile_definitions(mixxx-lib PUBLIC __SNDFILE__)
+if(SndFile_SUPPORTS_SET_COMPRESSION_LEVEL)
+  target_compile_definitions(
+    mixxx-lib
+    PUBLIC SFC_SUPPORTS_SET_COMPRESSION_LEVEL
+  )
+endif()
+
+# SoundTouch
+find_package(SoundTouch 2.1.2 REQUIRED)
+target_link_libraries(mixxx-lib PRIVATE SoundTouch::SoundTouch)
+
+# TagLib
+find_package(TagLib 1.11 REQUIRED)
+target_link_libraries(mixxx-lib PUBLIC TagLib::TagLib)
+if(QML)
+  target_link_libraries(mixxx-qml-lib PUBLIC TagLib::TagLib)
+endif()
+
+# Threads
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+target_link_libraries(mixxx-lib PRIVATE Threads::Threads)
+
+#
+# Features
+#
+
+# Battery meter
+#
+# The battery meter is only available on Linux, macOS and Windows, therefore
+# this option is forcibly set to OFF on all other platforms.
+cmake_dependent_option(
+  BATTERY
+  "Battery meter support"
+  ON
+  "WIN32 OR (UNIX AND NOT ANDROID)"
+  OFF
+)
+if(BATTERY)
+  if(WIN32)
+    target_sources(mixxx-lib PRIVATE src/util/battery/batterywindows.cpp)
+  elseif(APPLE)
+    if(IOS)
+      message(FATAL_ERROR "Battery support is not implemented for iOS")
+    else()
+      target_sources(mixxx-lib PRIVATE src/util/battery/batterymac.cpp)
+    endif()
+  elseif(UNIX)
+    if(EMSCRIPTEN)
+      message(
+        FATAL_ERROR
+        "Battery support is not implemented for Emscripten (WebAssembly)"
+      )
+    endif()
+    find_package(Upower REQUIRED)
+    find_package(GLIB COMPONENTS gobject REQUIRED)
+    target_include_directories(mixxx-lib SYSTEM PUBLIC ${GLIB_INCLUDE_DIRS})
+    target_link_libraries(
+      mixxx-lib
+      PRIVATE Upower::Upower ${GLIB_LIBRARIES} ${GLIB_GOBJECT_LIBRARIES}
+    )
+    target_sources(mixxx-lib PRIVATE src/util/battery/batterylinux.cpp)
+  else()
+    message(
+      FATAL_ERROR
+      "Battery support is not implemented for the target platform."
+    )
+  endif()
+  target_compile_definitions(mixxx-lib PUBLIC __BATTERY__)
+endif()
+
+# Build Time
+option(BUILDTIME "Use __DATE__ and __TIME__" ON)
+if(NOT BUILDTIME)
+  # Distributions like openSUSE use tools (e. g. build-compare) to detect
+  # whether a built binary differs from a former build to avoid unneeded
+  # publishing of packages.
+  # If __DATE__ and __TIME__ are used the built binary differs always but
+  # the tools cannot detect the root and publish a new package although
+  # the only change is caused by __DATE__ and __TIME__.
+  target_compile_definitions(mixxx-lib PUBLIC DISABLE_BUILDTIME)
+endif()
+
+# Clang Color Diagnostics
+option(CLANG_COLORDIAG "Clang color diagnostics" OFF)
+if(CLANG_COLORDIAG)
+  if(NOT LLVM_CLANG)
+    message(
+      FATAL_ERROR
+      "Color Diagnostics are only available when using Clang."
+    )
+  endif()
+  target_compile_options(mixxx-lib PUBLIC -fcolor-diagnostics)
+endif()
+
+# Clang Sanitizers
+set(SANITIZERS "")
+option(SANITIZE_ADDRESS "Address Sanitizer" OFF)
+if(SANITIZE_ADDRESS)
+  list(APPEND SANITIZERS "address")
+endif()
+option(SANITIZE_UNDEFINED "Clang Undefined Behaviour Sanitizer" OFF)
+if(SANITIZE_UNDEFINED)
+  list(APPEND SANITIZERS "undefined")
+endif()
+option(SANITIZE_THREAD "Clang Thread Sanitizer" OFF)
+if(SANITIZE_THREAD)
+  list(APPEND SANITIZERS "thread")
+endif()
+if(NOT SANITIZERS STREQUAL "")
+  if(NOT (LLVM_CLANG OR GNU_GCC))
+    message(FATAL_ERROR "Sanitizers are only available on Clang or GCC")
+  endif()
+  list(JOIN SANITIZERS "," SANITZERS_JOINED)
+  target_compile_options(mixxx-lib PUBLIC -fsanitize=${SANITZERS_JOINED})
+  target_link_options(mixxx-lib PUBLIC -fsanitize=${SANITZERS_JOINED})
+endif()
+
+# CoreAudio MP3/AAC Decoder
+#
+# The CoreAudio API is only available on macOS, therefore this option is
+# forcibly set to OFF on all other platforms.
+cmake_dependent_option(
+  COREAUDIO
+  "CoreAudio MP3/AAC Decoder"
+  ON
+  "APPLE"
+  OFF
+)
+if(COREAUDIO)
+  target_sources(
+    mixxx-lib
+    PRIVATE
+      src/sources/soundsourcecoreaudio.cpp
+      src/sources/v1/legacyaudiosourceadapter.cpp
+      lib/apple/CAStreamBasicDescription.cpp
+  )
+  set_property(
+    SOURCE lib/apple/CAStreamBasicDescription.cpp
+    APPEND_STRING
+    PROPERTY COMPILE_OPTIONS -Wno-deprecated-anon-enum-enum-conversion
+  )
+  target_compile_definitions(mixxx-lib PUBLIC __COREAUDIO__)
+  target_include_directories(mixxx-lib SYSTEM PUBLIC lib/apple)
+endif()
+
+# FAAD AAC audio file decoder plugin
+find_package(MP4)
+find_package(MP4v2)
+# It is enabled by default on Linux only, because other targets have other
+# solutions. It requires MP4 or MP4v2.
+default_option(FAAD "FAAD AAC audio file decoder support" "UNIX;NOT APPLE;MP4_FOUND OR MP4v2_FOUND")
+if(FAAD)
+  if(NOT MP4_FOUND AND NOT MP4v2_FOUND)
+    message(
+      FATAL_ERROR
+      "FAAD AAC audio support requires libmp4 or libmp4v2 with development headers."
+    )
+  endif()
+  target_sources(
+    mixxx-lib
+    PRIVATE src/sources/soundsourcem4a.cpp src/sources/libfaadloader.cpp
+  )
+  target_compile_definitions(mixxx-lib PUBLIC __FAAD__)
+  if(MP4v2_FOUND)
+    target_compile_definitions(mixxx-lib PUBLIC __MP4V2__)
+    target_link_libraries(mixxx-lib PRIVATE MP4v2::MP4v2)
+  else()
+    target_link_libraries(mixxx-lib PRIVATE MP4::MP4)
+  endif()
+endif()
+
+# FDK-AAC is loaded dynamically at runtime by EncoderFdkAac using QLibrary,
+# so copy it into the Windows and macOS packages, but do not link to it.
+if(APPLE AND MACOS_BUNDLE)
+  find_library(FDK_AAC_LIBRARY fdk-aac)
+  if(FDK_AAC_LIBRARY)
+    message(STATUS "Found fdk-aac: ${FDK_AAC_LIBRARY}")
     file(
-      WRITE "${librespot-cpp_SOURCE_DIR}/lib/spdlog/CMakeLists.txt"
-      "if(NOT TARGET spdlog)\n  add_library(spdlog INTERFACE)\nendif()"
+      COPY ${FDK_AAC_LIBRARY}
+      DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/lib/fdk-aac-install"
+      FOLLOW_SYMLINK_CHAIN
+    )
+    install(
+      DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/lib/fdk-aac-install/"
+      DESTINATION "${MIXXX_INSTALL_PREFIX}/Contents/Frameworks"
+    )
+  else()
+    message(STATUS "Could NOT find libfdk-aac.dylib")
+  endif()
+elseif(WIN32)
+  # On Windows find_library finds the .lib file, but the installer needs the .dll file.
+  find_file(FDK_AAC_DLL fdk-aac.dll PATH_SUFFIXES ${CMAKE_INSTALL_BINDIR})
+  if(FDK_AAC_DLL)
+    message(STATUS "Found fdk-aac DLL: ${FDK_AAC_DLL}")
+    install(FILES ${FDK_AAC_DLL} DESTINATION ${MIXXX_INSTALL_BINDIR})
+  else()
+    message(STATUS "Could NOT find fdk-aac.dll")
+  endif()
+endif()
+
+# Google PerfTools
+option(GPERFTOOLS "Google PerfTools libtcmalloc linkage" OFF)
+option(GPERFTOOLSPROFILER "Google PerfTools libprofiler linkage" OFF)
+if((BUILD_BENCH) AND (GPERFTOOLS OR GPERFTOOLSPROFILER))
+  find_package(GPerfTools REQUIRED)
+  if(GPERFTOOLS)
+    target_link_libraries(mixxx-lib PRIVATE GPerfTools::tcmalloc)
+  endif()
+  if(PERFTOOLSPROFILER)
+    target_link_libraries(mixxx-lib PRIVATE GPerfTools::profiler)
+  endif()
+endif()
+
+# HSS1394 MIDI device
+#
+# The HSS1394 library is only available on macOS, therefore this option is
+# forcibly set to OFF on all other platforms.
+if(WIN32 OR APPLE)
+  find_package(HSS1394)
+else()
+  set(HSS1394 OFF)
+endif()
+cmake_dependent_option(
+  HSS1394
+  "HSS1394 MIDI device support"
+  "${HSS1394_FOUND}"
+  "WIN32 OR APPLE"
+  OFF
+)
+if(HSS1394)
+  target_sources(
+    mixxx-lib
+    PRIVATE
+      src/controllers/midi/hss1394controller.cpp
+      src/controllers/midi/hss1394enumerator.cpp
+  )
+  target_compile_definitions(mixxx-lib PUBLIC __HSS1394__)
+  if(NOT HSS1394_FOUND)
+    message(
+      FATAL_ERROR
+      "HSS1394 MIDI device support requires the libhss1394 and its development headers."
     )
   endif()
-  # Patch librespot-cpp to avoid TARGET name collision AND link signature mismatch
-  file(READ "${librespot-cpp_SOURCE_DIR}/CMakeLists.txt" LIBRESPOT_CMAKELISTS)
-  string(
-    REPLACE "project(mixxx)"
-    "project(librespot-cpp)"
-    LIBRESPOT_CMAKELISTS
-    "${LIBRESPOT_CMAKELISTS}"
-  )
-  string(
-    REPLACE "add_executable(mixxx"
-    "add_library(librespot-cpp-lib STATIC"
-    LIBRESPOT_CMAKELISTS
-    "${LIBRESPOT_CMAKELISTS}"
-  )
-  string(
-    REPLACE "target_link_libraries(mixxx"
-    "target_link_libraries(librespot-cpp-lib PRIVATE"
-    LIBRESPOT_CMAKELISTS
-    "${LIBRESPOT_CMAKELISTS}"
-  )
-  file(
-    WRITE "${librespot-cpp_SOURCE_DIR}/CMakeLists.txt"
-    "${LIBRESPOT_CMAKELISTS}"
-  )
+  target_link_libraries(mixxx-lib PRIVATE HSS1394::HSS1394)
+endif()
 
-  add_subdirectory(${librespot-cpp_SOURCE_DIR} ${librespot-cpp_BINARY_DIR})
-  target_link_libraries(mixxx-lib PRIVATE librespot-cpp-lib)
-  # Linked above
-  # target_link_libraries(mixxx-lib PRIVATE Qt${QT_VERSION_MAJOR}::NetworkAuth)
-
-  find_program(YTDLP_EXECUTABLE NAMES yt-dlp)
-  if(NOT YTDLP_EXECUTABLE)
-    message(STATUS "yt-dlp NOT found, will download during build")
-    FetchContent_Declare(
-      ytdlp
-      URL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp
-      DOWNLOAD_NO_EXTRACT TRUE
-    )
-    FetchContent_MakeAvailable(ytdlp)
-    set(
-      YTDLP_EXECUTABLE
-      ${ytdlp_SOURCE_DIR}/yt-dlp
-      CACHE INTERNAL
-      "yt-dlp executable"
+# Lilv (LV2)
+find_package(lilv)
+default_option(LILV "Lilv (LV2) support" "lilv_FOUND")
+if(LILV)
+  if(NOT lilv_FOUND)
+    message(
+      FATAL_ERROR
+      "Lilv (LV2) support requires the liblilv-0 and LV2 libraries and development headers."
     )
   endif()
-  target_compile_definitions(mixxx-lib PRIVATE YTDLP_PATH="${YTDLP_EXECUTABLE}")
+  target_sources(
+    mixxx-lib
+    PRIVATE
+      src/effects/backends/lv2/lv2backend.cpp
+      src/effects/backends/lv2/lv2effectprocessor.cpp
+      src/effects/backends/lv2/lv2manifest.cpp
+  )
+  target_compile_definitions(mixxx-lib PUBLIC __LILV__)
+  target_link_libraries(mixxx-lib PRIVATE lilv::lilv)
+  if(BUILD_TESTING)
+    target_link_libraries(mixxx-test PRIVATE lilv::lilv)
+  endif()
+endif()
+
+# Live Broadcasting (Shoutcast)
+cmake_dependent_option(
+  BROADCAST
+  "Live Broadcasting (Shoutcast) support"
+  ON
+  "NOT IOS"
+  OFF
+)
+if(BROADCAST)
+  find_package(Shoutidjc)
+  # Check if system lib is at least 2.4.6 and not suffering bugs
+  # https://github.com/mixxxdj/mixxx/issues/9681
+  # https://github.com/mixxxdj/mixxx/issues/10305
+  if(Shoutidjc_FOUND AND Shoutidjc_VERSION VERSION_LESS 2.4.4)
+    message(
+      STATUS
+      "Installed libshout-idjc version: ${Shoutidjc_VERSION} is suffering from issue #9681"
+    )
+  elseif(Shoutidjc_FOUND AND Shoutidjc_VERSION VERSION_LESS 2.4.6)
+    message(
+      STATUS
+      "Installed libshout version: ${Shout_VERSION} is suffering from issue #10305"
+    )
+  endif()
+  if(NOT Shoutidjc_FOUND OR Shoutidjc_VERSION VERSION_LESS 2.4.6)
+    # Fall back to internal library in the lib tree
+    message(STATUS "Using internal libshout-idjc")
+    add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/lib/libshout-idjc")
+    target_include_directories(
+      mixxx-lib
+      SYSTEM
+      PUBLIC lib/libshout-idjc/include
+    )
+    if(WIN32)
+      target_compile_definitions(
+        shout_mixxx
+        PRIVATE __WINDOWS__ _CRT_NONSTDC_NO_WARNINGS
+      )
+    endif()
+    target_link_libraries(mixxx-lib PRIVATE shout_mixxx)
+  else()
+    target_link_libraries(mixxx-lib PRIVATE Shoutidjc::Shoutidjc)
+  endif()
+  target_sources(
+    mixxx-lib
+    PRIVATE
+      src/preferences/dialog/dlgprefbroadcastdlg.ui
+      src/preferences/dialog/dlgprefbroadcast.cpp
+      src/broadcast/broadcastmanager.cpp
+      src/engine/sidechain/shoutconnection.cpp
+      src/preferences/broadcastprofile.cpp
+      src/preferences/broadcastsettings.cpp
+      src/preferences/broadcastsettings_legacy.cpp
+      src/preferences/broadcastsettingsmodel.cpp
+      src/encoder/encoderbroadcastsettings.cpp
+  )
+  target_compile_definitions(mixxx-lib PUBLIC __BROADCAST__)
+  if(QML)
+    target_compile_definitions(mixxx-qml-lib PUBLIC __BROADCAST__)
+  endif()
+endif()
+
+# Opus (RFC 6716)
+find_package(OpusFile)
+find_package(Opus)
+default_option(OPUS "Opus (RFC 6716) support" "OpusFile_FOUND")
+if(OPUS)
+  if(NOT OpusFile_FOUND OR NOT Opus_FOUND)
+    message(
+      FATAL_ERROR
+      "Opus support requires libopus and libopusfile with development headers."
+    )
+  endif()
+  target_sources(
+    mixxx-lib
+    PRIVATE
+      src/sources/soundsourceopus.cpp
+      src/encoder/encoderopus.cpp
+      src/encoder/encoderopussettings.cpp
+  )
+  target_compile_definitions(mixxx-lib PUBLIC __OPUS__)
+  target_link_libraries(mixxx-lib PRIVATE OpusFile::OpusFile Opus::Opus)
+  if(BUILD_TESTING)
+    target_link_libraries(mixxx-test PRIVATE OpusFile::OpusFile Opus::Opus)
+  endif()
+endif()
+
+# MAD MP3 Decoder
+find_package(MAD)
+find_package(ID3Tag)
+default_option(MAD "MAD MP3 Decoder" "MAD_FOUND;ID3Tag_FOUND")
+if(MAD)
+  if(NOT MAD_FOUND)
+    message(
+      FATAL_ERROR
+      "MAD support requires libmad and its development headers."
+    )
+  endif()
+  if(NOT ID3Tag_FOUND)
+    message(
+      FATAL_ERROR
+      "ID3Tag support requires libid3tag and its development headers."
+    )
+  endif()
+  target_sources(mixxx-lib PRIVATE src/sources/soundsourcemp3.cpp)
+  target_compile_definitions(mixxx-lib PUBLIC __MAD__)
+  target_link_libraries(mixxx-lib PUBLIC MAD::MAD ID3Tag::ID3Tag)
+endif()
+
+# Media Foundation AAC Decoder Plugin
+#
+# The Media Foundtation API is only available on Windows, therefore this option
+# is forcibly set to OFF on all other platforms.
+cmake_dependent_option(
+  MEDIAFOUNDATION
+  "Media Foundation AAC decoder plugin"
+  ON
+  "WIN32"
+  OFF
+)
+if(MEDIAFOUNDATION)
+  find_package(MediaFoundation REQUIRED)
+  target_sources(mixxx-lib PRIVATE src/sources/soundsourcemediafoundation.cpp)
+  target_compile_definitions(mixxx-lib PUBLIC __MEDIAFOUNDATION__)
+  target_include_directories(
+    mixxx-lib
+    SYSTEM
+    PRIVATE ${MediaFoundation_INCLUDE_DIRS}
+  )
+  target_link_libraries(
+    mixxx-lib
+    PRIVATE ${MediaFoundation_LIBRARIES} Version.lib
+  )
+endif()
+
+# Modplug support
+find_package(Modplug)
+default_option(MODPLUG "Modplug module decoder support" "Modplug_FOUND")
+if(MODPLUG)
+  if(NOT Modplug_FOUND)
+    message(
+      FATAL_ERROR
+      "Modplug module decoder support requires libmodplug and its development headers."
+    )
+  endif()
+  target_sources(
+    mixxx-lib
+    PRIVATE
+      src/preferences/dialog/dlgprefmodplugdlg.ui
+      src/sources/soundsourcemodplug.cpp
+      src/preferences/dialog/dlgprefmodplug.cpp
+  )
+  target_compile_definitions(mixxx-lib PUBLIC __MODPLUG__)
+  target_link_libraries(mixxx-lib PRIVATE Modplug::Modplug)
+endif()
+
+find_package(Microsoft.GSL CONFIG)
+if(Microsoft.GSL_FOUND)
+  target_link_libraries(mixxx-lib PRIVATE Microsoft.GSL::GSL)
+  if(QML)
+    target_link_libraries(mixxx-qml-lib PRIVATE Microsoft.GSL::GSL)
+    target_link_libraries(mixxx-qml-libplugin PRIVATE Microsoft.GSL::GSL)
+  endif()
+else()
+  # check if the headers have been installed without cmake config (< 3.1.0)
+  check_include_file_cxx(gsl/gsl HAVE_GSL_GSL)
+  if(NOT HAVE_GSL_GSL)
+    unset(HAVE_GSL_GSL CACHE) # unset cache to re-evaluate this until it succeeds. check_include_file_cxx() has no REQUIRED flag.
+    message(FATAL_ERROR "ms-gsl development headers (libmsgsl-dev) not found")
+  endif()
+endif()
+
+
+# NETWORKAUTH
+option(NETWORKAUTH "Enable Spotify AND YouTube features" OFF)
+if(NETWORKAUTH)
+  find_package(Qt${QT_VERSION_MAJOR} COMPONENTS NetworkAuth QUIET)
+  if(Qt${QT_VERSION_MAJOR}NetworkAuth_FOUND)
+    target_compile_definitions(mixxx-lib PUBLIC NETWORKAUTH)
+    list(APPEND QT_EXTRA_COMPONENTS "NetworkAuth")
+  else()
+    message(WARNING "QtNetworkAuth not found, disabling NETWORKAUTH")
+    set(NETWORKAUTH OFF CACHE BOOL "Enable Spotify AND YouTube features" FORCE)
+  endif()
+endif()
+
+# QtKeychain
+option(
+  QTKEYCHAIN
+  "Secure credentials storage support for Live Broadcasting profiles"
+  ON
+)
+if(QTKEYCHAIN)
+  find_package(Qt${QT_VERSION_MAJOR}Keychain REQUIRED)
+  target_compile_definitions(mixxx-lib PUBLIC __QTKEYCHAIN__)
+  target_link_libraries(mixxx-lib PRIVATE ${QTKEYCHAIN_LIBRARIES})
+  target_include_directories(mixxx-lib SYSTEM PUBLIC ${QTKEYCHAIN_INCLUDE_DIRS})
+endif()
+
+# USB HID or/and Bulk controller support
+find_package(LibUSB)
+
+# USB HID controller support
+option(HID "USB HID controller support" ON)
+if(HID)
+  # hidapi 0.14.0 is the first release, that contains bus type information
+  find_package(hidapi 0.14.0)
+  if(NOT hidapi_FOUND)
+    message(FATAL_ERROR "hidapi >= 0.14.0 not found!")
+  else()
+    # hidapi has two backends on Linux, one using the kernel's hidraw API and one using libusb.
+    # libusb obviously does not support Bluetooth HID devices, so use the hidraw backend. The
+    # libusb backend is the default, so hidraw needs to be selected explicitly at link time.
+    if(CMAKE_SYSTEM_NAME STREQUAL Linux)
+      target_link_libraries(mixxx-lib PRIVATE hidapi::hidraw)
+    else()
+      target_link_libraries(mixxx-lib PRIVATE hidapi::hidapi)
+    endif()
+  endif()
+  target_sources(
+    mixxx-lib
+    PRIVATE
+      src/controllers/hid/hidcontroller.cpp
+      src/controllers/hid/hidiothread.cpp
+      src/controllers/hid/hidioglobaloutputreportfifo.cpp
+      src/controllers/hid/hidiooutputreport.cpp
+      src/controllers/hid/hiddevice.cpp
+      src/controllers/hid/hidenumerator.cpp
+      src/controllers/hid/hidreportdescriptor.cpp
+      src/controllers/hid/hidusagetables.cpp
+      src/controllers/hid/legacyhidcontrollermapping.cpp
+      src/controllers/hid/legacyhidcontrollermappingfilehandler.cpp
+  )
+
+  if(ANDROID)
+    target_sources(mixxx-lib PRIVATE src/controllers/android.cpp)
+  else()
+    # Android doesn't support QWidget and is not able to compile this manager due to compiler lacking support for structure binding (error: capturing a structured binding is not yet supported)
+    target_sources(
+      mixxx-lib
+      PRIVATE src/controllers/controllerhidreporttabsmanager.cpp
+    )
+  endif()
+  target_compile_definitions(mixxx-lib PUBLIC __HID__)
+endif()
+
+# USB Bulk controller support
+default_option(BULK "USB Bulk controller support" "LibUSB_FOUND;NOT WIN32")
+if(BULK)
+  if(NOT LibUSB_FOUND)
+    message(
+      FATAL_ERROR
+      "USB Bulk controller support requires libusb 1.0 and its development headers."
+    )
+  endif()
+  target_sources(
+    mixxx-lib
+    PRIVATE
+      src/controllers/bulk/bulkcontroller.cpp
+      src/controllers/bulk/bulkenumerator.cpp
+  )
+  if(NOT HID)
+    target_sources(
+      mixxx-lib
+      PRIVATE
+        src/controllers/hid/legacyhidcontrollermapping.cpp
+        src/controllers/hid/legacyhidcontrollermappingfilehandler.cpp
+    )
+  endif()
+  target_compile_definitions(mixxx-lib PUBLIC __BULK__)
+  target_link_libraries(mixxx-lib PRIVATE LibUSB::LibUSB)
+endif()
+
+# Vinyl Control
+default_option(VINYLCONTROL "Vinyl Control support" "NOT MACAPPSTORE")
+if(VINYLCONTROL)
+  if(MACAPPSTORE)
+    message(
+      FATAL_ERROR
+      "Mac App Store and Vinyl Control support are mutually exclusive due to licensing issues."
+    )
+  endif()
+
+  target_sources(
+    mixxx-lib
+    PRIVATE
+      src/vinylcontrol/vinylcontrol.cpp
+      src/vinylcontrol/vinylcontrolxwax.cpp
+      src/preferences/dialog/dlgprefvinyl.cpp
+      src/vinylcontrol/vinylcontrolsignalwidget.cpp
+      src/vinylcontrol/vinylcontrolmanager.cpp
+      src/vinylcontrol/vinylcontrolprocessor.cpp
+      src/vinylcontrol/steadypitch.cpp
+      src/engine/controls/vinylcontrolcontrol.cpp
+  )
+  target_compile_definitions(mixxx-lib PUBLIC __VINYLCONTROL__)
+
+  # Internal xwax library
+  add_library(mixxx-xwax STATIC EXCLUDE_FROM_ALL)
+  target_sources(
+    mixxx-xwax
+    PRIVATE
+      lib/xwax/timecoder.c
+      lib/xwax/timecoder_mk2.c
+      lib/xwax/lut.c
+      lib/xwax/lut_mk2.c
+      lib/xwax/filters.c
+      lib/xwax/ringbuffer.c
+      lib/xwax/pitch_kalman.c
+  )
+  target_include_directories(mixxx-xwax SYSTEM PUBLIC lib/xwax)
+  target_link_libraries(mixxx-lib PRIVATE mixxx-xwax)
+endif()
+
+# rendergraph
+add_subdirectory(src/rendergraph)
+target_compile_definitions(
+  rendergraph_gl
+  PUBLIC $<$<CONFIG:Debug>:MIXXX_DEBUG_ASSERTIONS_ENABLED>
+)
+target_link_libraries(mixxx-lib PUBLIC rendergraph_gl)
+target_compile_definitions(mixxx-lib PUBLIC rendergraph=rendergraph_gl)
+target_compile_definitions(mixxx-lib PRIVATE allshader=allshader_gl)
+if(BUILD_TESTING)
+  target_compile_definitions(mixxx-test PRIVATE allshader=allshader_gl)
+endif()
+if(QML)
+  target_compile_definitions(
+    rendergraph_sg
+    PUBLIC $<$<CONFIG:Debug>:MIXXX_DEBUG_ASSERTIONS_ENABLED>
+  )
+  target_link_libraries(mixxx-qml-lib PRIVATE rendergraph_sg)
+  target_compile_definitions(mixxx-qml-lib PRIVATE rendergraph=rendergraph_sg)
+  target_compile_definitions(mixxx-qml-lib PRIVATE __SCENEGRAPH__)
+  target_compile_definitions(mixxx-qml-lib PRIVATE allshader=allshader_sg)
 endif()
 
 # WavPack audio file support
@@ -3759,9 +5269,10 @@ if(WAVPACK)
   if(NOT wavpack_FOUND)
     message(
       FATAL_ERROR
-      "WavPack audio file support requires libwv AND its development headers."
+      "WavPack audio file support requires libwv and its development headers."
     )
   endif()
+  target_sources(mixxx-lib PRIVATE src/sources/soundsourcewv.cpp)
   target_compile_definitions(mixxx-lib PUBLIC __WV__)
   target_link_libraries(mixxx-lib PRIVATE WavPack::wavpack)
 endif()
@@ -3771,7 +5282,7 @@ target_precompile_headers(
   PUBLIC ${MIXXX_LIB_PRECOMPILED_HEADER} ${MIXXX_COMMON_PRECOMPILED_HEADER}
 )
 if(BUILD_TESTING)
-  target_precompile_headers(mixxx-TEST REUSE_FROM mixxx-lib)
+  target_precompile_headers(mixxx-test REUSE_FROM mixxx-lib)
 endif()
 
 # Configure file with build options
@@ -3798,10 +5309,7 @@ set(
 )
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "Mixxx")
 set(CPACK_PACKAGE_EXECUTABLES "mixxx;Mixxx")
-set(
-  CPACK_PACKAGE_ICON
-  "${CMAKE_CURRENT_SOURCE_DIR}/res/images/mixxx_install_logo.bmp"
-)
+set(CPACK_PACKAGE_ICON "${CMAKE_SOURCE_DIR}/res/images/mixxx_install_logo.bmp")
 set(CPACK_PACKAGE_HOMEPAGE_URL "https://www.mixxx.org/")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
@@ -3812,8 +5320,8 @@ set(CPACK_MIXXX_VERSION "${MIXXX_VERSION}")
 set(CPACK_GIT_DESCRIBE "${GIT_DESCRIBE}")
 set(CPACK_GIT_COMMIT_DATE ${GIT_COMMIT_DATE})
 
-# Detailed version information, git info AND package file name are set from
-# CPackConfig.cmake, NOT here.
+# Detailed version information, git info and package file name are set from
+# CPackConfig.cmake, not here.
 
 set(CPACK_SOURCE_IGNORE_FILES "\\\\.#;/#;.*~;\\\\.o$")
 list(APPEND CPACK_SOURCE_IGNORE_FILES "/\\\\.git/")
@@ -3843,12 +5351,14 @@ if(QT6)
   endif()
   if(QML)
     list(
-      APPEND CPACK_DEBIAN_PACKAGE_DEPENDS
+      APPEND
+      CPACK_DEBIAN_PACKAGE_DEPENDS
       "qml6-module-qt-labs-folderlistmodel"
     )
     list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml6-module-qt-labs-qmlmodels")
     list(
-      APPEND CPACK_DEBIAN_PACKAGE_DEPENDS
+      APPEND
+      CPACK_DEBIAN_PACKAGE_DEPENDS
       "qml6-module-qt5compat-graphicaleffects"
     )
     list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml6-module-qtmultimedia")
@@ -3880,31 +5390,34 @@ set(
   "${CPACK_DEBIAN_PACKAGE_DESCRIPTION}"
 )
 string(
-  PREPEND CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED
+  PREPEND
+  CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED
   "${CPACK_PACKAGE_DESCRIPTION_SUMMARY}"
   "\n"
 )
 string(
-  REPLACE "\n\n"
+  REPLACE
+  "\n\n"
   "\n.\n"
   CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED
   "${CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED}"
 )
 string(
-  REPLACE "\n"
+  REPLACE
+  "\n"
   "\n "
   CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED
   "${CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED}"
 )
 
-# This is the version of the package itself AND can be advanced OR set to
+# This is the version of the package itself and can be advanced or set to
 # something like 0ubuntu1 when building a new package from the same version
 if(NOT CPACK_DEBIAN_PACKAGE_RELEASE)
   set(CPACK_DEBIAN_PACKAGE_RELEASE 1)
 endif()
 
 set(CPACK_DEBIAN_DISTRIBUTION_RELEASES noble questing resolute)
-set(CPACK_DEBIAN_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+set(CPACK_DEBIAN_SOURCE_DIR ${CMAKE_SOURCE_DIR})
 set(
   CPACK_DEBIAN_UPLOAD_PPA_SCRIPT
   "${CMAKE_CURRENT_SOURCE_DIR}/packaging/CPackDebUploadPPA.cmake"
@@ -3919,10 +5432,7 @@ set(
   CPACK_WIX_LICENSE_RTF
   "${CMAKE_CURRENT_BINARY_DIR}/packaging/wix/LICENSE.rtf"
 )
-set(
-  CPACK_WIX_PRODUCT_ICON
-  "${CMAKE_CURRENT_SOURCE_DIR}/res/images/icons/ic_mixxx.ico"
-)
+set(CPACK_WIX_PRODUCT_ICON "${CMAKE_SOURCE_DIR}/res/images/icons/ic_mixxx.ico")
 set(CPACK_WIX_PROPERTY_ARPHELPLINK "${CPACK_PACKAGE_HOMEPAGE_URL}")
 set(
   CPACK_WIX_UI_BANNER
@@ -3933,13 +5443,10 @@ set(
   "${CMAKE_CURRENT_SOURCE_DIR}/packaging/wix/images/dialog.bmp"
 )
 
-set(
-  CPACK_PROJECT_CONFIG_FILE
-  "${CMAKE_CURRENT_SOURCE_DIR}/packaging/CPackConfig.cmake"
-)
+set(CPACK_PROJECT_CONFIG_FILE "${CMAKE_SOURCE_DIR}/packaging/CPackConfig.cmake")
 
 if(WIN32)
-  # override NOT working default NSIS
+  # override not working default NSIS
   set(CPACK_GENERATOR WIX)
 
   if(CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64")
@@ -3964,8 +5471,8 @@ endif()
 
 include(CPack)
 
-if(APPLOCAL_COMPONENT_defined)
-  cpack_add_component(applocal HIDDEN QUIET)
+if(APPLOCAL_COMPONENT_DEFINED)
+  cpack_add_component(applocal HIDDEN REQUIRED)
 
   # In order to run Mixx from the build directory install applocal components
   add_custom_command(
@@ -3992,7 +5499,7 @@ if(APPLE AND MACOS_BUNDLE)
 
   # Starting with arm64 macOS Apple will require ad-hoc code signatures,
   # which can be generated by setting the identity to a single dash (-).
-  # These only include a checksum for verifying integrity, NOT an actual
+  # These only include a checksum for verifying integrity, not an actual
   # signature.
   if(NOT APPLE_CODESIGN_IDENTITY)
     set(APPLE_CODESIGN_IDENTITY -)
@@ -4005,72 +5512,3 @@ if(APPLE AND MACOS_BUNDLE)
   )
   install(SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/BundleInstall.cmake")
 endif()
-
-add_custom_target(
-  mixxx-gitinfo
-  # Note: We don't quote the paths in the COMMAND since CMake already inserts
-  # escapes (which, if quoted, lead to paths wrongly containing backslashes).
-  # See https://stackoverflow.com/questions/8925396/why-does-cmake-prefixes-spaces-with-backslashes-when-executing-a-COMMAND
-  COMMAND
-    ${CMAKE_COMMAND} -DGIT_DESCRIBE=${GIT_DESCRIBE}
-    -DGIT_COMMIT_DATE=${GIT_COMMIT_DATE}
-    -DINPUT_FILE=${CMAKE_CURRENT_SOURCE_DIR}/src/gitinfo.h.in
-    -DOUTPUT_FILE=${CMAKE_CURRENT_BINARY_DIR}/src/gitinfo.h -P
-    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/scripts/gitinfo.cmake
-  COMMENT "Update git version information in gitinfo.h"
-  BYPRODUCTS "${CMAKE_CURRENT_BINARY_DIR}/src/gitinfo.h"
-  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-)
-
-# Windows-only resource file
-# Windows-only resource file
-if(WIN32)
-  string(TIMESTAMP MIXXX_YEAR "%Y")
-
-  set(MIXXX_VERSION_COMMA "${PROJECT_VERSION_MAJOR},${PROJECT_VERSION_MINOR},${PROJECT_VERSION_PATCH}")
-  set(
-    MIXXX_FILEVERSION
-    "${PROJECT_VERSION_MAJOR},${PROJECT_VERSION_MINOR},${PROJECT_VERSION_PATCH},0"
-  )
-  set(MIXXX_PRODUCTVERSION "${MIXXX_VERSION_COMMA},0")
-
-  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(MIXXX_DEBUG 1)
-  else()
-    set(MIXXX_DEBUG 0)
-  endif()
-
-  if(MIXXX_VERSION_PRERELEASE STREQUAL "")
-    set(MIXXX_PRERELEASE 0)
-  else()
-    set(MIXXX_PRERELEASE 1)
-  endif()
-
-  configure_file("src/mixxx.rc.include.in" "src/mixxx.rc.include" @ONLY)
-  configure_file("src/mixxx.rc" "mixxx.rc" @ONLY)
-
-  target_sources(mixxx PRIVATE mixxx.rc "/src/gitinfo.h")
-  target_include_directories(mixxx PRIVATE "")
-  add_dependencies(mixxx mixxx-gitinfo)
-endif()
-
-# ReplayGain
-target_include_directories(mixxx-lib SYSTEM PUBLIC lib/replaygain)
-
-# TagLib
-find_package(TagLib 1.11 QUIET)
-target_include_directories(mixxx-lib SYSTEM PUBLIC ${TagLib_INCLUDE_DIRS})
-target_link_libraries(mixxx-lib PUBLIC TagLib::TagLib)
-find_package(SndFile QUIET)
-target_link_libraries(mixxx-lib PUBLIC SndFile::SndFile)
-
-# QM-DSP
-target_include_directories(mixxx-lib SYSTEM PUBLIC lib/qm-dsp)
-
-# Reverb
-target_include_directories(mixxx-lib SYSTEM PUBLIC lib/reverb)
-
-# Internal components
-target_include_directories(mixxx-lib PUBLIC src/rendergraph/common)
-target_include_directories(mixxx-lib PUBLIC src/rendergraph/opengl)
-target_include_directories(mixxx-lib PUBLIC src/rendergraph/scenegraph)

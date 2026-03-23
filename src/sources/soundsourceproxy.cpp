@@ -140,14 +140,6 @@ bool registerPlatformAndFallbackSoundSourceProviders(
             pProviderRegistry,
             std::make_shared<mixxx::SoundSourceProviderFFmpeg>());
 #endif // __FFMPEG__
-#ifdef NETWORKAUTH
-    registerSoundSourceProvider(
-            pProviderRegistry,
-            std::make_shared<mixxx::SoundSourceProviderSpotify>());
-    registerSoundSourceProvider(
-            pProviderRegistry,
-            std::make_shared<mixxx::SoundSourceProviderYouTube>());
-#endif // NETWORKAUTH
     return true;
 }
 
@@ -256,6 +248,14 @@ bool SoundSourceProxy::registerProviders() {
     // Register the high-priority reference providers AFTER all other
     // providers to verify that their priorities are correct.
     registerReferenceSoundSourceProviders(&s_soundSourceProviders);
+#ifdef NETWORKAUTH
+    registerSoundSourceProvider(
+            &s_soundSourceProviders,
+            std::make_shared<mixxx::SoundSourceProviderSpotify>());
+    registerSoundSourceProvider(
+            &s_soundSourceProviders,
+            std::make_shared<mixxx::SoundSourceProviderYouTube>());
+#endif
 
     const QStringList supportedFileTypes = getSupportedFileTypes();
     VERIFY_OR_DEBUG_ASSERT(!supportedFileTypes.isEmpty()) {

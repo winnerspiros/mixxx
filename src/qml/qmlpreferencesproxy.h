@@ -1,89 +1,72 @@
 #pragma once
 
-#include <QtQml/qqml.h>
-
-#include <QImage>
-#include <QList>
+#include <QDialog>
+#include <QJSValue>
 #include <QObject>
 #include <QQmlEngine>
-#include <QQmlListProperty>
-#include <QSize>
-#include <QString>
-#include <QUrl>
-#include <QtGlobal>
+
+#include "controllers/controller.h"
+#include "qml/qmlconfigproxy.h"
 #ifndef Q_OS_ANDROID
 #include <QVideoFrame>
+#include <QVideoSink>
 #endif
-#include <chrono>
-#include <limits>
 #include <memory>
 #include <optional>
 
+#include "controllers/controllermanager.h"
 #include "controllers/controllermappinginfo.h"
 #include "controllers/controllermappinginfoenumerator.h"
 #include "controllers/legacycontrollermapping.h"
+#include "controllers/legacycontrollersettings.h"
 #include "controllers/legacycontrollersettingslayout.h"
-#include "qmlconfigproxy.h"
-
-class ControllerManager;
-class LegacyControllerMapping;
-class AbstractLegacyControllerSetting;
-class Controller;
+#include "util/time.h"
 
 namespace mixxx {
 namespace qml {
 
 class QmlControllerScreenElement : public QObject {
     Q_OBJECT
-    Q_PROPERTY(QString identifier READ identifier CONSTANT)
-    Q_PROPERTY(QSize size READ size CONSTANT)
-    Q_PROPERTY(int targetFps READ targetFps CONSTANT)
     Q_PROPERTY(int fps READ fps NOTIFY fpsChanged)
-#ifndef Q_OS_ANDROID
-    Q_PROPERTY(QObject* videoSink READ getVideoSink WRITE connectVideoSink NOTIFY videoSinkChanged)
-#endif
-    QML_NAMED_ELEMENT(ControllerScreen)
-    QML_UNCREATABLE("Use Mixxx.ControllerMapping to get screens")
-
   public:
-    explicit QmlControllerScreenElement(
-            QObject* parent, const ::LegacyControllerMapping::ScreenInfo& screenInfo);
+    QmlControllerScreenElement(
+            QObject* parent, const LegacyControllerMapping::ScreenInfo& screen);
 
-    QString identifier() const {
-        return m_screenInfo.identifier;
-    }
-    QSize size() const {
-        return m_screenInfo.size;
-    }
-    int targetFps() const {
-        return m_screenInfo.target_fps;
-    }
+    void clear();
+
+    void updateFrame(
+            const LegacyControllerMapping::ScreenInfo& screen, const QImage& frame);
+
     int fps() const {
-        return static_cast<int>(std::round(1000000.0 / m_averageFrameDuration));
+        return static_cast<int>(
+                1000000 / m_averageFrameDuration);
     }
+
 #ifndef Q_OS_ANDROID
-    Q_INVOKABLE void connectVideoSink(QObject* videoSink);
-    QObject* getVideoSink() const {
-        return nullptr;
+    Q_INVOKABLE void connectVideoSink(QVideoSink* videoSink) {
+        disconnect(videoSink);
+        connect(this,
+                &QmlControllerScreenElement::videoFrameAvailable,
+                videoSink,
+                &QVideoSink::setVideoFrame);
+    }
+#else
+    Q_INVOKABLE void connectVideoSink(QObject* /*videoSink*/) {
     }
 #endif
+
   signals:
     void fpsChanged();
-#ifndef Q_OS_ANDROID
     void videoSinkChanged();
-    void videoFrameAvailable(const ::QVideoFrame& videoFrame);
+#ifndef Q_OS_ANDROID
+    void videoFrameAvailable(const QVideoFrame& videoFrame);
 #endif
+
   public slots:
-    void updateFrame(const ::LegacyControllerMapping::ScreenInfo& screen, const ::QImage& frame);
-    void clear() {
-        m_averageFrameDuration = std::numeric_limits<double>::max();
-    }
 
   private:
-    ::LegacyControllerMapping::ScreenInfo m_screenInfo;
-
-    using Clock = std::chrono::steady_clock;
-    Clock::time_point m_lastFrameTimestamp;
+    LegacyControllerMapping::ScreenInfo m_screenInfo;
+    mixxx::Time::time_point m_lastFrameTimestamp;
     double m_averageFrameDuration;
 };
 
@@ -101,31 +84,37 @@ class QmlControllerSettingElement : public QObject {
 
 class QmlControllerSettingItem : public QmlControllerSettingElement {
     Q_OBJECT
-    Q_PROPERTY(QString label READ label CONSTANT)
-    Q_PROPERTY(QString description READ description CONSTANT)
-    Q_PROPERTY(QVariant value READ value WRITE setValue NOTIFY valueChanged)
-    Q_PROPERTY(QVariant defaultValue READ defaultValue CONSTANT)
-    Q_PROPERTY(QVariantList possibleValues READ possibleValues CONSTANT)
+    Q_PROPERTY(QString name READ name CONSTANT)
+    Q_PROPERTY(QJSValue value READ value WRITE setValue NOTIFY valueChanged)
+    Q_PROPERTY(bool isDirty READ isDirty NOTIFY dirtyChanged)
     QML_ANONYMOUS
     QML_UNCREATABLE("Use Mixxx.ControllerSettingElement to get devices")
   public:
     explicit QmlControllerSettingItem(
-            std::shared_ptr<AbstractLegacyControllerSetting> pInternal, QObject* parent);
+            LegacyControllerSettingsLayoutItem* pInternal, QObject* parent);
     QString getType() const override {
         return QStringLiteral("item");
     }
-    QString label() const;
-    QString description() const;
-    QVariant value() const;
-    void setValue(const QVariant& value);
-    QVariant defaultValue() const;
-    QVariantList possibleValues() const;
+    QString name() const {
+        return m_pInternal->setting()->variableName();
+    }
+    QJSValue value() const {
+        return m_pInternal->setting()->value();
+    }
+    void setValue(const QJSValue& value) {
+        m_pInternal->setting()->setValue(value);
+        Q_EMIT valueChanged();
+    }
+    bool isDirty() const {
+        return m_pInternal->setting()->isDirty();
+    }
 
   signals:
     void valueChanged();
+    void dirtyChanged();
 
   private:
-    std::shared_ptr<AbstractLegacyControllerSetting> m_pInternal;
+    LegacyControllerSettingsLayoutItem* m_pInternal;
 };
 
 class QmlControllerSettingContainer : public QmlControllerSettingElement {
@@ -183,7 +172,7 @@ class QmlControllerMappingProxy : public QObject {
     Q_PROPERTY(QUrl wikiLink READ getWikiLink CONSTANT)
     Q_PROPERTY(bool hasSettings READ hasSettings CONSTANT)
     Q_PROPERTY(bool hasScreens READ hasScreens CONSTANT)
-    QML_NAMED_ELEMENT(ControllerMapping)
+    QML_NAMED_ELEMENT(SoundDevice)
     QML_UNCREATABLE("Use Mixxx.ControllerManager to get devices")
   public:
     enum class Type {
@@ -193,15 +182,15 @@ class QmlControllerMappingProxy : public QObject {
     Q_ENUM(Type)
     explicit QmlControllerMappingProxy(const MappingInfo& mapping, QObject* parent);
 
-    Q_INVOKABLE mixxx::qml::QmlControllerSettingElement* loadSettings(
-            const mixxx::qml::QmlConfigProxy* pConfig,
-            mixxx::qml::QmlControllerDeviceProxy* pController);
+    Q_INVOKABLE QmlControllerSettingElement* loadSettings(
+            const QmlConfigProxy* pConfig,
+            QmlControllerDeviceProxy* pController);
 
-    Q_INVOKABLE QList<mixxx::qml::QmlControllerScreenElement*> loadScreens(
-            const mixxx::qml::QmlConfigProxy* pConfig,
-            mixxx::qml::QmlControllerDeviceProxy* pController);
+    Q_INVOKABLE QList<QmlControllerScreenElement*> loadScreens(
+            const QmlConfigProxy* pConfig,
+            QmlControllerDeviceProxy* pController);
 
-    Q_INVOKABLE void resetSettings(mixxx::qml::QmlControllerDeviceProxy* pController);
+    Q_INVOKABLE void resetSettings(QmlControllerDeviceProxy* pController);
 
     QString getName() const;
     QString getAuthor() const;
@@ -216,7 +205,7 @@ class QmlControllerMappingProxy : public QObject {
     const MappingInfo& definition() const {
         return m_mappingDefinition;
     }
-    Q_INVOKABLE bool isUserMapping(const mixxx::qml::QmlConfigProxy* pConfig) const;
+    Q_INVOKABLE bool isUserMapping(const QmlConfigProxy* pConfig) const;
 
   signals:
     // This signal gets emitted when the mapping cannot be read anymore. This
@@ -225,14 +214,14 @@ class QmlControllerMappingProxy : public QObject {
     void mappingErrored();
 
   private:
-    void fetchMappingDetails();
+    void fetchMappingDetails() const;
 
     // The following information may require to parse the XML file entirely. To
     // avoid unnecessarily doing so, we only load these fields if needed.
     // Accessors make sure to fetch this information just in time.
-    std::optional<bool> m_hasSettings;
-    std::optional<bool> m_hasScreens;
-    MappingInfo m_mappingDefinition;
+    mutable std::optional<bool> m_hasSettings;
+    mutable std::optional<bool> m_hasScreens;
+    mutable MappingInfo m_mappingDefinition;
 };
 
 class QmlControllerDeviceProxy : public QObject {
@@ -241,7 +230,7 @@ class QmlControllerDeviceProxy : public QObject {
     Q_PROPERTY(QString vendor READ vendor CONSTANT)
     Q_PROPERTY(QString product READ product CONSTANT)
     Q_PROPERTY(QString serialNumber READ serialNumber CONSTANT)
-    Q_PROPERTY(mixxx::qml::QmlControllerDeviceProxy::Type type READ getType CONSTANT)
+    Q_PROPERTY(QmlControllerDeviceProxy::Type type READ getType CONSTANT)
 
     Q_PROPERTY(QString name READ getName WRITE setName NOTIFY nameChanged)
     Q_PROPERTY(QUrl visualUrl READ getVisualUrl WRITE setVisualUrl NOTIFY visualUrlChanged)
@@ -264,38 +253,38 @@ class QmlControllerDeviceProxy : public QObject {
             const std::optional<ProductInfo>& productInfo,
             const QSet<QmlControllerMappingProxy*>& mappings,
             QObject* parent);
-    mixxx::qml::QmlControllerDeviceProxy::Type getType() const;
+    QmlControllerDeviceProxy::Type getType() const;
     QString getName() const;
     void setName(const QString& name);
     QString getSinceVersion() const;
     QUrl getVisualUrl() const;
     void setVisualUrl(const QUrl& url);
     QmlControllerMappingProxy* getMapping() const;
-    void setMapping(QmlControllerMappingProxy* url);
+    void setMapping(QmlControllerMappingProxy* mapping);
     bool getEnabled() const;
     void setEnabled(bool state);
     void setEdited() {
-        bool changed = m_edited;
+        bool changed = !m_edited;
         m_edited = true;
-        if (!changed) {
-            emit editedChanged();
+        if (changed) {
+            Q_EMIT editedChanged();
         }
     }
     void setMappings(const QSet<QmlControllerMappingProxy*>& mappings) {
         m_mappings = mappings;
-        emit mappingChanged();
+        Q_EMIT mappingsChanged();
     }
     void clearEdited() {
         bool changed = m_edited;
         m_edited = false;
         if (changed) {
-            emit editedChanged();
+            Q_EMIT editedChanged();
         }
     }
     QString vendor() const;
     QString product() const;
     QString serialNumber() const;
-    Q_INVOKABLE bool save(const mixxx::qml::QmlConfigProxy* pConfig);
+    Q_INVOKABLE bool save(const QmlConfigProxy* pConfig);
     Q_INVOKABLE void clear();
 
     Controller* internal() const {
@@ -303,7 +292,8 @@ class QmlControllerDeviceProxy : public QObject {
     }
 
     std::shared_ptr<LegacyControllerMapping> instanceFor(const QString& mappingPath) const;
-    void setInstanceFor(const QString& mappingPath, std::shared_ptr<LegacyControllerMapping>);
+    void setInstanceFor(
+            const QString& mappingPath, std::shared_ptr<LegacyControllerMapping> pMapping);
   signals:
     void visualUrlChanged();
     void nameChanged();
@@ -320,7 +310,7 @@ class QmlControllerDeviceProxy : public QObject {
 #if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
     void mappingUpdated(QmlControllerMappingProxy* pMapping, const MappingInfo& mapping);
 #else
-    void mappingUpdated(mixxx::qml::QmlControllerMappingProxy* pMapping,
+    void mappingUpdated(QmlControllerMappingProxy* pMapping,
             const MappingInfo& mapping);
 #endif
     void deviceLearned();
@@ -359,8 +349,8 @@ class QmlControllerManagerProxy : public QObject {
 
     std::shared_ptr<ControllerManager> internal() const;
 
-    Q_INVOKABLE QList<mixxx::qml::QmlControllerMappingProxy*> mappings(
-            mixxx::qml::QmlControllerDeviceProxy::Type type) const {
+    Q_INVOKABLE QList<QmlControllerMappingProxy*> mappings(
+            QmlControllerDeviceProxy::Type type) const {
         return m_knownMappings.value(type);
     }
 
@@ -378,7 +368,7 @@ class QmlControllerManagerProxy : public QObject {
 #if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
     void updateExistingMapping(QmlControllerMappingProxy* pMapping, const MappingInfo& mapping);
 #else
-    void updateExistingMapping(mixxx::qml::QmlControllerMappingProxy* pMapping,
+    void updateExistingMapping(QmlControllerMappingProxy* pMapping,
             const MappingInfo& mapping);
 #endif
 

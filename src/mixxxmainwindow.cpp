@@ -5,7 +5,6 @@
 #include <QDebug>
 #include <QFileDialog>
 #include <QOpenGLContext>
-#include <QStringBuilder>
 #include <QUrl>
 
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
@@ -40,9 +39,14 @@
 #ifdef __ENGINEPRIME__
 #include "library/export/libraryexporter.h"
 #endif
+#include "library/library_prefs.h"
 #include "library/trackcollectionmanager.h"
 #include "mixer/playerinfo.h"
 #include "mixer/playermanager.h"
+#include "recording/recordingmanager.h"
+#include "skin/legacy/launchimage.h"
+#include "skin/skinloader.h"
+#include "soundio/soundmanager.h"
 #include "sources/soundsourceproxy.h"
 #include "track/track.h"
 #include "util/debug.h"
@@ -63,6 +67,7 @@
 #endif
 
 namespace {
+#if defined(__LINUX__) && !defined(__ANDROID__)
 // Detect if the desktop supports a global menu to decide whether we need to rebuild
 // and reconnect the menu bar when switching to/from fullscreen mode.
 // Compared to QMenuBar::isNativeMenuBar() (requires a set menu bar) and
@@ -71,16 +76,15 @@ namespace {
 // while Mixxx is running.
 // This is a reimplementation of QGenericUnixTheme > checkDBusGlobalMenuAvailable()
 inline bool supportsGlobalMenu() {
-#if defined(__LINUX__) && !defined(__ANDROID__) && !defined(QT_NO_DBUS)
+#ifndef QT_NO_DBUS
     QDBusConnection conn = QDBusConnection::sessionBus();
     if (const auto* pIface = conn.interface()) {
         return pIface->isServiceRegistered("com.canonical.AppMenu.Registrar");
     }
-    return false;
-#else
-    return false;
 #endif
+    return false;
 }
+#endif
 
 const ConfigKey kHideMenuBarConfigKey = ConfigKey("[Config]", "hide_menubar");
 const ConfigKey kMenuBarHintConfigKey = ConfigKey("[Config]", "show_menubar_hint");
@@ -98,14 +102,16 @@ MixxxMainWindow::MixxxMainWindow(std::shared_ptr<mixxx::CoreServices> pCoreServi
           m_noMicInputDialog(nullptr),
           m_noAuxInputDialog(nullptr),
           m_pGuiTick(nullptr),
+#if defined(__LINUX__) && !defined(__ANDROID__)
           m_supportsGlobalMenuBar(supportsGlobalMenu()),
+#endif
           m_inRebootMixxxView(false),
           m_pDeveloperToolsDlg(nullptr),
           m_pPrefDlg(nullptr),
           m_toolTipsCfg(mixxx::preferences::Tooltips::On) {
     DEBUG_ASSERT(pCoreServices);
     // These depend on the settings
-#ifdef __LINUX__
+#if defined(__LINUX__) && !defined(__ANDROID__)
     // If the desktop features a global menubar and we'll go fullscreen during
     // startup, set Qt::AA_DontUseNativeMenuBar so the menubar is placed in the
     // window like it's done in slotViewFullScreen(). On other desktops this
@@ -393,7 +399,7 @@ void MixxxMainWindow::initialize() {
 
 #ifndef __APPLE__
     // Ask for permission to auto-hide the menu bar if applicable.
-#ifdef __LINUX__
+#if defined(__LINUX__) && !defined(__ANDROID__)
     // This makes no sense when starting in windowed mode with a global menu,
     // we'll ask when going fullscreen.
     if (!m_supportsGlobalMenuBar || isFullScreen()) {
@@ -666,53 +672,53 @@ QDialog::DialogCode MixxxMainWindow::soundDeviceErrorDlg(
 QDialog::DialogCode MixxxMainWindow::soundDeviceBusyDlg(bool* retryClicked) {
     QString title(tr("Sound Device Busy"));
     QString text(
-            QStringLiteral("<html> <p>") %
-            tr("Mixxx was unable to open all the configured sound devices.") %
-            QStringLiteral("</p> <p>") %
-            m_pCoreServices->getSoundManager()->getErrorDeviceName() %
-            " is used by another application or not plugged in."
-            "</p><ul>"
-            "<li>" %
-            tr("<b>Retry</b> after closing the other application "
-               "or reconnecting a sound device") %
-            "</li>"
-            "<li>" %
-            tr("<b>Reconfigure</b> Mixxx's sound device settings.") %
-            "</li>"
-            "<li>" %
-            tr("Get <b>Help</b> from the Mixxx Wiki.") %
-            "</li>"
-            "<li>" %
-            tr("<b>Exit</b> Mixxx.") %
-            "</li>"
-            "</ul></html>");
+            "<html> <p>" %
+                    tr("Mixxx was unable to open all the configured sound devices.") +
+            "</p> <p>" %
+                    m_pCoreServices->getSoundManager()->getErrorDeviceName() %
+                    " is used by another application or not plugged in."
+                    "</p><ul>"
+                    "<li>" %
+                    tr("<b>Retry</b> after closing the other application "
+                       "or reconnecting a sound device") %
+                    "</li>"
+                    "<li>" %
+                    tr("<b>Reconfigure</b> Mixxx's sound device settings.") %
+                    "</li>"
+                    "<li>" %
+                    tr("Get <b>Help</b> from the Mixxx Wiki.") %
+                    "</li>"
+                    "<li>" %
+                    tr("<b>Exit</b> Mixxx.") %
+                    "</li>"
+                    "</ul></html>");
     return soundDeviceErrorDlg(title, text, retryClicked);
 }
 
 QDialog::DialogCode MixxxMainWindow::soundDeviceErrorMsgDlg(
         SoundDeviceStatus status, bool* retryClicked) {
     QString title(tr("Sound Device Error"));
-    QString text(QStringLiteral("<html> <p>") %
-            tr("Mixxx was unable to open all the configured sound "
-               "devices.") %
-            QStringLiteral("</p> <p>") %
-            m_pCoreServices->getSoundManager()
-                    ->getLastErrorMessage(status)
-                    .replace("\n", "<br/>") %
-            "</p><ul>"
-            "<li>" %
-            tr("<b>Retry</b> after fixing an issue") %
-            "</li>"
-            "<li>" %
-            tr("<b>Reconfigure</b> Mixxx's sound device settings.") %
-            "</li>"
-            "<li>" %
-            tr("Get <b>Help</b> from the Mixxx Wiki.") %
-            "</li>"
-            "<li>" %
-            tr("<b>Exit</b> Mixxx.") %
-            "</li>"
-            "</ul></html>");
+    QString text("<html> <p>" %
+                    tr("Mixxx was unable to open all the configured sound "
+                       "devices.") +
+            "</p> <p>" %
+                    m_pCoreServices->getSoundManager()
+                            ->getLastErrorMessage(status)
+                            .replace("\n", "<br/>") %
+                    "</p><ul>"
+                    "<li>" %
+                    tr("<b>Retry</b> after fixing an issue") %
+                    "</li>"
+                    "<li>" %
+                    tr("<b>Reconfigure</b> Mixxx's sound device settings.") %
+                    "</li>"
+                    "<li>" %
+                    tr("Get <b>Help</b> from the Mixxx Wiki.") %
+                    "</li>"
+                    "<li>" %
+                    tr("<b>Exit</b> Mixxx.") %
+                    "</li>"
+                    "</ul></html>");
     return soundDeviceErrorDlg(title, text, retryClicked);
 }
 
@@ -1358,7 +1364,7 @@ void MixxxMainWindow::rebootMixxxView() {
     m_pMenuBar->setStyleSheet(m_pCentralWidget->styleSheet());
 
     setCentralWidget(m_pCentralWidget);
-#ifdef __LINUX__
+#if defined(__LINUX__) && !defined(__ANDROID__)
     // don't adjustSize() on Linux as this wouldn't use the entire available area
     // to paint the new skin with X11
     // https://github.com/mixxxdj/mixxx/issues/9309
@@ -1462,7 +1468,7 @@ bool MixxxMainWindow::eventFilter(QObject* obj, QEvent* event) {
         const bool isFullScreenNow = windowState() & Qt::WindowFullScreen;
         if ((isFullScreenNow && !wasFullScreen) ||
                 (!isFullScreenNow && wasFullScreen)) {
-#ifdef __LINUX__
+#if defined(__LINUX__) && !defined(__ANDROID__)
             // Fix for "No menu bar with ubuntu unity in full screen mode"
             // (issues #6072 and #6689). Before touching anything here, please
             // read those bugs.
@@ -1476,7 +1482,7 @@ bool MixxxMainWindow::eventFilter(QObject* obj, QEvent* event) {
 #endif
 
 #ifndef __APPLE__
-#ifdef __LINUX__
+#if defined(__LINUX__) && !defined(__ANDROID__)
             // Only show the dialog if we are able to have the menubar in the
             // main window, only then we're able to hide it.
             if (!m_supportsGlobalMenuBar || isFullScreenNow)
@@ -1588,12 +1594,8 @@ bool MixxxMainWindow::confirmExit() {
         }
     }
     if (m_pPrefDlg && m_pPrefDlg->isVisible()) {
-        QMessageBox::StandardButton btn = QMessageBox::question(this,
-                tr("Confirm Exit"),
-                tr("The preferences window is still open.") + "<br>" +
-                        tr("Discard any changes and exit Mixxx?"),
-                QMessageBox::Yes | QMessageBox::No,
-                QMessageBox::No);
+        QMessageBox::StandardButton btn = QMessageBox::question(
+                this, tr("Confirm Exit"), tr("The preferences window is still open.") + "<br>" + tr("Discard any changes and exit Mixxx?"), QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
         if (btn == QMessageBox::No) {
             return false;
         } else {

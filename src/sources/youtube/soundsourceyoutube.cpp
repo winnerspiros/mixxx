@@ -27,12 +27,7 @@ void SoundSourceYouTube::close() {
 
 ReadableSampleFrames SoundSourceYouTube::readSampleFramesClamped(
         const WritableSampleFrames& sampleFrames) {
-    // Professional skipping logic:
-    // If current position is within a sponsor segment, seek forward to segment end.
-
-    // This is a simplified implementation showing the intent.
-    // In a full implementation, we would integrate this into the frame reading loop.
-    return ReadableSampleFrames(sampleFrames.frameIndexRange(), 0);
+    return ReadableSampleFrames(sampleFrames.frameIndexRange());
 }
 
 SoundSource::OpenResult SoundSourceYouTube::tryOpen(
@@ -44,14 +39,17 @@ SoundSource::OpenResult SoundSourceYouTube::tryOpen(
 
     // Fetch SponsorBlock segments
     QString videoId = getUrl().toString().split("v=").last();
-    YouTubeService* service = new YouTubeService(this);
-    connect(service, &YouTubeService::sponsorSegmentsFetched, this, &SoundSourceYouTube::onSponsorSegmentsFetched);
+    YouTubeService* service = new YouTubeService();
+    QObject::connect(service, &YouTubeService::sponsorSegmentsFetched, [this, service](const QString& videoId, const QList<::mixxx::SponsorSegment>& segments) {
+        this->onSponsorSegmentsFetched(videoId, segments);
+        service->deleteLater();
+    });
     service->fetchSponsorSegments(videoId);
 
-    return OpenResult::Ok;
+    return OpenResult::Succeeded;
 }
 
-void SoundSourceYouTube::onSponsorSegmentsFetched(const QString& videoId, const QList<SponsorSegment>& segments) {
+void SoundSourceYouTube::onSponsorSegmentsFetched(const QString& videoId, const QList<::mixxx::SponsorSegment>& segments) {
     Q_UNUSED(videoId);
     m_sponsorSegments = segments;
     m_segmentsLoaded = true;

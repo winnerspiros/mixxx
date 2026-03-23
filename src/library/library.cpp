@@ -32,6 +32,10 @@
 #include "library/trackset/setlogfeature.h"
 #include "library/traktor/traktorfeature.h"
 #include "mixer/playermanager.h"
+#ifdef NETWORKAUTH
+#include "library/spotify/spotifyfeature.h"
+#include "library/youtube/youtubefeature.h"
+#endif
 #include "moc_library.cpp"
 #include "util/assert.h"
 #include "util/logger.h"
@@ -168,7 +172,6 @@ Library::Library(
     m_pYouTubeFeature = make_parented<YouTubeFeature>(this, m_pConfig);
     addFeature(m_pYouTubeFeature);
 #endif
-
     // Suspend a batch analysis while an ad-hoc analysis of
     // loaded tracks is in progress and resume it afterwards.
     connect(pPlayerManager,
