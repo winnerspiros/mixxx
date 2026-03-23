@@ -4,19 +4,19 @@
 #include <QObject>
 #include <QQmlEngine>
 #ifndef Q_OS_ANDROID
-#include <QVideoSink>
 #include <QVideoFrame>
+#include <QVideoSink>
 #endif
 #include <memory>
 #include <optional>
 
+#include "controllers/controllermanager.h"
 #include "controllers/controllermappinginfo.h"
 #include "controllers/controllermappinginfoenumerator.h"
-#include "controllers/controllermanager.h"
 #include "controllers/legacycontrollermapping.h"
 #include "controllers/legacycontrollersettings.h"
 #include "controllers/legacycontrollersettingslayout.h"
-#include "util/clock.h"
+#include "util/time.h"
 
 namespace mixxx {
 namespace qml {
@@ -64,7 +64,7 @@ class QmlControllerScreenElement : public QObject {
 
   private:
     LegacyControllerMapping::ScreenInfo m_screenInfo;
-    Clock::time_point m_lastFrameTimestamp;
+    mixxx::Time::time_point m_lastFrameTimestamp;
     double m_averageFrameDuration;
 };
 
@@ -74,7 +74,9 @@ class QmlControllerSettingElement : public QObject {
     QML_ANONYMOUS
     QML_UNCREATABLE("Use Mixxx.ControllerSettingElement to get devices")
   public:
-    explicit QmlControllerSettingElement(QObject* parent) : QObject(parent) {}
+    explicit QmlControllerSettingElement(QObject* parent)
+            : QObject(parent) {
+    }
     virtual QString getType() const = 0;
 };
 

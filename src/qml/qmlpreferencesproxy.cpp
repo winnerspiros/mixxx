@@ -1,10 +1,10 @@
 #include "qml/qmlpreferencesproxy.h"
-#include <utility>
-#include <limits>
 
 #include <QDir>
 #include <QSet>
 #include <cmath>
+#include <limits>
+#include <utility>
 
 #include "controllers/controller.h"
 #include "controllers/legacycontrollermappingfilehandler.h"
@@ -59,8 +59,8 @@ void QmlControllerScreenElement::updateFrame(
     if (m_screenInfo.identifier != screen.identifier) {
         return;
     }
-    auto currentTimestamp = Clock::now();
-    if (m_lastFrameTimestamp == Clock::time_point()) {
+    auto currentTimestamp = mixxx::Time::now();
+    if (m_lastFrameTimestamp == mixxx::Time::time_point()) {
         m_lastFrameTimestamp = currentTimestamp;
         return;
     }
@@ -109,7 +109,7 @@ void QmlControllerScreenElement::updateFrame(
 
 void QmlControllerScreenElement::clear() {
     m_averageFrameDuration = std::numeric_limits<double>::max();
-    m_lastFrameTimestamp = Clock::time_point();
+    m_lastFrameTimestamp = mixxx::Time::time_point();
 }
 
 QmlControllerSettingItem::QmlControllerSettingItem(
