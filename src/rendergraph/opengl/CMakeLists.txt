@@ -43,7 +43,7 @@ else()
     message(FATAL_ERROR "ms-gsl development headers (libmsgsl-dev) not found")
   endif()
 endif()
-target_compile_definitions(rendergraph_gl PUBLIC rendergraph=rendergraph_gl)
+target_compile_definitions(rendergraph_gl PRIVATE rendergraph=rendergraph_gl)
 
 # USE_QSHADER_FOR_GL is set in rendergraph/CMakeLists.txt
 if(USE_QSHADER_FOR_GL)

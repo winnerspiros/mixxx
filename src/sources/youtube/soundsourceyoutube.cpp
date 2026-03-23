@@ -40,7 +40,7 @@ SoundSource::OpenResult SoundSourceYouTube::tryOpen(
     // Fetch SponsorBlock segments
     QString videoId = getUrl().toString().split("v=").last();
     YouTubeService* service = new YouTubeService();
-    QObject::connect(service, &YouTubeService::sponsorSegmentsFetched, [this, service](const QString& videoId, const QList<SponsorSegment>& segments) {
+    QObject::connect(service, &YouTubeService::sponsorSegmentsFetched, [this, service](const QString& videoId, const QList<mixxx::SponsorSegment>& segments) {
         this->onSponsorSegmentsFetched(videoId, segments);
         service->deleteLater();
     });
@@ -49,7 +49,7 @@ SoundSource::OpenResult SoundSourceYouTube::tryOpen(
     return OpenResult::Succeeded;
 }
 
-void SoundSourceYouTube::onSponsorSegmentsFetched(const QString& videoId, const QList<SponsorSegment>& segments) {
+void SoundSourceYouTube::onSponsorSegmentsFetched(const QString& videoId, const QList<mixxx::SponsorSegment>& segments) {
     Q_UNUSED(videoId);
     m_sponsorSegments = segments;
     m_segmentsLoaded = true;

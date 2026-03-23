@@ -1,4 +1,3 @@
-#include <utility>
 #include "library/youtube/youtubeservice.h"
 
 #include <QJsonArray>
@@ -7,6 +6,7 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <utility>
 
 #include "util/logger.h"
 
@@ -41,7 +41,7 @@ void YouTubeService::fetchSponsorSegments(const QString& videoId) {
                         obj["category"].toString()});
             }
         }
-        emit sponsorSegmentsFetched(videoId, segments);
+        Q_EMIT sponsorSegmentsFetched(videoId, segments);
         reply->deleteLater();
         manager->deleteLater();
     });
