@@ -74,7 +74,7 @@ class Library : public QObject {
     void bindSearchboxWidget(WSearchLineEdit* pSearchboxWidget);
     void bindSidebarWidget(WLibrarySidebar* sidebarWidget);
     void bindLibraryWidget(WLibrary* libraryWidget,
-                    KeyboardEventFilter* pKeyboard);
+            KeyboardEventFilter* pKeyboard);
 
     void addFeature(LibraryFeature* feature);
 
@@ -95,7 +95,7 @@ class Library : public QObject {
         return m_editMetadataSelectedClick;
     }
 
-    //static Library* buildDefaultLibrary();
+    // static Library* buildDefaultLibrary();
 
     static const int kDefaultRowHeightPx;
 

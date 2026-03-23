@@ -1,8 +1,5 @@
 #pragma once
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
 #include <algorithm>
 #include <cmath>
 #include <type_traits>
@@ -36,7 +33,8 @@ constexpr T math_clamp(T value, T min, T max) {
 // to manually convert so they are aware of the conversion.
 template<typename T>
 // since we also want to this to work on size_t and ptrdiff_t, is_integer would be too strict.
-requires(std::is_arithmetic_v<T> && !std::is_floating_point_v<T>) constexpr bool even(T value) {
+    requires(std::is_arithmetic_v<T> && !std::is_floating_point_v<T>)
+constexpr bool even(T value) {
     return value % 2 == 0;
 }
 
@@ -46,6 +44,12 @@ requires(std::is_arithmetic_v<T> && !std::is_floating_point_v<T>) constexpr bool
 #endif
 
 // return value of 0 indicates failure (no greater power possible)
+
+template<typename T, typename U>
+constexpr T roundToFraction(T value, U fraction) {
+    return static_cast<T>(std::round(static_cast<double>(value) * static_cast<double>(fraction)) / static_cast<double>(fraction));
+}
+
 constexpr unsigned int roundUpToPowerOf2(unsigned int v) {
 #if (defined(__cpp_lib_int_pow2) && __cpp_lib_int_pow2 >= 202002L)
     return std::bit_ceil(v);
@@ -74,14 +78,14 @@ roundToFraction(double value, int denominator) {
 }
 
 template<typename T>
-requires std::is_floating_point_v<T>
-        CMATH_CONSTEXPR T ratio2db(T a) {
+    requires std::is_floating_point_v<T>
+CMATH_CONSTEXPR T ratio2db(T a) {
     return static_cast<T>(log10(a) * 20);
 }
 
 template<typename T>
-requires std::is_floating_point_v<T>
-        CMATH_CONSTEXPR T db2ratio(T a) {
+    requires std::is_floating_point_v<T>
+CMATH_CONSTEXPR T db2ratio(T a) {
     return static_cast<T>(pow(10, a / 20));
 }
 
@@ -89,7 +93,7 @@ requires std::is_floating_point_v<T>
 
 /// https://en.wikipedia.org/wiki/Sign_function
 template<typename T>
-requires std::is_arithmetic_v<T>
+    requires std::is_arithmetic_v<T>
 constexpr T sgn(const T a) {
     // silence -Wtype-limits
     if constexpr (std::is_unsigned_v<T>) {

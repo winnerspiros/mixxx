@@ -119,7 +119,7 @@ int runMixxx(MixxxApplication* pApp, const CmdlineArgs& args) {
             exitCode = kFatalErrorOnStartupExitCode;
         } else {
             qDebug() << "Displaying main window";
-            #ifdef Q_OS_ANDROID
+#ifdef Q_OS_ANDROID
             mainWindow.showMaximized();
 #else
             mainWindow.show();
@@ -233,7 +233,7 @@ int main(int argc, char* argv[]) {
     // Setting the organization name results in a QDesktopStorage::DataLocation
     // of "$HOME/Library/Application Support/Mixxx/Mixxx" on OS X. Leave the
     // organization name blank.
-    //QCoreApplication::setOrganizationName("Mixxx");
+    // QCoreApplication::setOrganizationName("Mixxx");
 
     QCoreApplication::setApplicationName(VersionStore::applicationName());
     QCoreApplication::setApplicationVersion(VersionStore::version());
