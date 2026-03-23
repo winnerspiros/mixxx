@@ -7,8 +7,8 @@
 #include <utility>
 
 #include "controllers/controller.h"
-#include "controllers/controllermappinginfoenumerator.h"
 #include "controllers/controllermanager.h"
+#include "controllers/controllermappinginfoenumerator.h"
 #include "controllers/defs_controllers.h"
 #include "controllers/legacycontrollermappingfilehandler.h"
 #include "controllers/scripting/legacy/controllerscriptenginelegacy.h"
@@ -77,27 +77,20 @@ void QmlControllerScreenElement::updateFrame(
         return;
     }
 
-    double averageFrameDuration;
+    double frameDuration =
+            static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(
+                    currentTimestamp - m_lastFrameTimestamp)
+                                        .count());
+
     if (m_averageFrameDuration == std::numeric_limits<double>::max()) {
-        averageFrameDuration =
-                static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(
-                        currentTimestamp - m_lastFrameTimestamp)
-                        .count());
+        m_averageFrameDuration = frameDuration;
     } else {
-        averageFrameDuration = std::lerp(m_averageFrameDuration,
-                static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(
-                        currentTimestamp - m_lastFrameTimestamp)
-                        .count()),
-                1.0 / kFrameSmoothAverageFactor);
+        double alpha = 1.0 / kFrameSmoothAverageFactor;
+        m_averageFrameDuration = (m_averageFrameDuration * (1.0 - alpha)) + (frameDuration * alpha);
     }
     m_lastFrameTimestamp = currentTimestamp;
 
-    if (fps() != static_cast<int>(1000000 / averageFrameDuration)) {
-        m_averageFrameDuration = averageFrameDuration;
-        Q_EMIT fpsChanged();
-    } else {
-        m_averageFrameDuration = averageFrameDuration;
-    }
+    Q_EMIT fpsChanged();
 
 #ifndef Q_OS_ANDROID
 #if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
@@ -315,10 +308,10 @@ QmlControllerDeviceProxy::QmlControllerDeviceProxy(Controller* pInternal,
           m_productInfo(productInfo),
           m_mappings(mappings),
           m_pMapping(nullptr) {
-    auto* pMapping = pInternal->getMapping().get();
+    auto pMapping = pInternal->getMapping();
     if (pMapping) {
         for (auto* mappingProxy : std::as_const(m_mappings)) {
-            if (mappingProxy->definition().getPath() == pMapping->getPath()) {
+            if (mappingProxy->definition().getPath() == pMapping->filePath()) {
                 m_pMapping = mappingProxy;
                 break;
             }
@@ -327,10 +320,10 @@ QmlControllerDeviceProxy::QmlControllerDeviceProxy(Controller* pInternal,
 }
 
 QmlControllerDeviceProxy::Type QmlControllerDeviceProxy::getType() const {
-    if (m_pInternal->isMidi()) {
+    if (m_pInternal->getDataRepresentationProtocol() == DataRepresentationProtocol::MIDI) {
         return Type::MIDI;
     }
-    if (m_pInternal->isHid()) {
+    if (m_pInternal->getDataRepresentationProtocol() == DataRepresentationProtocol::HID) {
         return Type::HID;
     }
     return Type::BULK;
@@ -338,35 +331,6 @@ QmlControllerDeviceProxy::Type QmlControllerDeviceProxy::getType() const {
 
 QString QmlControllerDeviceProxy::getName() const {
     return m_pInternal->getName();
-}
-
-void QmlControllerDeviceProxy::setName(const QString& name) {
-    if (m_editedFriendlyName == name) {
-        return;
-    }
-    m_editedFriendlyName = name;
-    setEdited();
-    Q_EMIT nameChanged();
-}
-
-QString QmlControllerDeviceProxy::getSinceVersion() const {
-    return m_pInternal->getSinceVersion();
-}
-
-QUrl QmlControllerDeviceProxy::getVisualUrl() const {
-    if (m_editedVisualUrl.isValid()) {
-        return m_editedVisualUrl;
-    }
-    return m_pInternal->getVisualUrl();
-}
-
-void QmlControllerDeviceProxy::setVisualUrl(const QUrl& url) {
-    if (m_editedVisualUrl == url) {
-        return;
-    }
-    m_editedVisualUrl = url;
-    setEdited();
-    Q_EMIT visualUrlChanged();
 }
 
 QmlControllerMappingProxy* QmlControllerDeviceProxy::getMapping() const {
@@ -399,17 +363,11 @@ void QmlControllerDeviceProxy::setEnabled(bool state) {
 }
 
 QString QmlControllerDeviceProxy::vendor() const {
-    if (m_productInfo.has_value()) {
-        return m_productInfo.value().vendor_id;
-    }
-    return QString();
+    return m_pInternal->getVendorString();
 }
 
 QString QmlControllerDeviceProxy::product() const {
-    if (m_productInfo.has_value()) {
-        return m_productInfo.value().product_id;
-    }
-    return QString();
+    return m_pInternal->getProductString();
 }
 
 QString QmlControllerDeviceProxy::serialNumber() const {
@@ -439,18 +397,16 @@ bool QmlControllerDeviceProxy::save(const QmlConfigProxy* pConfig) {
 void QmlControllerDeviceProxy::clear() {
     m_enabled = std::nullopt;
     m_pMapping = nullptr;
-    auto* pMapping = m_pInternal->getMapping().get();
+    auto pMapping = m_pInternal->getMapping();
     if (pMapping) {
         for (auto* mappingProxy : std::as_const(m_mappings)) {
-            if (mappingProxy->definition().getPath() == pMapping->getPath()) {
+            if (mappingProxy->definition().getPath() == pMapping->filePath()) {
                 m_pMapping = mappingProxy;
                 break;
             }
         }
     }
     clearEdited();
-    Q_EMIT nameChanged();
-    Q_EMIT visualUrlChanged();
     Q_EMIT mappingChanged();
     Q_EMIT enabledChanged();
 }
@@ -512,14 +468,33 @@ void QmlControllerManagerProxy::refreshKnownDevices() {
     m_unknownDevicesFound.clear();
 
     for (auto* pController : std::as_const(m_knownControllers)) {
-        auto productInfo = pController->getProductInfo();
         QList<QmlControllerMappingProxy*> mappings;
-        if (productInfo.has_value()) {
-            mappings = m_knownDevices.value(productInfo.value()).values();
+
+        auto type = Type::BULK;
+        if (pController->getDataRepresentationProtocol() == DataRepresentationProtocol::MIDI) {
+            type = Type::MIDI;
+        } else if (pController->getDataRepresentationProtocol() == DataRepresentationProtocol::HID) {
+            type = Type::HID;
         }
 
-        auto* pProxy = new QmlControllerDeviceProxy(
-                pController, productInfo, mappings, this);
+        for (auto* pMappingProxy : m_knownMappings.value(type)) {
+            if (pController->matchMapping(pMappingProxy->definition())) {
+                mappings.append(pMappingProxy);
+            }
+        }
+
+        ProductInfo productInfo;
+        productInfo.friendlyName = pController->getName();
+        productInfo.vendor_id = pController->getVendorId().has_value() ? QString::number(pController->getVendorId().value()) : QString();
+        productInfo.product_id = pController->getProductId().has_value() ? QString::number(pController->getProductId().value()) : QString();
+        productInfo.interface_number = pController->getUsbInterfaceNumber().has_value() ? QString::number(pController->getUsbInterfaceNumber().value()) : QString();
+
+        std::optional<ProductInfo> optProductInfo;
+        if (!productInfo.vendor_id.isEmpty() || !productInfo.product_id.isEmpty()) {
+            optProductInfo = productInfo;
+        }
+
+        auto* pProxy = new QmlControllerDeviceProxy(pController, optProductInfo, mappings, this);
         connect(pProxy,
                 &QmlControllerDeviceProxy::mappingAssigned,
                 m_pControllerManager.get(),
@@ -532,12 +507,8 @@ void QmlControllerManagerProxy::refreshKnownDevices() {
                 &QmlControllerDeviceProxy::mappingUpdated,
                 this,
                 &QmlControllerManagerProxy::updateExistingMapping);
-        connect(pController,
-                &Controller::deviceLearned,
-                pProxy,
-                &QmlControllerDeviceProxy::deviceLearned);
 
-        if (productInfo.has_value()) {
+        if (optProductInfo.has_value()) {
             m_knownDevicesFound.append(pProxy);
         } else {
             m_unknownDevicesFound.append(pProxy);
@@ -548,7 +519,6 @@ void QmlControllerManagerProxy::refreshKnownDevices() {
 }
 
 void QmlControllerManagerProxy::refreshMappings() {
-    m_knownDevices.clear();
     m_knownMappings.clear();
 
     loadMappingFromEnumerator(m_pControllerManager->getMainThreadUserMappingEnumerator());
@@ -556,23 +526,17 @@ void QmlControllerManagerProxy::refreshMappings() {
 }
 
 void QmlControllerManagerProxy::loadNewMapping(
-        ::mixxx::qml::QmlControllerDeviceProxy::Type type, const ::MappingInfo& mapping) {
+        mixxx::qml::QmlControllerDeviceProxy::Type type, const MappingInfo& mapping) {
     auto* pProxy = new QmlControllerMappingProxy(mapping, this);
     auto mappings = m_knownMappings.value(type);
     mappings.append(pProxy);
     m_knownMappings.insert(type, mappings);
 
-    for (const auto& productInfo : mapping.getProducts()) {
-        auto deviceMappings = m_knownDevices.value(productInfo);
-        deviceMappings.insert(pProxy);
-        m_knownDevices.insert(productInfo, deviceMappings);
-    }
-
     refreshKnownDevices();
 }
 
 void QmlControllerManagerProxy::updateExistingMapping(
-        ::mixxx::qml::QmlControllerMappingProxy* pMapping, const ::MappingInfo& mapping) {
+        QmlControllerMappingProxy* pMapping, const MappingInfo& mapping) {
     Q_EMIT pMapping->mappingErrored();
     refreshMappings();
     refreshKnownDevices();
@@ -590,17 +554,11 @@ void QmlControllerManagerProxy::loadMappingFromEnumerator(
         for (const auto& mapping : std::as_const(mappings)) {
             auto* pProxy = new QmlControllerMappingProxy(mapping, this);
             auto type = (extension == MIDI_MAPPING_EXTENSION) ? QmlControllerDeviceProxy::Type::MIDI
-                                                              : (extension == HID_MAPPING_EXTENSION) ? QmlControllerDeviceProxy::Type::HID
-                                                                                                     : QmlControllerDeviceProxy::Type::BULK;
+                    : (extension == HID_MAPPING_EXTENSION)    ? QmlControllerDeviceProxy::Type::HID
+                                                              : QmlControllerDeviceProxy::Type::BULK;
             auto typeMappings = m_knownMappings.value(type);
             typeMappings.append(pProxy);
             m_knownMappings.insert(type, typeMappings);
-
-            for (const auto& productInfo : mapping.getProducts()) {
-                auto deviceMappings = m_knownDevices.value(productInfo);
-                deviceMappings.insert(pProxy);
-                m_knownDevices.insert(productInfo, deviceMappings);
-            }
         }
     }
 }

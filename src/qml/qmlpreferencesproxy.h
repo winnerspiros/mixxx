@@ -6,6 +6,8 @@
 #include <QObject>
 #include <QQmlEngine>
 #include <QQmlListProperty>
+#include <QSet>
+#include <QSharedPointer>
 #include <memory>
 #include <optional>
 
@@ -14,6 +16,7 @@
 #endif
 
 #include "controllers/controllermappinginfo.h"
+#include "controllers/controllermappinginfoenumerator.h"
 #include "controllers/legacycontrollermapping.h"
 #include "controllers/legacycontrollersettingslayout.h"
 #include "util/time.h"
@@ -32,7 +35,7 @@ class QmlControllerSettingElement : public QObject {
     Q_OBJECT
   public:
     using QObject::QObject;
-    virtual ~QmlControllerSettingElement() = default;
+    ~QmlControllerSettingElement() override = default;
 
   signals:
     void dirtyChanged();
@@ -162,9 +165,7 @@ class QmlControllerMappingProxy : public QObject {
 class QmlControllerDeviceProxy : public QObject {
     Q_OBJECT
     Q_PROPERTY(Type type READ getType CONSTANT)
-    Q_PROPERTY(QString name READ getName WRITE setName NOTIFY nameChanged)
-    Q_PROPERTY(QString sinceVersion READ getSinceVersion CONSTANT)
-    Q_PROPERTY(QUrl visualUrl READ getVisualUrl WRITE setVisualUrl NOTIFY visualUrlChanged)
+    Q_PROPERTY(QString name READ getName CONSTANT)
     Q_PROPERTY(mixxx::qml::QmlControllerMappingProxy* mapping READ getMapping WRITE setMapping NOTIFY mappingChanged)
     Q_PROPERTY(bool enabled READ getEnabled WRITE setEnabled NOTIFY enabledChanged)
     Q_PROPERTY(QString vendor READ vendor CONSTANT)
@@ -186,10 +187,6 @@ class QmlControllerDeviceProxy : public QObject {
 
     Type getType() const;
     QString getName() const;
-    void setName(const QString& name);
-    QString getSinceVersion() const;
-    QUrl getVisualUrl() const;
-    void setVisualUrl(const QUrl& url);
     mixxx::qml::QmlControllerMappingProxy* getMapping() const;
     void setMapping(mixxx::qml::QmlControllerMappingProxy* mapping);
     bool getEnabled() const;
@@ -211,14 +208,11 @@ class QmlControllerDeviceProxy : public QObject {
     void setInstanceFor(const QString& mappingPath, std::shared_ptr<::LegacyControllerMapping> pMapping);
 
   signals:
-    void nameChanged();
-    void visualUrlChanged();
     void mappingChanged();
     void enabledChanged();
-    void deviceLearned();
     void mappingAssigned(::Controller* pInternal, std::shared_ptr<::LegacyControllerMapping> pMapping, bool enabled);
-    void mappingCreated(::mixxx::qml::QmlControllerDeviceProxy::Type type, const ::MappingInfo& mapping);
-    void mappingUpdated(::mixxx::qml::QmlControllerMappingProxy* pMapping, const ::MappingInfo& mapping);
+    void mappingCreated(mixxx::qml::QmlControllerDeviceProxy::Type type, const ::MappingInfo& mapping);
+    void mappingUpdated(mixxx::qml::QmlControllerMappingProxy* pMapping, const ::MappingInfo& mapping);
 
   private:
     void setEdited() {
@@ -236,8 +230,6 @@ class QmlControllerDeviceProxy : public QObject {
     QList<mixxx::qml::QmlControllerMappingProxy*> m_mappings;
     mixxx::qml::QmlControllerMappingProxy* m_pMapping;
     std::optional<bool> m_enabled;
-    QString m_editedFriendlyName;
-    QUrl m_editedVisualUrl;
     QHash<QString, std::shared_ptr<::LegacyControllerMapping>> m_mappingInstance;
 };
 
@@ -267,16 +259,15 @@ class QmlControllerManagerProxy : public QObject {
   public slots:
     void refreshKnownDevices();
     void refreshMappings();
-    void loadNewMapping(::mixxx::qml::QmlControllerDeviceProxy::Type type, const ::MappingInfo& mapping);
-    void updateExistingMapping(::mixxx::qml::QmlControllerMappingProxy* pMapping, const ::MappingInfo& mapping);
+    void loadNewMapping(mixxx::qml::QmlControllerDeviceProxy::Type type, const ::MappingInfo& mapping);
+    void updateExistingMapping(mixxx::qml::QmlControllerMappingProxy* pMapping, const ::MappingInfo& mapping);
 
   private:
-    void loadMappingFromEnumerator(QSharedPointer<::MappingInfoEnumerator> enumerator);
+    void loadMappingFromEnumerator(QSharedPointer<MappingInfoEnumerator> enumerator);
 
     std::shared_ptr<::ControllerManager> m_pControllerManager;
     QList<::Controller*> m_knownControllers;
-    QHash<::ProductInfo, QSet<mixxx::qml::QmlControllerMappingProxy*>> m_knownDevices;
-    QHash<::mixxx::qml::QmlControllerDeviceProxy::Type, QList<mixxx::qml::QmlControllerMappingProxy*>> m_knownMappings;
+    QHash<mixxx::qml::QmlControllerDeviceProxy::Type, QList<mixxx::qml::QmlControllerMappingProxy*>> m_knownMappings;
 
     QList<mixxx::qml::QmlControllerDeviceProxy*> m_knownDevicesFound;
     QList<mixxx::qml::QmlControllerDeviceProxy*> m_unknownDevicesFound;

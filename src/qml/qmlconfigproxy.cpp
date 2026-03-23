@@ -26,7 +26,7 @@
             return;                                                         \
         }                                                                   \
         m_pConfig->setValue(ConfigKey(GROUP, KEY), value);                  \
-        Q_EMIT NAME##Changed();                                               \
+        Q_EMIT NAME##Changed();                                             \
     }
 
 namespace {
@@ -102,7 +102,8 @@ namespace qml {
 
 QmlConfigProxy::QmlConfigProxy(
         UserSettingsPointer pConfig, QObject* parent)
-        : QObject(parent), m_pConfig(pConfig) {
+        : QObject(parent),
+          m_pConfig(pConfig) {
 }
 
 QVariantList QmlConfigProxy::hotcueColorPalette() const {
