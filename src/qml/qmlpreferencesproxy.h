@@ -1,8 +1,12 @@
 #pragma once
 
 #include <QDialog>
+#include <QJSValue>
 #include <QObject>
 #include <QQmlEngine>
+
+#include "controllers/controller.h"
+#include "qml/qmlconfigproxy.h"
 #ifndef Q_OS_ANDROID
 #include <QVideoFrame>
 #include <QVideoSink>
@@ -20,8 +24,6 @@
 
 namespace mixxx {
 namespace qml {
-
-class QmlConfigProxy;
 
 class QmlControllerScreenElement : public QObject {
     Q_OBJECT
@@ -83,7 +85,7 @@ class QmlControllerSettingElement : public QObject {
 class QmlControllerSettingItem : public QmlControllerSettingElement {
     Q_OBJECT
     Q_PROPERTY(QString name READ name CONSTANT)
-    Q_PROPERTY(QVariant value READ value WRITE setValue NOTIFY valueChanged)
+    Q_PROPERTY(QJSValue value READ value WRITE setValue NOTIFY valueChanged)
     Q_PROPERTY(bool isDirty READ isDirty NOTIFY dirtyChanged)
     QML_ANONYMOUS
     QML_UNCREATABLE("Use Mixxx.ControllerSettingElement to get devices")
@@ -94,13 +96,13 @@ class QmlControllerSettingItem : public QmlControllerSettingElement {
         return QStringLiteral("item");
     }
     QString name() const {
-        return m_pInternal->name();
+        return m_pInternal->setting()->variableName();
     }
-    QVariant value() const {
-        return m_pInternal->setting()->getVariant();
+    QJSValue value() const {
+        return m_pInternal->setting()->value();
     }
-    void setValue(const QVariant& value) {
-        m_pInternal->setting()->setVariant(value);
+    void setValue(const QJSValue& value) {
+        m_pInternal->setting()->setValue(value);
         Q_EMIT valueChanged();
     }
     bool isDirty() const {
@@ -180,15 +182,15 @@ class QmlControllerMappingProxy : public QObject {
     Q_ENUM(Type)
     explicit QmlControllerMappingProxy(const MappingInfo& mapping, QObject* parent);
 
-    Q_INVOKABLE mixxx::qml::QmlControllerSettingElement* loadSettings(
-            const mixxx::qml::QmlConfigProxy* pConfig,
-            mixxx::qml::QmlControllerDeviceProxy* pController);
+    Q_INVOKABLE QmlControllerSettingElement* loadSettings(
+            const QmlConfigProxy* pConfig,
+            QmlControllerDeviceProxy* pController);
 
-    Q_INVOKABLE QList<mixxx::qml::QmlControllerScreenElement*> loadScreens(
-            const mixxx::qml::QmlConfigProxy* pConfig,
-            mixxx::qml::QmlControllerDeviceProxy* pController);
+    Q_INVOKABLE QList<QmlControllerScreenElement*> loadScreens(
+            const QmlConfigProxy* pConfig,
+            QmlControllerDeviceProxy* pController);
 
-    Q_INVOKABLE void resetSettings(mixxx::qml::QmlControllerDeviceProxy* pController);
+    Q_INVOKABLE void resetSettings(QmlControllerDeviceProxy* pController);
 
     QString getName() const;
     QString getAuthor() const;
@@ -203,7 +205,7 @@ class QmlControllerMappingProxy : public QObject {
     const MappingInfo& definition() const {
         return m_mappingDefinition;
     }
-    Q_INVOKABLE bool isUserMapping(const mixxx::qml::QmlConfigProxy* pConfig) const;
+    Q_INVOKABLE bool isUserMapping(const QmlConfigProxy* pConfig) const;
 
   signals:
     // This signal gets emitted when the mapping cannot be read anymore. This
@@ -228,7 +230,7 @@ class QmlControllerDeviceProxy : public QObject {
     Q_PROPERTY(QString vendor READ vendor CONSTANT)
     Q_PROPERTY(QString product READ product CONSTANT)
     Q_PROPERTY(QString serialNumber READ serialNumber CONSTANT)
-    Q_PROPERTY(mixxx::qml::QmlControllerDeviceProxy::Type type READ getType CONSTANT)
+    Q_PROPERTY(QmlControllerDeviceProxy::Type type READ getType CONSTANT)
 
     Q_PROPERTY(QString name READ getName WRITE setName NOTIFY nameChanged)
     Q_PROPERTY(QUrl visualUrl READ getVisualUrl WRITE setVisualUrl NOTIFY visualUrlChanged)
@@ -251,7 +253,7 @@ class QmlControllerDeviceProxy : public QObject {
             const std::optional<ProductInfo>& productInfo,
             const QSet<QmlControllerMappingProxy*>& mappings,
             QObject* parent);
-    mixxx::qml::QmlControllerDeviceProxy::Type getType() const;
+    QmlControllerDeviceProxy::Type getType() const;
     QString getName() const;
     void setName(const QString& name);
     QString getSinceVersion() const;
@@ -282,7 +284,7 @@ class QmlControllerDeviceProxy : public QObject {
     QString vendor() const;
     QString product() const;
     QString serialNumber() const;
-    Q_INVOKABLE bool save(const mixxx::qml::QmlConfigProxy* pConfig);
+    Q_INVOKABLE bool save(const QmlConfigProxy* pConfig);
     Q_INVOKABLE void clear();
 
     Controller* internal() const {
@@ -308,7 +310,7 @@ class QmlControllerDeviceProxy : public QObject {
 #if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
     void mappingUpdated(QmlControllerMappingProxy* pMapping, const MappingInfo& mapping);
 #else
-    void mappingUpdated(mixxx::qml::QmlControllerMappingProxy* pMapping,
+    void mappingUpdated(QmlControllerMappingProxy* pMapping,
             const MappingInfo& mapping);
 #endif
     void deviceLearned();
@@ -347,8 +349,8 @@ class QmlControllerManagerProxy : public QObject {
 
     std::shared_ptr<ControllerManager> internal() const;
 
-    Q_INVOKABLE QList<mixxx::qml::QmlControllerMappingProxy*> mappings(
-            mixxx::qml::QmlControllerDeviceProxy::Type type) const {
+    Q_INVOKABLE QList<QmlControllerMappingProxy*> mappings(
+            QmlControllerDeviceProxy::Type type) const {
         return m_knownMappings.value(type);
     }
 
@@ -366,7 +368,7 @@ class QmlControllerManagerProxy : public QObject {
 #if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
     void updateExistingMapping(QmlControllerMappingProxy* pMapping, const MappingInfo& mapping);
 #else
-    void updateExistingMapping(mixxx::qml::QmlControllerMappingProxy* pMapping,
+    void updateExistingMapping(QmlControllerMappingProxy* pMapping,
             const MappingInfo& mapping);
 #endif
 
