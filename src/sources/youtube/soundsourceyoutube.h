@@ -13,7 +13,7 @@ class SoundSourceYouTube : public SoundSource {
 
     void close() override;
 
-    void onSponsorSegmentsFetched(const QString& videoId, const QList<mixxx::SponsorSegment>& segments);
+    void onSponsorSegmentsFetched(const QString& videoId, const QList<::mixxx::SponsorSegment>& segments);
 
   protected:
     ReadableSampleFrames readSampleFramesClamped(
@@ -24,7 +24,7 @@ class SoundSourceYouTube : public SoundSource {
             const OpenParams& params) override;
 
   private:
-    QList<mixxx::SponsorSegment> m_sponsorSegments;
+    QList<::mixxx::SponsorSegment> m_sponsorSegments;
     bool m_segmentsLoaded;
 };
 

@@ -2794,19 +2794,18 @@ if(FFMPEG)
     )
   endif()
 
-  target_sources(mixxx-lib PRIVATE src/sources/soundsourceffmpeg.cpp
-    src/library/spotify/spotifyfeature.cpp
-    src/library/youtube/youtubefeature.cpp
-    src/library/youtube/youtubeservice.cpp
-    src/sources/spotify/soundsourcespotify.cpp
-    src/sources/youtube/soundsourceyoutube.cpp
-
-    src/library/spotify/spotifyfeature.cpp
-    src/library/youtube/youtubefeature.cpp
-    src/library/youtube/youtubeservice.cpp
-    src/sources/spotify/soundsourcespotify.cpp
-    src/sources/youtube/soundsourceyoutube.cpp
-)
+  target_sources(mixxx-lib PRIVATE src/sources/soundsourceffmpeg.cpp)
+if(NETWORKAUTH)
+  target_sources(
+    mixxx-lib
+    PRIVATE
+      src/library/spotify/spotifyfeature.cpp
+      src/library/youtube/youtubefeature.cpp
+      src/library/youtube/youtubeservice.cpp
+      src/sources/spotify/soundsourcespotify.cpp
+      src/sources/youtube/soundsourceyoutube.cpp
+  )
+endif()
   target_compile_definitions(
     mixxx-lib
     PUBLIC
@@ -3727,11 +3726,6 @@ set(
   Gui
   Network
   OpenGL
-  if(NOT ANDROID)
-    if(NOT ANDROID)
-    PrintSupport
-  endif()
-  endif()
   Qml # for QJSEngine
   Sql
   Svg
@@ -3739,6 +3733,9 @@ set(
   Widgets
   Xml
 )
+if(NOT ANDROID)
+  list(APPEND QT_COMPONENTS "PrintSupport")
+endif()
 set(QT_EXTRA_COMPONENTS "")
 if(QT6)
   find_package(QT 6.2 NAMES Qt6 COMPONENTS Core REQUIRED)
@@ -3781,15 +3778,25 @@ find_package(
   COMPONENTS ${QT_COMPONENTS} ${QT_EXTRA_COMPONENTS}
   REQUIRED
 )
-# PUBLIC is required below to find included headers
-foreach(component ${QT_COMPONENTS})
-  target_link_libraries(mixxx-lib PUBLIC Qt${QT_VERSION_MAJOR}::${component})
-endforeach()
+# Re-run find_package for extra components added later (like NetworkAuth)
 if(QT_EXTRA_COMPONENTS)
-  foreach(component ${QT_EXTRA_COMPONENTS})
-    target_link_libraries(mixxx-lib PUBLIC Qt${QT_VERSION_MAJOR}::${component})
-  endforeach()
+  find_package(
+    Qt${QT_VERSION_MAJOR}
+    COMPONENTS ${QT_EXTRA_COMPONENTS}
+    QUIET
+  )
 endif()
+# PUBLIC is required below to find included headers
+macro(mixxx_link_qt_components components)
+  foreach(component ${components})
+    if(TARGET Qt${QT_VERSION_MAJOR}::${component})
+      target_link_libraries(mixxx-lib PUBLIC Qt${QT_VERSION_MAJOR}::${component})
+    endif()
+  endforeach()
+endmacro()
+
+mixxx_link_qt_components("${QT_COMPONENTS}")
+mixxx_link_qt_components("${QT_EXTRA_COMPONENTS}")
 
 if(QT_KNOWN_POLICY_QTP0002 AND ANDROID)
   qt6_policy(SET QTP0002 NEW)
@@ -5090,6 +5097,20 @@ else()
   endif()
 endif()
 
+
+# NETWORKAUTH
+option(NETWORKAUTH "Enable Spotify AND YouTube features" OFF)
+if(NETWORKAUTH)
+  find_package(Qt${QT_VERSION_MAJOR} COMPONENTS NetworkAuth QUIET)
+  if(Qt${QT_VERSION_MAJOR}NetworkAuth_FOUND)
+    target_compile_definitions(mixxx-lib PUBLIC NETWORKAUTH)
+    list(APPEND QT_EXTRA_COMPONENTS "NetworkAuth")
+  else()
+    message(WARNING "QtNetworkAuth not found, disabling NETWORKAUTH")
+    set(NETWORKAUTH OFF CACHE BOOL "Enable Spotify AND YouTube features" FORCE)
+  endif()
+endif()
+
 # QtKeychain
 option(
   QTKEYCHAIN
@@ -5490,34 +5511,4 @@ if(APPLE AND MACOS_BUNDLE)
     @ONLY
   )
   install(SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/BundleInstall.cmake")
-endif()
-
-# NETWORKAUTH
-option(NETWORKAUTH "Enable Spotify AND YouTube features" OFF)
-if(NETWORKAUTH)
-  find_package(Qt${QT_VERSION_MAJOR} COMPONENTS NetworkAuth QUIET)
-  if(Qt${QT_VERSION_MAJOR}NetworkAuth_FOUND)
-    target_compile_definitions(mixxx-lib PUBLIC NETWORKAUTH)
-    list(APPEND QT_EXTRA_COMPONENTS "NetworkAuth")
-    # target_link_libraries(mixxx-lib PUBLIC Qt${QT_VERSION_MAJOR}::NetworkAuth)
-    # ^ This will be handled by the loop at line 3788
-  else()
-    message(WARNING "QtNetworkAuth not found, disabling NETWORKAUTH")
-    set(NETWORKAUTH OFF CACHE BOOL "Enable Spotify AND YouTube features" FORCE)
-  endif()
-endif()
-
-# NETWORKAUTH
-option(NETWORKAUTH "Enable Spotify AND YouTube features" OFF)
-if(NETWORKAUTH)
-  find_package(Qt${QT_VERSION_MAJOR} COMPONENTS NetworkAuth QUIET)
-  if(Qt${QT_VERSION_MAJOR}NetworkAuth_FOUND)
-    target_compile_definitions(mixxx-lib PUBLIC NETWORKAUTH)
-    list(APPEND QT_EXTRA_COMPONENTS "NetworkAuth")
-    # target_link_libraries(mixxx-lib PUBLIC Qt${QT_VERSION_MAJOR}::NetworkAuth)
-    # ^ This will be handled by the loop at line 3788
-  else()
-    message(WARNING "QtNetworkAuth not found, disabling NETWORKAUTH")
-    set(NETWORKAUTH OFF CACHE BOOL "Enable Spotify AND YouTube features" FORCE)
-  endif()
 endif()
