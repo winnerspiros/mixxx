@@ -6,13 +6,12 @@
 
 #include "qml_owned_ptr.h"
 #include "qmllibrarytracklistmodel.h"
+#include "qml/qmltrackproxy.h"
 
 class Library;
 
 namespace mixxx {
 namespace qml {
-
-class QmlTrackProxy;
 
 class QmlLibraryProxy : public QObject {
     Q_OBJECT

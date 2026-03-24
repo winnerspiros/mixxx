@@ -81,7 +81,7 @@ class QmlLibrarySource : public QObject {
     void slotShowTrackModel(QAbstractItemModel* pModel);
 
   signals:
-    void requestTrackModel(std::shared_ptr<mixxx::qml::QmlLibraryTrackListModel> pModel);
+    void requestTrackModel(mixxx::qml::QmlLibraryTrackListModel* pModel);
 
   protected:
     QString m_label;

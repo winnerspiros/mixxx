@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef QMLPREFERENCESPROXY_H
 #define QMLPREFERENCESPROXY_H
 
@@ -5,23 +7,25 @@
 #include <QJSValue>
 #include <QList>
 #include <QObject>
+#include <QQmlEngine>
 #include <QQmlListProperty>
 #include <QUrl>
+#include <memory>
+#include <optional>
+
 #ifndef Q_OS_ANDROID
 #include <QVideoFrame>
 #endif
-#include <optional>
 
 #include "controllers/controllermappinginfo.h"
 #include "controllers/controllermappinginfoenumerator.h"
 #include "controllers/legacycontrollermapping.h"
 #include "controllers/legacycontrollersettingslayout.h"
+#include "qml/qmltrackproxy.h"
 #include "util/time.h"
 
 class Controller;
 class ControllerManager;
-class QQmlEngine;
-class QJSEngine;
 
 namespace mixxx {
 namespace qml {
@@ -182,7 +186,8 @@ class QmlControllerDeviceProxy : public QObject {
     QmlControllerDeviceProxy(Controller* pInternal,
             const std::optional<ProductInfo>& productInfo,
             const QList<mixxx::qml::QmlControllerMappingProxy*>& mappings,
-            QObject* parent);
+            QObject* parent,
+            ControllerManager* pControllerManager);
 
     Type getType() const;
     QString getName() const;
@@ -209,7 +214,7 @@ class QmlControllerDeviceProxy : public QObject {
   signals:
     void mappingChanged();
     void enabledChanged();
-    void mappingAssigned(Controller* pInternal, std::shared_ptr<LegacyControllerMapping> pMapping, bool enabled);
+    void mappingAssigned(Controller* pInternal, LegacyControllerMapping* pMapping, bool enabled);
     void mappingCreated(mixxx::qml::QmlControllerDeviceProxy::Type type, const MappingInfo& mapping);
     void mappingUpdated(mixxx::qml::QmlControllerMappingProxy* pMapping, const MappingInfo& mapping);
 
@@ -229,7 +234,8 @@ class QmlControllerDeviceProxy : public QObject {
     QList<mixxx::qml::QmlControllerMappingProxy*> m_mappings;
     mixxx::qml::QmlControllerMappingProxy* m_pMapping;
     std::optional<bool> m_enabled;
-    QHash<QString, std::shared_ptr<LegacyControllerMapping>> m_mappingInstance;
+    ControllerManager* m_pControllerManager;
+    mutable QHash<QString, std::shared_ptr<LegacyControllerMapping>> m_mappingInstance;
 };
 
 class QmlControllerManagerProxy : public QObject {

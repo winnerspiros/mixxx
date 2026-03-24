@@ -5,10 +5,8 @@
 
 #include "library/library.h"
 #include "library/librarytablemodel.h"
-#include "moc_qmllibraryproxy.cpp"
-#include "qml/qmllibraryproxy.h"
 #include "qml/qmllibrarytracklistmodel.h"
-#include "qmltrackproxy.h"
+#include "qml/qmltrackproxy.h"
 #include "track/track.h"
 #include "util/assert.h"
 
@@ -34,12 +32,7 @@ void QmlLibraryProxy::analyze(const QmlTrackProxy* track) const {
 
 // static
 QmlLibraryProxy* QmlLibraryProxy::create(QQmlEngine* pQmlEngine, QJSEngine* pJsEngine) {
-    // The implementation of this method is mostly taken from the code example
-    // that shows the replacement for `qmlRegisterSingletonInstance()` when
-    // using `QML_SINGLETON`.
-    // https://doc.qt.io/qt-6/qqmlengine.html#QML_SINGLETON
-
-    // The instance has to exist before it is used. We cannot replace it.
+    Q_UNUSED(pJsEngine);
     VERIFY_OR_DEBUG_ASSERT(s_pLibrary) {
         qWarning() << "Library hasn't been registered yet";
         return nullptr;
@@ -49,3 +42,5 @@ QmlLibraryProxy* QmlLibraryProxy::create(QQmlEngine* pQmlEngine, QJSEngine* pJsE
 
 } // namespace qml
 } // namespace mixxx
+
+#include \"moc_qmllibraryproxy.cpp\"

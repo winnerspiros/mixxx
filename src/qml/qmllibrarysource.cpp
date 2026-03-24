@@ -1,9 +1,5 @@
 #include "qml/qmllibrarysource.h"
 
-#include <qalgorithms.h>
-#include <qlist.h>
-#include <qqmlengine.h>
-
 #include <QAbstractListModel>
 #include <QVariant>
 #include <QtDebug>
@@ -23,10 +19,10 @@
 
 #include "library/treeitem.h"
 #include "library/treeitemmodel.h"
-#include "moc_qmllibrarysource.cpp"
 #include "qml/qmlconfigproxy.h"
 #include "qml/qmllibraryproxy.h"
 #include "qml/qmllibrarytracklistmodel.h"
+#include "qml_owned_ptr.h"
 
 AllTrackLibraryFeature::AllTrackLibraryFeature(Library* pLibrary, UserSettingsPointer pConfig)
         : LibraryFeature(pLibrary, pConfig, QString()),
@@ -51,7 +47,7 @@ QmlLibrarySource::QmlLibrarySource(
 }
 
 void QmlLibrarySource::slotShowTrackModel(QAbstractItemModel* pModel) {
-    Q_EMIT requestTrackModel(std::make_shared<QmlLibraryTrackListModel>(columns(), pModel));
+    Q_EMIT requestTrackModel(make_qml_owned<QmlLibraryTrackListModel>(columns(), pModel).get());
 }
 
 QmlLibraryAllTrackSource::QmlLibraryAllTrackSource(
@@ -105,3 +101,5 @@ LibraryFeature* QmlLibraryYouTubeSource::internal() {
 
 } // namespace qml
 } // namespace mixxx
+
+#include \"moc_qmllibrarysource.cpp\"
