@@ -98,6 +98,8 @@ void QmlControllerScreenElement::updateFrame(
     // TODO: Fix QVideoFrame conversion across Qt versions
     // Q_EMIT videoFrameAvailable(::QVideoFrame::fromImage(frame));
 #endif
+}
+
 QmlControllerSettingItem::QmlControllerSettingItem(::LegacyControllerSettingsLayoutItem* pInternal, QObject* parent)
         : QmlControllerSettingElement(parent),
           m_pInternal(pInternal) {
