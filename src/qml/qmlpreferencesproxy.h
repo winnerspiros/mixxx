@@ -7,7 +7,9 @@
 #include <QObject>
 #include <QQmlListProperty>
 #include <QUrl>
+#ifndef Q_OS_ANDROID
 #include <QVideoFrame>
+#endif
 #include <optional>
 
 #include "controllers/controllermappinginfo.h"
@@ -46,7 +48,7 @@ class QmlControllerScreenElement : public QObject {
 
     int fps() const;
 
-    void updateFrame(const ::LegacyControllerMapping::ScreenInfo& screen, const QImage& frame);
+    void updateFrame(const ::LegacyControllerMapping::ScreenInfo& screen, const ::QImage& frame);
     void clear();
 
   signals:
@@ -64,18 +66,18 @@ class QmlControllerScreenElement : public QObject {
 class QmlControllerSettingItem : public QmlControllerSettingElement {
     Q_OBJECT
     Q_PROPERTY(QString label READ label CONSTANT)
-    Q_PROPERTY(QJSValue value READ value WRITE setValue NOTIFY dirtyChanged)
-    Q_PROPERTY(QJSValue savedValue READ savedValue CONSTANT)
-    Q_PROPERTY(QJSValue defaultValue READ defaultValue CONSTANT)
+    Q_PROPERTY(::QJSValue value READ value WRITE setValue NOTIFY dirtyChanged)
+    Q_PROPERTY(::QJSValue savedValue READ savedValue CONSTANT)
+    Q_PROPERTY(::QJSValue defaultValue READ defaultValue CONSTANT)
     Q_PROPERTY(QString type READ type CONSTANT)
   public:
     QmlControllerSettingItem(::LegacyControllerSettingsLayoutItem* pInternal, QObject* parent);
 
     QString label() const;
-    QJSValue value() const;
-    void setValue(const QJSValue& value);
-    QJSValue savedValue() const;
-    QJSValue defaultValue() const;
+    ::QJSValue value() const;
+    void setValue(const ::QJSValue& value);
+    ::QJSValue savedValue() const;
+    ::QJSValue defaultValue() const;
     QString type() const;
 
   private:

@@ -124,4 +124,8 @@ if(SndFile_FOUND)
       endif()
     endif()
   endif()
+  # Mixxx root CMakeLists.txt expects SndFile::SndFile target
+  if(NOT TARGET SndFile::SndFile)
+    add_library(SndFile::SndFile ALIAS SndFile::sndfile)
+  endif()
 endif()

@@ -1,4 +1,7 @@
 #include "qml/qmlpreferencesproxy.h"
+#ifndef Q_OS_ANDROID
+#include <QVideoFrame>
+#endif
 
 #include <QDir>
 #include <QSet>
@@ -33,7 +36,7 @@ QmlControllerSettingElement* loadElement(
     auto* pItem = dynamic_cast<LegacyControllerSettingsLayoutItem*>(element);
     if (pItem) {
         auto* pElement = new QmlControllerSettingItem(pItem, parent);
-        QObject::connect(pItem->setting().get(),
+        QObject::connect(pItem->setting(),
                 &AbstractLegacyControllerSetting::changed,
                 pElement,
                 &QmlControllerSettingElement::dirtyChanged);
@@ -91,19 +94,13 @@ void QmlControllerScreenElement::updateFrame(
 
     Q_EMIT fpsChanged();
 
-#ifndef Q_OS_ANDROID
-    Q_EMIT videoFrameAvailable(::QVideoFrame(frame));
+#if defined(QT_MULTIMEDIA_LIB) && !defined(Q_OS_ANDROID)
+    // TODO: Fix QVideoFrame conversion across Qt versions
+    // Q_EMIT videoFrameAvailable(::QVideoFrame::fromImage(frame));
 #endif
 }
 
-void QmlControllerScreenElement::clear() {
-    m_lastFrameTimestamp = mixxx::Time::time_point();
-    m_averageFrameDuration = std::numeric_limits<double>::max();
-    Q_EMIT fpsChanged();
-}
-
-QmlControllerSettingItem::QmlControllerSettingItem(
-        LegacyControllerSettingsLayoutItem* pInternal, QObject* parent)
+QmlControllerSettingItem::QmlControllerSettingItem(::LegacyControllerSettingsLayoutItem* pInternal, QObject* parent)
         : QmlControllerSettingElement(parent),
           m_pInternal(pInternal) {
 }
@@ -112,19 +109,19 @@ QString QmlControllerSettingItem::label() const {
     return m_pInternal->setting()->label();
 }
 
-QJSValue QmlControllerSettingItem::value() const {
+::QJSValue QmlControllerSettingItem::value() const {
     return m_pInternal->setting()->value();
 }
 
-void QmlControllerSettingItem::setValue(const QJSValue& value) {
+void QmlControllerSettingItem::setValue(const ::QJSValue& value) {
     m_pInternal->setting()->setValue(value);
 }
 
-QJSValue QmlControllerSettingItem::savedValue() const {
+::QJSValue QmlControllerSettingItem::savedValue() const {
     return m_pInternal->setting()->savedValue();
 }
 
-QJSValue QmlControllerSettingItem::defaultValue() const {
+::QJSValue QmlControllerSettingItem::defaultValue() const {
     return m_pInternal->setting()->defaultValue();
 }
 

@@ -7,12 +7,14 @@
 
 #include "util/logging.h"
 
+namespace mixxx {
+
 /// A structure to store the parsed command-line arguments
 class CmdlineArgs final {
   public:
     /// The constructor is only public to make this class reusable in tests.
     /// All operational code in Mixxx itself must access the global singleton
-    /// via `CmdlineArgs::instance()`.
+    /// via `CmdlineArgs::Instance()`.
     CmdlineArgs();
 
     static inline CmdlineArgs& Instance() {
@@ -46,14 +48,14 @@ class CmdlineArgs final {
         return m_controllerAbortOnWarning;
     }
     bool getDeveloper() const { return m_developer; }
-#ifdef MIXXX_USE_QML
+
     bool isQml() const {
         return m_qml;
     }
     bool isAwareOfRisk() const {
         return m_awareOfRisk;
     }
-#endif
+
     bool getSafeMode() const { return m_safeMode; }
     bool useColors() const {
         return m_useColors;
@@ -107,10 +109,8 @@ class CmdlineArgs final {
     bool m_controllerPreviewScreens;
     bool m_controllerAbortOnWarning; // Controller Engine will be stricter
     bool m_developer; // Developer Mode
-#ifdef MIXXX_USE_QML
     bool m_qml;
     bool m_awareOfRisk;
-#endif
     bool m_safeMode;
     bool m_useLegacyVuMeter;
     bool m_useLegacySpinny;
@@ -128,3 +128,7 @@ class CmdlineArgs final {
     QString m_timelinePath;
     QString m_styleName;
 };
+
+} // namespace mixxx
+
+using CmdlineArgs = mixxx::CmdlineArgs;
