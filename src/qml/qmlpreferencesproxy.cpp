@@ -98,7 +98,7 @@ void QmlControllerScreenElement::updateFrame(
     // TODO: Fix QVideoFrame conversion across Qt versions
     // Q_EMIT videoFrameAvailable(::QVideoFrame::fromImage(frame));
 #endif
-}
+QmlControllerSettingItem::QmlControllerSettingItem(::LegacyControllerSettingsLayoutItem* pInternal, QObject* parent)
         : QmlControllerSettingElement(parent),
           m_pInternal(pInternal) {
 }
@@ -107,19 +107,19 @@ QString QmlControllerSettingItem::label() const {
     return m_pInternal->setting()->label();
 }
 
-QJSValue QmlControllerSettingItem::value() const {
+::QJSValue QmlControllerSettingItem::value() const {
     return m_pInternal->setting()->value();
 }
 
-void QmlControllerSettingItem::setValue(const QJSValue& value) {
+void QmlControllerSettingItem::setValue(const ::QJSValue& value) {
     m_pInternal->setting()->setValue(value);
 }
 
-QJSValue QmlControllerSettingItem::savedValue() const {
+::QJSValue QmlControllerSettingItem::savedValue() const {
     return m_pInternal->setting()->savedValue();
 }
 
-QJSValue QmlControllerSettingItem::defaultValue() const {
+::QJSValue QmlControllerSettingItem::defaultValue() const {
     return m_pInternal->setting()->defaultValue();
 }
 
