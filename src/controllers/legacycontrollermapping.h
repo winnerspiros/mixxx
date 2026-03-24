@@ -172,6 +172,18 @@ class LegacyControllerMapping {
         return m_settings;
     }
 
+    bool hasSettings() const {
+        return !m_settings.isEmpty();
+    }
+
+    bool hasScreens() const {
+#ifdef MIXXX_USE_QML
+        return !m_screens.isEmpty();
+#else
+        return false;
+#endif
+    }
+
     bool hasDirtySettings() const {
         for (const auto& setting : m_settings) {
             if (setting->isDirty()) {
