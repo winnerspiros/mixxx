@@ -33,7 +33,7 @@ QmlControllerSettingElement* loadElement(
     auto* pItem = dynamic_cast<LegacyControllerSettingsLayoutItem*>(element);
     if (pItem) {
         auto* pElement = new QmlControllerSettingItem(pItem, parent);
-        QObject::connect(pItem->setting().get(),
+        QObject::connect(pItem->setting(),
                 &AbstractLegacyControllerSetting::changed,
                 pElement,
                 &QmlControllerSettingElement::dirtyChanged);
@@ -92,7 +92,7 @@ void QmlControllerScreenElement::updateFrame(
     Q_EMIT fpsChanged();
 
 #ifndef Q_OS_ANDROID
-    Q_EMIT videoFrameAvailable(::QVideoFrame(frame));
+    Q_EMIT videoFrameAvailable(::QVideoFrame::fromImage(frame));
 #endif
 }
 
