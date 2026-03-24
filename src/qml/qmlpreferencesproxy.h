@@ -3,17 +3,17 @@
 
 #include <QImage>
 #include <QJSValue>
-#include <QList>
 #include <QObject>
 #include <QQmlListProperty>
 #include <QUrl>
 #include <QVideoFrame>
 #include <optional>
 
+#include "controllers/controller.h"
 #include "controllers/controllermappinginfo.h"
-#include "controllers/controllermappinginfoenumerator.h"
 #include "controllers/legacycontrollermapping.h"
 #include "controllers/legacycontrollersettingslayout.h"
+#include "qml/qmlconfigproxy.h"
 #include "util/time.h"
 
 class Controller;
@@ -46,7 +46,7 @@ class QmlControllerScreenElement : public QObject {
 
     int fps() const;
 
-    void updateFrame(const ::LegacyControllerMapping::ScreenInfo& screen, const QImage& frame);
+    void updateFrame(const ::LegacyControllerMapping::ScreenInfo& screen, const ::QImage& frame);
     void clear();
 
   signals:
