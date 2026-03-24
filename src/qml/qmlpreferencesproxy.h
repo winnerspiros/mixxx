@@ -3,17 +3,17 @@
 
 #include <QImage>
 #include <QJSValue>
+#include <QList>
 #include <QObject>
 #include <QQmlListProperty>
 #include <QUrl>
 #include <QVideoFrame>
 #include <optional>
 
-#include "controllers/controller.h"
 #include "controllers/controllermappinginfo.h"
+#include "controllers/controllermappinginfoenumerator.h"
 #include "controllers/legacycontrollermapping.h"
 #include "controllers/legacycontrollersettingslayout.h"
-#include "qml/qmlconfigproxy.h"
 #include "util/time.h"
 
 class Controller;
@@ -64,18 +64,18 @@ class QmlControllerScreenElement : public QObject {
 class QmlControllerSettingItem : public QmlControllerSettingElement {
     Q_OBJECT
     Q_PROPERTY(QString label READ label CONSTANT)
-    Q_PROPERTY(QJSValue value READ value WRITE setValue NOTIFY dirtyChanged)
-    Q_PROPERTY(QJSValue savedValue READ savedValue CONSTANT)
-    Q_PROPERTY(QJSValue defaultValue READ defaultValue CONSTANT)
+    Q_PROPERTY(::QJSValue value READ value WRITE setValue NOTIFY dirtyChanged)
+    Q_PROPERTY(::QJSValue savedValue READ savedValue CONSTANT)
+    Q_PROPERTY(::QJSValue defaultValue READ defaultValue CONSTANT)
     Q_PROPERTY(QString type READ type CONSTANT)
   public:
     QmlControllerSettingItem(::LegacyControllerSettingsLayoutItem* pInternal, QObject* parent);
 
     QString label() const;
-    QJSValue value() const;
-    void setValue(const QJSValue& value);
-    QJSValue savedValue() const;
-    QJSValue defaultValue() const;
+    ::QJSValue value() const;
+    void setValue(const ::QJSValue& value);
+    ::QJSValue savedValue() const;
+    ::QJSValue defaultValue() const;
     QString type() const;
 
   private:

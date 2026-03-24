@@ -18,11 +18,6 @@ class Singleton {
         return m_instance;
     }
 
-    static T& Instance() {
-        DEBUG_ASSERT(m_instance);
-        return *m_instance;
-    }
-
     static T* instance() {
         VERIFY_OR_DEBUG_ASSERT(m_instance) {
             qWarning() << "Singleton class has not been created yet, returning nullptr";

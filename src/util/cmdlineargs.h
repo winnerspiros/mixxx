@@ -6,17 +6,15 @@
 #include <QString>
 
 #include "util/logging.h"
+
 namespace mixxx {
 
-
 /// A structure to store the parsed command-line arguments
-// Forward declaration
-class CmdlineArgs;
 class CmdlineArgs final {
   public:
     /// The constructor is only public to make this class reusable in tests.
     /// All operational code in Mixxx itself must access the global singleton
-    /// via `CmdlineArgs::instance()`.
+    /// via `CmdlineArgs::Instance()`.
     CmdlineArgs();
 
     static inline CmdlineArgs& Instance() {
@@ -57,9 +55,7 @@ class CmdlineArgs final {
     bool isAwareOfRisk() const {
         return m_awareOfRisk;
     }
-} // namespace mixxx
 
-using CmdlineArgs = mixxx::CmdlineArgs;
     bool getSafeMode() const { return m_safeMode; }
     bool useColors() const {
         return m_useColors;
@@ -113,12 +109,8 @@ using CmdlineArgs = mixxx::CmdlineArgs;
     bool m_controllerPreviewScreens;
     bool m_controllerAbortOnWarning; // Controller Engine will be stricter
     bool m_developer; // Developer Mode
-
     bool m_qml;
     bool m_awareOfRisk;
-} // namespace mixxx
-
-using CmdlineArgs = mixxx::CmdlineArgs;
     bool m_safeMode;
     bool m_useLegacyVuMeter;
     bool m_useLegacySpinny;
