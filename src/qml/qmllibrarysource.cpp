@@ -102,4 +102,4 @@ LibraryFeature* QmlLibraryYouTubeSource::internal() {
 } // namespace qml
 } // namespace mixxx
 
-#include \"moc_qmllibrarysource.cpp\"
+#include "moc_qmllibrarysource.cpp"

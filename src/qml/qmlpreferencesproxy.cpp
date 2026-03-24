@@ -484,4 +484,4 @@ void QmlControllerManagerProxy::loadMappingFromEnumerator(QSharedPointer<Mapping
 } // namespace qml
 } // namespace mixxx
 
-#include \"moc_qmlpreferencesproxy.cpp\"
+#include "moc_qmlpreferencesproxy.cpp"

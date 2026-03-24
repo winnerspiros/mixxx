@@ -227,4 +227,4 @@ void QmlLibraryTrackListModel::sort(int column, Qt::SortOrder order) {
 } // namespace qml
 } // namespace mixxx
 
-#include \"moc_qmllibrarytracklistmodel.cpp\"
+#include "moc_qmllibrarytracklistmodel.cpp"

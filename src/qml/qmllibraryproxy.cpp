@@ -43,4 +43,4 @@ QmlLibraryProxy* QmlLibraryProxy::create(QQmlEngine* pQmlEngine, QJSEngine* pJsE
 } // namespace qml
 } // namespace mixxx
 
-#include \"moc_qmllibraryproxy.cpp\"
+#include "moc_qmllibraryproxy.cpp"
