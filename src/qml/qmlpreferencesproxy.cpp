@@ -1,4 +1,7 @@
 #include "qml/qmlpreferencesproxy.h"
+#ifndef Q_OS_ANDROID
+#include <QVideoFrame>
+#endif
 
 #include <QDir>
 #include <QSet>
@@ -91,19 +94,11 @@ void QmlControllerScreenElement::updateFrame(
 
     Q_EMIT fpsChanged();
 
-#ifndef Q_OS_ANDROID
-    Q_EMIT videoFrameAvailable(::QVideoFrame::fromImage(frame));
+#if defined(QT_MULTIMEDIA_LIB) && !defined(Q_OS_ANDROID)
+    // TODO: Fix QVideoFrame conversion across Qt versions
+    // Q_EMIT videoFrameAvailable(::QVideoFrame::fromImage(frame));
 #endif
 }
-
-void QmlControllerScreenElement::clear() {
-    m_lastFrameTimestamp = mixxx::Time::time_point();
-    m_averageFrameDuration = std::numeric_limits<double>::max();
-    Q_EMIT fpsChanged();
-}
-
-QmlControllerSettingItem::QmlControllerSettingItem(
-        LegacyControllerSettingsLayoutItem* pInternal, QObject* parent)
         : QmlControllerSettingElement(parent),
           m_pInternal(pInternal) {
 }

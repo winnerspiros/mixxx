@@ -158,7 +158,7 @@ bool CmdlineArgs::parse(const QStringList& arguments, ParseMode mode) {
                                       "The directory where Mixxx will look for its resource files.")
                             : QString(),
             QStringLiteral("directory"));
-    const QCommandLineOption resourcePathDeprecated(QStringLiteral("resource-path"),
+    QCommandLineOption resourcePathDeprecated(QStringLiteral("resource-path"),
             resourcePath.description(),
             resourcePath.valueName());
     parser.addOption(resourcePath);
@@ -170,7 +170,7 @@ bool CmdlineArgs::parse(const QStringList& arguments, ParseMode mode) {
                                       "user settings and database.")
                             : QString(),
             QStringLiteral("directory"));
-    const QCommandLineOption settingsPathDeprecated(QStringLiteral("settings-path"),
+    QCommandLineOption settingsPathDeprecated(QStringLiteral("settings-path"),
             settingsPath.description(),
             settingsPath.valueName());
     parser.addOption(settingsPath);
@@ -181,7 +181,7 @@ bool CmdlineArgs::parse(const QStringList& arguments, ParseMode mode) {
                                       "The directory where Mixxx will look for its stats and usage info.")
                             : QString(),
             QStringLiteral("directory"));
-    const QCommandLineOption timelinePathDeprecated(QStringLiteral("timeline-path"),
+    QCommandLineOption timelinePathDeprecated(QStringLiteral("timeline-path"),
             timelinePath.description(),
             timelinePath.valueName());
     parser.addOption(timelinePath);
@@ -190,7 +190,7 @@ bool CmdlineArgs::parse(const QStringList& arguments, ParseMode mode) {
     const QCommandLineOption fullScreen(QStringLiteral("f"),
             forUserFeedback ? QCoreApplication::translate("CmdlineArgs", "Starts Mixxx in fullscreen.")
                             : QString());
-    const QCommandLineOption fullScreenDeprecated(QStringLiteral("fullscreen"), fullScreen.description());
+    QCommandLineOption fullScreenDeprecated(QStringLiteral("fullscreen"), fullScreen.description());
     parser.addOption(fullScreen);
     parser.addOption(fullScreenDeprecated);
 
@@ -220,7 +220,7 @@ bool CmdlineArgs::parse(const QStringList& arguments, ParseMode mode) {
             forUserFeedback ? QCoreApplication::translate("CmdlineArgs",
                                       "Enables extra debugging info for controllers.")
                             : QString());
-    const QCommandLineOption controllerDebugDeprecated(QStringLiteral("controllerDebug"),
+    QCommandLineOption controllerDebugDeprecated(QStringLiteral("controllerDebug"),
             controllerDebug.description());
     controllerDebugDeprecated.setFlags(QCommandLineOption::HiddenFromHelp);
     parser.addOption(controllerDebug);
@@ -253,7 +253,7 @@ bool CmdlineArgs::parse(const QStringList& arguments, ParseMode mode) {
                                       "Starts Mixxx in safe-mode (disables OpenGL, "
                                       "hardware acceleration, etc.).")
                             : QString());
-    const QCommandLineOption safeModeDeprecated(QStringLiteral("safeMode"), safeMode.description());
+    QCommandLineOption safeModeDeprecated(QStringLiteral("safeMode"), safeMode.description());
     safeModeDeprecated.setFlags(QCommandLineOption::HiddenFromHelp);
     parser.addOption(safeMode);
     parser.addOption(safeModeDeprecated);

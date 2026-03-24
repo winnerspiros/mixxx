@@ -7,7 +7,9 @@
 #include <QObject>
 #include <QQmlListProperty>
 #include <QUrl>
+#ifndef Q_OS_ANDROID
 #include <QVideoFrame>
+#endif
 #include <optional>
 
 #include "controllers/controllermappinginfo.h"
