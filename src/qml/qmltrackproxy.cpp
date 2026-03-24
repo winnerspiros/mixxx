@@ -143,7 +143,7 @@ void QmlTrackProxy::slotStemsChanged() {
 
     if (m_pTrack) {
         m_pStemsModel->setStems(m_pTrack->getStemInfo());
-        emit stemsChanged();
+        Q_EMIT stemsChanged();
     }
 }
 #endif
@@ -165,7 +165,7 @@ void QmlTrackProxy::slotHotcuesChanged() {
         }
     }
     m_pHotcuesModel->setCues(hotcues);
-    emit cuesChanged();
+    Q_EMIT cuesChanged();
 }
 
 PROPERTY_IMPL(QString, artist, getArtist, setArtist)

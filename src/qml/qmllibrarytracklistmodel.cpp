@@ -203,7 +203,7 @@ void QmlLibraryTrackListModel::sort(int column, Qt::SortOrder order) {
         return;
     }
     const auto& pColumn = m_columns[column];
-    emit layoutAboutToBeChanged(QList<QPersistentModelIndex>(),
+    Q_EMIT layoutAboutToBeChanged(QList<QPersistentModelIndex>(),
             QAbstractItemModel::VerticalSortHint);
     if (pColumn->columnIdx() < 0) {
         // Use proxyIndex.column()
@@ -216,7 +216,7 @@ void QmlLibraryTrackListModel::sort(int column, Qt::SortOrder order) {
                                       pColumn->columnIdx()))
                     : pColumn->columnIdx(),
             order);
-    emit layoutChanged(QList<QPersistentModelIndex>(), QAbstractItemModel::VerticalSortHint);
+    Q_EMIT layoutChanged(QList<QPersistentModelIndex>(), QAbstractItemModel::VerticalSortHint);
 }
 
 } // namespace qml

@@ -58,13 +58,13 @@ class QmlWaveformDisplay : public QQuickItem, VSyncTimeProvider, public Waveform
     void setBackgroundColor(QColor color) {
         m_backgroundColor = color;
         m_dirtyFlag.setFlag(DirtyFlag::Background, true);
-        emit backgroundColorChanged();
+        Q_EMIT backgroundColorChanged();
     }
 
     void setGroup(const QString& group) override;
     void setZoom(double zoom) {
         WaveformWidgetRenderer::setZoom(zoom);
-        emit zoomChanged();
+        Q_EMIT zoomChanged();
     }
 
     std::chrono::microseconds fromTimerToNextSync(const PerformanceTimer& timer) override;

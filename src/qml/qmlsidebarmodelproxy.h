@@ -21,7 +21,7 @@ class QmlLibrarySource;
 
 class QmlSidebarModelProxy : public SidebarModel {
     Q_OBJECT
-    Q_PROPERTY(QmlLibraryTrackListModel* tracklist READ tracklist NOTIFY tracklistChanged)
+    Q_PROPERTY(::mixxx::qml::QmlLibraryTrackListModel* tracklist READ tracklist NOTIFY tracklistChanged)
     QML_ANONYMOUS
   public:
     enum Roles {
@@ -33,7 +33,7 @@ class QmlSidebarModelProxy : public SidebarModel {
     explicit QmlSidebarModelProxy(QObject* parent = nullptr);
     ~QmlSidebarModelProxy() override;
 
-    QmlLibraryTrackListModel* tracklist() const {
+    ::mixxx::qml::QmlLibraryTrackListModel* tracklist() const {
         return m_tracklist.get();
     }
 
@@ -45,10 +45,10 @@ class QmlSidebarModelProxy : public SidebarModel {
     void tracklistChanged();
 
   protected slots:
-    void slotShowTrackModel(std::shared_ptr<mixxx::qml::QmlLibraryTrackListModel> pModel);
+    void slotShowTrackModel(std::shared_ptr<::mixxx::qml::QmlLibraryTrackListModel> pModel);
 
   private:
-    std::shared_ptr<QmlLibraryTrackListModel> m_tracklist;
+    std::shared_ptr<::mixxx::qml::QmlLibraryTrackListModel> m_tracklist;
 };
 
 } // namespace qml

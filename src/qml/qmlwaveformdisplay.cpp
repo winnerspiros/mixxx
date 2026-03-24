@@ -195,7 +195,7 @@ void QmlWaveformDisplay::setPlayer(QmlPlayerProxy* pPlayer) {
                 &QmlWaveformDisplay::slotTrackUnloaded);
     }
 
-    emit playerChanged();
+    Q_EMIT playerChanged();
     update();
 }
 
@@ -205,7 +205,7 @@ void QmlWaveformDisplay::setGroup(const QString& group) {
     }
 
     WaveformWidgetRenderer::setGroup(group);
-    emit groupChanged(group);
+    Q_EMIT groupChanged(group);
 }
 
 void QmlWaveformDisplay::slotTrackLoaded(TrackPointer pTrack) {

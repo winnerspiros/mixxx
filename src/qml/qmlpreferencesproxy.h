@@ -44,58 +44,58 @@ class QmlControllerScreenElement : public QObject {
     Q_OBJECT
     Q_PROPERTY(int fps READ fps NOTIFY fpsChanged)
   public:
-    QmlControllerScreenElement(QObject* parent, const ::LegacyControllerMapping::ScreenInfo& screen);
+    QmlControllerScreenElement(QObject* parent, const LegacyControllerMapping::ScreenInfo& screen);
 
     int fps() const;
 
-    void updateFrame(const ::LegacyControllerMapping::ScreenInfo& screen, const ::QImage& frame);
+    void updateFrame(const LegacyControllerMapping::ScreenInfo& screen, const QImage& frame);
     void clear();
 
   signals:
     void fpsChanged();
 #ifndef Q_OS_ANDROID
-    void videoFrameAvailable(const ::QVideoFrame& frame);
+    void videoFrameAvailable(const QVideoFrame& frame);
 #endif
 
   private:
-    ::LegacyControllerMapping::ScreenInfo m_screenInfo;
-    ::mixxx::Time::time_point m_lastFrameTimestamp;
+    LegacyControllerMapping::ScreenInfo m_screenInfo;
+    mixxx::Time::time_point m_lastFrameTimestamp;
     double m_averageFrameDuration;
 };
 
 class QmlControllerSettingItem : public QmlControllerSettingElement {
     Q_OBJECT
     Q_PROPERTY(QString label READ label CONSTANT)
-    Q_PROPERTY(::QJSValue value READ value WRITE setValue NOTIFY dirtyChanged)
-    Q_PROPERTY(::QJSValue savedValue READ savedValue CONSTANT)
-    Q_PROPERTY(::QJSValue defaultValue READ defaultValue CONSTANT)
+    Q_PROPERTY(QJSValue value READ value WRITE setValue NOTIFY dirtyChanged)
+    Q_PROPERTY(QJSValue savedValue READ savedValue CONSTANT)
+    Q_PROPERTY(QJSValue defaultValue READ defaultValue CONSTANT)
     Q_PROPERTY(QString type READ type CONSTANT)
   public:
-    QmlControllerSettingItem(::LegacyControllerSettingsLayoutItem* pInternal, QObject* parent);
+    QmlControllerSettingItem(LegacyControllerSettingsLayoutItem* pInternal, QObject* parent);
 
     QString label() const;
-    ::QJSValue value() const;
-    void setValue(const ::QJSValue& value);
-    ::QJSValue savedValue() const;
-    ::QJSValue defaultValue() const;
+    QJSValue value() const;
+    void setValue(const QJSValue& value);
+    QJSValue savedValue() const;
+    QJSValue defaultValue() const;
     QString type() const;
 
   private:
-    ::LegacyControllerSettingsLayoutItem* m_pInternal;
+    LegacyControllerSettingsLayoutItem* m_pInternal;
 };
 
 class QmlControllerSettingContainer : public QmlControllerSettingElement {
     Q_OBJECT
     Q_PROPERTY(QQmlListProperty<mixxx::qml::QmlControllerSettingElement> children READ children CONSTANT)
-    Q_PROPERTY(::LegacyControllerSettingsLayoutContainer::Disposition disposition READ disposition CONSTANT)
+    Q_PROPERTY(LegacyControllerSettingsLayoutContainer::Disposition disposition READ disposition CONSTANT)
   public:
-    QmlControllerSettingContainer(const ::LegacyControllerSettingsLayoutContainer* pInternal, QObject* parent);
+    QmlControllerSettingContainer(const LegacyControllerSettingsLayoutContainer* pInternal, QObject* parent);
 
     QQmlListProperty<mixxx::qml::QmlControllerSettingElement> children();
-    ::LegacyControllerSettingsLayoutContainer::Disposition disposition() const;
+    LegacyControllerSettingsLayoutContainer::Disposition disposition() const;
 
   private:
-    const ::LegacyControllerSettingsLayoutContainer* m_pInternal;
+    const LegacyControllerSettingsLayoutContainer* m_pInternal;
     QList<mixxx::qml::QmlControllerSettingElement*> m_children;
 };
 
@@ -103,16 +103,16 @@ class QmlControllerSettingGroup : public QmlControllerSettingElement {
     Q_OBJECT
     Q_PROPERTY(QString label READ label CONSTANT)
     Q_PROPERTY(QQmlListProperty<mixxx::qml::QmlControllerSettingElement> children READ children CONSTANT)
-    Q_PROPERTY(::LegacyControllerSettingsLayoutContainer::Disposition disposition READ disposition CONSTANT)
+    Q_PROPERTY(LegacyControllerSettingsLayoutContainer::Disposition disposition READ disposition CONSTANT)
   public:
-    QmlControllerSettingGroup(const ::LegacyControllerSettingsGroup* pInternal, QObject* parent);
+    QmlControllerSettingGroup(const LegacyControllerSettingsGroup* pInternal, QObject* parent);
 
     QString label() const;
     QQmlListProperty<mixxx::qml::QmlControllerSettingElement> children();
-    ::LegacyControllerSettingsLayoutContainer::Disposition disposition() const;
+    LegacyControllerSettingsLayoutContainer::Disposition disposition() const;
 
   private:
-    const ::LegacyControllerSettingsGroup* m_pInternal;
+    const LegacyControllerSettingsGroup* m_pInternal;
     QList<mixxx::qml::QmlControllerSettingElement*> m_children;
 };
 
@@ -126,7 +126,7 @@ class QmlControllerMappingProxy : public QObject {
     Q_PROPERTY(bool hasSettings READ hasSettings CONSTANT)
     Q_PROPERTY(bool hasScreens READ hasScreens CONSTANT)
   public:
-    QmlControllerMappingProxy(const ::MappingInfo& mapping, QObject* parent);
+    QmlControllerMappingProxy(const MappingInfo& mapping, QObject* parent);
 
     Q_INVOKABLE mixxx::qml::QmlControllerSettingElement* loadSettings(
             const mixxx::qml::QmlConfigProxy* pConfig,
@@ -146,17 +146,17 @@ class QmlControllerMappingProxy : public QObject {
 
     Q_INVOKABLE bool isUserMapping(const mixxx::qml::QmlConfigProxy* pConfig) const;
 
-    const ::MappingInfo& definition() const {
+    const MappingInfo& definition() const {
         return m_mappingDefinition;
     }
 
   signals:
-    void mappingErrored() const;
+    void mappingErrored();
 
   private:
     void fetchMappingDetails() const;
 
-    mutable ::MappingInfo m_mappingDefinition;
+    mutable MappingInfo m_mappingDefinition;
     mutable std::optional<bool> m_hasSettings;
     mutable std::optional<bool> m_hasScreens;
 };
@@ -179,8 +179,8 @@ class QmlControllerDeviceProxy : public QObject {
     };
     Q_ENUM(Type);
 
-    QmlControllerDeviceProxy(::Controller* pInternal,
-            const std::optional<::ProductInfo>& productInfo,
+    QmlControllerDeviceProxy(Controller* pInternal,
+            const std::optional<ProductInfo>& productInfo,
             const QList<mixxx::qml::QmlControllerMappingProxy*>& mappings,
             QObject* parent);
 
@@ -203,15 +203,15 @@ class QmlControllerDeviceProxy : public QObject {
     Q_INVOKABLE bool save(const mixxx::qml::QmlConfigProxy* pConfig);
     Q_INVOKABLE void clear();
 
-    std::shared_ptr<::LegacyControllerMapping> instanceFor(const QString& mappingPath) const;
-    void setInstanceFor(const QString& mappingPath, std::shared_ptr<::LegacyControllerMapping> pMapping);
+    std::shared_ptr<LegacyControllerMapping> instanceFor(const QString& mappingPath) const;
+    void setInstanceFor(const QString& mappingPath, std::shared_ptr<LegacyControllerMapping> pMapping);
 
   signals:
     void mappingChanged();
     void enabledChanged();
-    void mappingAssigned(::Controller* pInternal, std::shared_ptr<::LegacyControllerMapping> pMapping, bool enabled);
-    void mappingCreated(mixxx::qml::QmlControllerDeviceProxy::Type type, const ::MappingInfo& mapping);
-    void mappingUpdated(mixxx::qml::QmlControllerMappingProxy* pMapping, const ::MappingInfo& mapping);
+    void mappingAssigned(Controller* pInternal, std::shared_ptr<LegacyControllerMapping> pMapping, bool enabled);
+    void mappingCreated(mixxx::qml::QmlControllerDeviceProxy::Type type, const MappingInfo& mapping);
+    void mappingUpdated(mixxx::qml::QmlControllerMappingProxy* pMapping, const MappingInfo& mapping);
 
   private:
     void setEdited() {
@@ -224,12 +224,12 @@ class QmlControllerDeviceProxy : public QObject {
     }
 
     bool m_edited;
-    ::Controller* m_pInternal;
-    std::optional<::ProductInfo> m_productInfo;
+    Controller* m_pInternal;
+    std::optional<ProductInfo> m_productInfo;
     QList<mixxx::qml::QmlControllerMappingProxy*> m_mappings;
     mixxx::qml::QmlControllerMappingProxy* m_pMapping;
     std::optional<bool> m_enabled;
-    QHash<QString, std::shared_ptr<::LegacyControllerMapping>> m_mappingInstance;
+    QHash<QString, std::shared_ptr<LegacyControllerMapping>> m_mappingInstance;
 };
 
 class QmlControllerManagerProxy : public QObject {
@@ -238,16 +238,16 @@ class QmlControllerManagerProxy : public QObject {
     Q_PROPERTY(QQmlListProperty<mixxx::qml::QmlControllerDeviceProxy> unknownDevices READ unknownDevices NOTIFY deviceListChanged)
     Q_PROPERTY(bool controllerScreenDebug READ isControllerScreenDebug CONSTANT)
   public:
-    QmlControllerManagerProxy(std::shared_ptr<::ControllerManager> pControllerManager, QObject* parent = nullptr);
+    QmlControllerManagerProxy(std::shared_ptr<ControllerManager> pControllerManager, QObject* parent = nullptr);
 
     QQmlListProperty<mixxx::qml::QmlControllerDeviceProxy> knownDevices();
     QQmlListProperty<mixxx::qml::QmlControllerDeviceProxy> unknownDevices();
     bool isControllerScreenDebug() const;
 
-    std::shared_ptr<::ControllerManager> internal() const;
+    std::shared_ptr<ControllerManager> internal() const;
 
     static QmlControllerManagerProxy* create(QQmlEngine* pQmlEngine, QJSEngine* pJsEngine);
-    static inline void registerManager(std::shared_ptr<::ControllerManager> pControllerManager, bool controllerPreviewScreens = false) {
+    static inline void registerManager(std::shared_ptr<ControllerManager> pControllerManager, bool controllerPreviewScreens = false) {
         s_pControllerManager = std::move(pControllerManager);
         s_controllerPreviewScreens = controllerPreviewScreens;
     }
@@ -258,20 +258,20 @@ class QmlControllerManagerProxy : public QObject {
   public slots:
     void refreshKnownDevices();
     void refreshMappings();
-    void loadNewMapping(mixxx::qml::QmlControllerDeviceProxy::Type type, const ::MappingInfo& mapping);
-    void updateExistingMapping(mixxx::qml::QmlControllerMappingProxy* pMapping, const ::MappingInfo& mapping);
+    void loadNewMapping(mixxx::qml::QmlControllerDeviceProxy::Type type, const MappingInfo& mapping);
+    void updateExistingMapping(mixxx::qml::QmlControllerMappingProxy* pMapping, const MappingInfo& mapping);
 
   private:
     void loadMappingFromEnumerator(QSharedPointer<MappingInfoEnumerator> enumerator);
 
-    std::shared_ptr<::ControllerManager> m_pControllerManager;
-    QList<::Controller*> m_knownControllers;
+    std::shared_ptr<ControllerManager> m_pControllerManager;
+    QList<Controller*> m_knownControllers;
     QHash<mixxx::qml::QmlControllerDeviceProxy::Type, QList<mixxx::qml::QmlControllerMappingProxy*>> m_knownMappings;
 
     QList<mixxx::qml::QmlControllerDeviceProxy*> m_knownDevicesFound;
     QList<mixxx::qml::QmlControllerDeviceProxy*> m_unknownDevicesFound;
 
-    static inline std::shared_ptr<::ControllerManager> s_pControllerManager = nullptr;
+    static inline std::shared_ptr<ControllerManager> s_pControllerManager = nullptr;
     static inline bool s_controllerPreviewScreens = false;
 };
 

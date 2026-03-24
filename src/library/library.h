@@ -80,13 +80,25 @@ class Library : public QObject {
 
     /// Needed for exposing models to QML
     LibraryTableModel* trackTableModel() const;
-    MixxxLibraryFeature* mixxxLibraryFeature() const { return m_pMixxxLibraryFeature.get(); }
-    PlaylistFeature* playlistFeature() const { return m_pPlaylistFeature.get(); }
-    CrateFeature* crateFeature() const { return m_pCrateFeature.get(); }
-    BrowseFeature* browseFeature() const { return m_pBrowseFeature.get(); }
+    MixxxLibraryFeature* mixxxLibraryFeature() const {
+        return m_pMixxxLibraryFeature.get();
+    }
+    PlaylistFeature* playlistFeature() const {
+        return m_pPlaylistFeature.get();
+    }
+    CrateFeature* crateFeature() const {
+        return m_pCrateFeature.get();
+    }
+    BrowseFeature* browseFeature() const {
+        return m_pBrowseFeature.get();
+    }
 #ifdef NETWORKAUTH
-    SpotifyFeature* spotifyFeature() const { return m_pSpotifyFeature.get(); }
-    YouTubeFeature* youtubeFeature() const { return m_pYouTubeFeature.get(); }
+    SpotifyFeature* spotifyFeature() const {
+        return m_pSpotifyFeature.get();
+    }
+    YouTubeFeature* youtubeFeature() const {
+        return m_pYouTubeFeature.get();
+    }
 #endif
 
     bool isTrackIdInCurrentLibraryView(const TrackId& trackId);
@@ -170,7 +182,7 @@ class Library : public QObject {
     void search(const QString& text);
     void disableSearch();
     void pasteFromSidebar();
-    // emit this signal to enable/disable the cover art widget
+    // Q_EMIT this signal to enable/disable the cover art widget
     void enableCoverArtDisplay(bool);
     void selectTrack(const TrackId&);
     void trackSelected(TrackPointer pTrack);

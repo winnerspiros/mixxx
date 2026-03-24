@@ -82,9 +82,9 @@ void QmlSidebarModelProxy::update(const QList<QmlLibrarySource*>& sources) {
     endResetModel();
 }
 
-void QmlSidebarModelProxy::slotShowTrackModel(std::shared_ptr<QmlLibraryTrackListModel> pModel) {
+void QmlSidebarModelProxy::slotShowTrackModel(std::shared_ptr<::mixxx::qml::QmlLibraryTrackListModel> pModel) {
     m_tracklist = pModel;
-    emit tracklistChanged();
+    Q_EMIT tracklistChanged();
 }
 
 } // namespace qml

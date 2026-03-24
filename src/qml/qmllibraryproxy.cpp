@@ -29,7 +29,7 @@ void QmlLibraryProxy::analyze(const QmlTrackProxy* track) const {
     VERIFY_OR_DEBUG_ASSERT(track && track->internal()) {
         return;
     }
-    emit s_pLibrary->analyzeTracks({track->internal()->getId()});
+    Q_EMIT s_pLibrary->analyzeTracks({track->internal()->getId()});
 }
 
 // static
