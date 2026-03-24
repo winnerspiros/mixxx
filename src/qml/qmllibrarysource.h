@@ -11,18 +11,14 @@
 #include <QVariant>
 #include <memory>
 
-#include "library/browse/browsefeature.h"
 #include "library/libraryfeature.h"
 #include "library/sidebarmodel.h"
-#include "library/trackset/crate/cratefeature.h"
-#include "library/trackset/playlistfeature.h"
-#include "library/treeitem.h"
-#include "qmlconfigproxy.h"
 #include "qmllibrarytracklistmodel.h"
 #include "util/parented_ptr.h"
 
 class LibraryTableModel;
 class TreeItemModel;
+
 class AllTrackLibraryFeature final : public LibraryFeature {
     Q_OBJECT
   public:
@@ -110,6 +106,54 @@ class QmlLibraryAllTrackSource : public QmlLibrarySource {
 
   private:
     std::unique_ptr<AllTrackLibraryFeature> m_pLibraryFeature;
+};
+
+class QmlLibraryTracksSource : public QmlLibrarySource {
+    Q_OBJECT
+    QML_NAMED_ELEMENT(LibraryTracksSource)
+  public:
+    using QmlLibrarySource::QmlLibrarySource;
+    LibraryFeature* internal() override;
+};
+
+class QmlLibraryPlaylistsSource : public QmlLibrarySource {
+    Q_OBJECT
+    QML_NAMED_ELEMENT(LibraryPlaylistsSource)
+  public:
+    using QmlLibrarySource::QmlLibrarySource;
+    LibraryFeature* internal() override;
+};
+
+class QmlLibraryCratesSource : public QmlLibrarySource {
+    Q_OBJECT
+    QML_NAMED_ELEMENT(LibraryCratesSource)
+  public:
+    using QmlLibrarySource::QmlLibrarySource;
+    LibraryFeature* internal() override;
+};
+
+class QmlLibraryBrowseSource : public QmlLibrarySource {
+    Q_OBJECT
+    QML_NAMED_ELEMENT(LibraryBrowseSource)
+  public:
+    using QmlLibrarySource::QmlLibrarySource;
+    LibraryFeature* internal() override;
+};
+
+class QmlLibrarySpotifySource : public QmlLibrarySource {
+    Q_OBJECT
+    QML_NAMED_ELEMENT(LibrarySpotifySource)
+  public:
+    using QmlLibrarySource::QmlLibrarySource;
+    LibraryFeature* internal() override;
+};
+
+class QmlLibraryYouTubeSource : public QmlLibrarySource {
+    Q_OBJECT
+    QML_NAMED_ELEMENT(LibraryYouTubeSource)
+  public:
+    using QmlLibrarySource::QmlLibrarySource;
+    LibraryFeature* internal() override;
 };
 
 } // namespace qml

@@ -74,6 +74,9 @@ void QmlSidebarModelProxy::update(const QList<QmlLibrarySource*>& sources) {
                 this,
                 &QmlSidebarModelProxy::slotShowTrackModel);
         auto* pLibrarySource = librarySource->internal();
+        if (!pLibrarySource) {
+            continue;
+        }
         addLibraryFeature(pLibrarySource);
     }
     endResetModel();

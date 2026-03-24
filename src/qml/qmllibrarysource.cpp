@@ -9,18 +9,20 @@
 #include <QtDebug>
 #include <memory>
 
-#include "library/browse/browsefeature.h"
 #include "library/library.h"
 #include "library/librarytablemodel.h"
-#include "library/trackcollection.h"
-#include "library/trackcollectionmanager.h"
-#include "library/trackset/crate/cratefeature.h"
-#include "library/trackset/crate/cratesummary.h"
+#include "library/mixxxlibraryfeature.h"
 #include "library/trackset/playlistfeature.h"
+#include "library/trackset/crate/cratefeature.h"
+#include "library/browse/browsefeature.h"
+#ifdef NETWORKAUTH
+#include "library/spotify/spotifyfeature.h"
+#include "library/youtube/youtubefeature.h"
+#endif
 #include "library/treeitemmodel.h"
 #include "moc_qmllibrarysource.cpp"
 #include "qmllibraryproxy.h"
-#include "track/track.h"
+#include "qmlconfigproxy.h"
 
 AllTrackLibraryFeature::AllTrackLibraryFeature(Library* pLibrary, UserSettingsPointer pConfig)
         : LibraryFeature(pLibrary, pConfig, QString()),
@@ -55,6 +57,44 @@ QmlLibraryAllTrackSource::QmlLibraryAllTrackSource(
             &LibraryFeature::showTrackModel,
             this,
             &QmlLibrarySource::slotShowTrackModel);
+}
+
+LibraryFeature* QmlLibraryTracksSource::internal() {
+    auto* pLibrary = QmlLibraryProxy::get();
+    return pLibrary ? pLibrary->mixxxLibraryFeature() : nullptr;
+}
+
+LibraryFeature* QmlLibraryPlaylistsSource::internal() {
+    auto* pLibrary = QmlLibraryProxy::get();
+    return pLibrary ? pLibrary->playlistFeature() : nullptr;
+}
+
+LibraryFeature* QmlLibraryCratesSource::internal() {
+    auto* pLibrary = QmlLibraryProxy::get();
+    return pLibrary ? pLibrary->crateFeature() : nullptr;
+}
+
+LibraryFeature* QmlLibraryBrowseSource::internal() {
+    auto* pLibrary = QmlLibraryProxy::get();
+    return pLibrary ? pLibrary->browseFeature() : nullptr;
+}
+
+LibraryFeature* QmlLibrarySpotifySource::internal() {
+    auto* pLibrary = QmlLibraryProxy::get();
+#ifdef NETWORKAUTH
+    return pLibrary ? pLibrary->spotifyFeature() : nullptr;
+#else
+    return nullptr;
+#endif
+}
+
+LibraryFeature* QmlLibraryYouTubeSource::internal() {
+    auto* pLibrary = QmlLibraryProxy::get();
+#ifdef NETWORKAUTH
+    return pLibrary ? pLibrary->youtubeFeature() : nullptr;
+#else
+    return nullptr;
+#endif
 }
 
 } // namespace qml
