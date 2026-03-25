@@ -17,7 +17,7 @@ void QmlMixxxControllerScreen::setTransform(const QJSValue& value) {
         return;
     }
     m_transformFunc = value;
-    emit transformChanged();
+    Q_EMIT transformChanged();
 }
 
 void QmlMixxxControllerScreen::setInit(const QJSValue& value) {
@@ -25,7 +25,7 @@ void QmlMixxxControllerScreen::setInit(const QJSValue& value) {
         return;
     }
     m_initFunc = value;
-    emit initChanged();
+    Q_EMIT initChanged();
 }
 
 void QmlMixxxControllerScreen::setShutdown(const QJSValue& value) {
@@ -33,7 +33,7 @@ void QmlMixxxControllerScreen::setShutdown(const QJSValue& value) {
         return;
     }
     m_shutdownFunc = value;
-    emit shutdownChanged();
+    Q_EMIT shutdownChanged();
 }
 
 } // namespace qml

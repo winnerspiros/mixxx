@@ -37,11 +37,11 @@ void QmlControlProxy::setGroup(const QString& group) {
 
     const bool keyValidBeforeSet = isKeyValid();
     m_coKey.group = group;
-    emit groupChanged(group);
+    Q_EMIT groupChanged(group);
 
     const bool keyValidAfterSet = isKeyValid();
     if (keyValidBeforeSet != keyValidAfterSet) {
-        emit keyValidChanged(keyValidAfterSet);
+        Q_EMIT keyValidChanged(keyValidAfterSet);
     }
 
     reinitializeFromKey();
@@ -58,11 +58,11 @@ void QmlControlProxy::setKey(const QString& key) {
 
     const bool keyValidBeforeSet = isKeyValid();
     m_coKey.item = key;
-    emit keyChanged(key);
+    Q_EMIT keyChanged(key);
 
     const bool keyValidAfterSet = isKeyValid();
     if (keyValidBeforeSet != keyValidAfterSet) {
-        emit keyValidChanged(keyValidAfterSet);
+        Q_EMIT keyValidChanged(keyValidAfterSet);
     }
 
     reinitializeFromKey();
@@ -74,7 +74,7 @@ const QString& QmlControlProxy::getKey() const {
 
 void QmlControlProxy::setValue(double newValue) {
     if (!isInitialized()) {
-        emit valueChanged(kDefaultValue);
+        Q_EMIT valueChanged(kDefaultValue);
         return;
     }
     m_pControlProxy->set(newValue);
@@ -90,12 +90,12 @@ double QmlControlProxy::getValue() const {
 
 void QmlControlProxy::setParameter(double newValue) {
     if (!isInitialized()) {
-        emit parameterChanged(kDefaultValue);
+        Q_EMIT parameterChanged(kDefaultValue);
         return;
     }
     m_pControlProxy->setParameter(newValue);
-    emit valueChanged(m_pControlProxy->get());
-    emit parameterChanged(newValue);
+    Q_EMIT valueChanged(m_pControlProxy->get());
+    Q_EMIT parameterChanged(newValue);
 }
 
 double QmlControlProxy::getParameter() const {
@@ -130,7 +130,7 @@ void QmlControlProxy::reinitializeFromKey() {
                    << " with invalid key, resetting...";
         if (isInitialized()) {
             m_pControlProxy.reset();
-            emit initializedChanged(false);
+            Q_EMIT initializedChanged(false);
         }
         return;
     }
@@ -152,7 +152,7 @@ void QmlControlProxy::reinitializeFromKey() {
                    << " returned nullptr, resetting...";
         if (isInitialized()) {
             m_pControlProxy.reset();
-            emit initializedChanged(false);
+            Q_EMIT initializedChanged(false);
         }
         return;
     }
@@ -162,24 +162,24 @@ void QmlControlProxy::reinitializeFromKey() {
         qWarning() << "QmlControlProxy: Requested CO" << m_coKey << " does not exist, resetting...";
         if (isInitialized()) {
             m_pControlProxy.reset();
-            emit initializedChanged(false);
+            Q_EMIT initializedChanged(false);
         }
         return;
     }
 
-    // Set the control proxy and emit signal
+    // Set the control proxy and Q_EMIT signal
     const bool wasInitialized = isInitialized();
     m_pControlProxy = std::move(pControlProxy);
     if (!wasInitialized) {
-        emit initializedChanged(true);
+        Q_EMIT initializedChanged(true);
     }
     m_pControlProxy->connectValueChanged(this, &QmlControlProxy::slotControlProxyValueChanged);
     slotControlProxyValueChanged(m_pControlProxy->get());
 }
 
 void QmlControlProxy::slotControlProxyValueChanged(double newValue) {
-    emit valueChanged(newValue);
-    emit parameterChanged(m_pControlProxy->getParameter());
+    Q_EMIT valueChanged(newValue);
+    Q_EMIT parameterChanged(m_pControlProxy->getParameter());
 }
 
 void QmlControlProxy::trigger() {

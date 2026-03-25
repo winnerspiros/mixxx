@@ -97,9 +97,9 @@ QmlSoundManagerProxy::QmlSoundManagerProxy(
             status = m_pSoundManager->setConfig(m_config);
         }
         if (status != SoundDeviceStatus::Ok) {
-            emit committed(m_pSoundManager->getLastErrorMessage(status));
+            Q_EMIT committed(m_pSoundManager->getLastErrorMessage(status));
         } else {
-            emit committed();
+            Q_EMIT committed();
         }
         m_config = m_pSoundManager->getConfig();
     });

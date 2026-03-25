@@ -25,69 +25,6 @@ Mixxx.LibrarySourceTree {
                 }
             }
         },
-        // FIXME: WaveformOverview is currently disabled due to performance limitation. Like for the legacy UI, a cache likely needs to be implemented to help
-        // Mixxx.TrackListColumn {
-        //     label: qsTr("Preview")
-        //     fillSpan: 3
-        //     preferredWidth: 300
-        //     columnIdx: Mixxx.TrackListColumn.SQLColumns.Title
-
-        //     delegate: LibraryCell {
-        //         // implicitHeight: 30
-        //         anchors.fill: parent
-
-        //         readonly property var trackProxy: track
-
-        //         Drag.active: dragArea.drag.active
-        //         Drag.dragType: Drag.Automatic
-        //         Drag.supportedActions: Qt.CopyAction
-        //         Drag.mimeData: {
-        //             "text/uri-list": file_url,
-        //             "text/plain": file_url
-        //         }
-
-        //         LibraryComponent.Track {
-        //             id: dragArea
-        //             anchors.fill: parent
-        //             capabilities: parent.capabilities
-
-        //             onPressed: {
-        //                 if (pressedButtons == Qt.LeftButton) {
-        //                     tableView.selectionModel.selectRow(row);
-        //                     parent.dragImage.grabToImage((result) => {
-        //                             parent.Drag.imageSource = result.url;
-        //                     });
-        //                 } else {
-        //                 }
-        //             }
-        //             onDoubleClicked: {
-        //                 tableView.selectionModel.selectRow(row);
-        //                 tableView.loadSelectedTrackIntoNextAvailableDeck(false);
-        //             }
-        //         }
-
-        //         Mixxx.WaveformOverview {
-        //             anchors.fill: parent
-        //             channels: Mixxx.WaveformOverview.Channels.LeftChannel
-        //             renderer: Mixxx.WaveformOverview.Renderer.Filtered
-        //             colorHigh: Theme.white
-        //             colorMid: Theme.blue
-        //             colorLow: Theme.green
-        //             track: trackProxy
-        //         }
-        //         Rectangle {
-        //             id: border
-        //             color: Theme.darkGray2
-        //             width: 1
-        //             anchors {
-        //                 top: parent.top
-        //                 bottom: parent.bottom
-        //                 right: parent.right
-        //             }
-        //         }
-        //     }
-
-        // },
         Mixxx.TrackListColumn {
             columnIdx: Mixxx.TrackListColumn.SQLColumns.Title
             fillSpan: 3
@@ -158,9 +95,34 @@ Mixxx.LibrarySourceTree {
         }
     ]
 
-    Mixxx.LibraryAllTrackSource {
+    Mixxx.LibraryTracksSource {
         columns: root.defaultColumns
-        label: qsTr("All...")
+        label: qsTr("Tracks")
+    }
+
+    Mixxx.LibraryPlaylistsSource {
+        columns: root.defaultColumns
+        label: qsTr("Playlists")
+    }
+
+    Mixxx.LibraryCratesSource {
+        columns: root.defaultColumns
+        label: qsTr("Crates")
+    }
+
+    Mixxx.LibraryBrowseSource {
+        columns: root.defaultColumns
+        label: qsTr("Browse")
+    }
+
+    Mixxx.LibrarySpotifySource {
+        columns: root.defaultColumns
+        label: qsTr("Spotify")
+    }
+
+    Mixxx.LibraryYouTubeSource {
+        columns: root.defaultColumns
+        label: qsTr("YouTube")
     }
 
     component DefaultDelegate: LibraryComponent.Cell {

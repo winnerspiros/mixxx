@@ -29,7 +29,7 @@ QQuickTextureFactory* AsyncImageResponse::textureFactory() const {
 void AsyncImageResponse::run() {
     if (!m_id.startsWith(kCoverArtPrefix)) {
         qWarning() << "ImageProvider: Unsupported ID" << m_id;
-        emit finished();
+        Q_EMIT finished();
         return;
     }
     const QString trackLocation = AsyncImageProvider::coverArtUrlIdToTrackLocation(m_id);
@@ -52,7 +52,7 @@ void AsyncImageResponse::run() {
     }
     if (!pTrack) {
         qWarning() << "ImageProvider: Failed to load track" << trackRef;
-        emit finished();
+        Q_EMIT finished();
         return;
     }
     const auto coverInfo = CoverInfo(pTrack->getCoverInfo(), trackLocation);
@@ -76,7 +76,7 @@ void AsyncImageResponse::run() {
         break;
     }
 
-    emit finished();
+    Q_EMIT finished();
 }
 
 AsyncImageProvider::AsyncImageProvider(

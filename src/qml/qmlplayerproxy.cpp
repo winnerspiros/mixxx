@@ -38,7 +38,7 @@ void QmlPlayerProxy::loadTrack(QmlTrackProxy* track, bool play) {
     if (m_pCurrentTrack == track->internal()) {
         return;
     }
-    emit loadTrackRequested(track->internal(),
+    Q_EMIT loadTrackRequested(track->internal(),
 #ifdef __STEM__
             mixxx::StemChannel::All,
 #endif
@@ -49,7 +49,7 @@ void QmlPlayerProxy::loadTrackFromLocation(const QString& trackLocation, bool pl
     if (m_pCurrentTrack && m_pCurrentTrack->getLocation() == trackLocation) {
         return;
     }
-    emit loadTrackFromLocationRequested(trackLocation, play);
+    Q_EMIT loadTrackFromLocationRequested(trackLocation, play);
 }
 
 void QmlPlayerProxy::loadTrackFromLocationUrl(const QUrl& trackLocationUrl, bool play) {
@@ -62,8 +62,8 @@ void QmlPlayerProxy::loadTrackFromLocationUrl(const QUrl& trackLocationUrl, bool
 
 void QmlPlayerProxy::slotTrackLoaded(TrackPointer pTrack) {
     m_pCurrentTrack = pTrack;
-    emit trackChanged();
-    emit trackLoaded();
+    Q_EMIT trackChanged();
+    Q_EMIT trackLoaded();
 }
 
 void QmlPlayerProxy::slotTrackUnloaded(TrackPointer pOldTrack) {
@@ -76,8 +76,8 @@ void QmlPlayerProxy::slotTrackUnloaded(TrackPointer pOldTrack) {
         disconnect(m_pCurrentTrack.get(), nullptr, this, nullptr);
     }
     m_pCurrentTrack.reset();
-    emit trackChanged();
-    emit trackUnloaded();
+    Q_EMIT trackChanged();
+    Q_EMIT trackUnloaded();
 }
 
 QmlTrackProxy* QmlPlayerProxy::currentTrack() {
@@ -88,7 +88,7 @@ QmlTrackProxy* QmlPlayerProxy::currentTrack() {
 
 void QmlPlayerProxy::slotLoadingTrack(TrackPointer pNewTrack, TrackPointer pOldTrack) {
     if (pNewTrack.get() == m_pCurrentTrack.get()) {
-        emit trackLoading();
+        Q_EMIT trackLoading();
         return;
     }
 
@@ -96,8 +96,8 @@ void QmlPlayerProxy::slotLoadingTrack(TrackPointer pNewTrack, TrackPointer pOldT
         disconnect(m_pCurrentTrack.get(), nullptr, this, nullptr);
     }
     m_pCurrentTrack = pNewTrack;
-    emit trackChanged();
-    emit trackLoading();
+    Q_EMIT trackChanged();
+    Q_EMIT trackLoading();
 }
 
 bool QmlPlayerProxy::isLoaded() const {

@@ -7,7 +7,6 @@
 #include <QtDebug>
 
 #include "library/treeitem.h"
-#include "moc_qmlsidebarmodelproxy.cpp"
 #include "qml/qmllibrarysource.h"
 #include "util/assert.h"
 #include "util/parented_ptr.h"
@@ -65,6 +64,7 @@ QmlSidebarModelProxy::~QmlSidebarModelProxy() = default;
 void QmlSidebarModelProxy::update(const QList<QmlLibrarySource*>& sources) {
     beginResetModel();
     qDeleteAll(m_sFeatures);
+    m_sFeatures.clear();
     for (const auto& librarySource : sources) {
         VERIFY_OR_DEBUG_ASSERT(librarySource) {
             continue;
@@ -74,15 +74,23 @@ void QmlSidebarModelProxy::update(const QList<QmlLibrarySource*>& sources) {
                 this,
                 &QmlSidebarModelProxy::slotShowTrackModel);
         auto* pLibrarySource = librarySource->internal();
+        if (!pLibrarySource) {
+            continue;
+        }
         addLibraryFeature(pLibrarySource);
     }
     endResetModel();
 }
 
-void QmlSidebarModelProxy::slotShowTrackModel(std::shared_ptr<QmlLibraryTrackListModel> pModel) {
+void QmlSidebarModelProxy::slotShowTrackModel(::mixxx::qml::QmlLibraryTrackListModel* pModel) {
+    if (m_tracklist == pModel) {
+        return;
+    }
     m_tracklist = pModel;
-    emit tracklistChanged();
+    Q_EMIT tracklistChanged();
 }
 
 } // namespace qml
 } // namespace mixxx
+
+#include "moc_qmlsidebarmodelproxy.cpp"

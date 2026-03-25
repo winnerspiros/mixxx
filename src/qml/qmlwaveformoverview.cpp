@@ -56,7 +56,7 @@ void QmlWaveformOverview::setChannels(QmlWaveformOverview::Channels channels) {
     }
 
     m_channels = channels;
-    emit channelsChanged(channels);
+    Q_EMIT channelsChanged(channels);
 }
 
 void QmlWaveformOverview::slotWaveformUpdated() {
