@@ -7,7 +7,7 @@
 #include <QQmlParserStatus>
 #include <QQuickItem>
 #include <QVariant>
-#include <memory>
+#include <QPointer>
 
 #include "library/libraryfeature.h"
 #include "library/sidebarmodel.h"
@@ -34,7 +34,7 @@ class QmlSidebarModelProxy : public SidebarModel {
     ~QmlSidebarModelProxy() override;
 
     ::mixxx::qml::QmlLibraryTrackListModel* tracklist() const {
-        return m_tracklist.get();
+        return m_tracklist.data();
     }
 
     void update(const QList<QmlLibrarySource*>& sources);
@@ -45,10 +45,10 @@ class QmlSidebarModelProxy : public SidebarModel {
     void tracklistChanged();
 
   protected slots:
-    void slotShowTrackModel(std::shared_ptr<::mixxx::qml::QmlLibraryTrackListModel> pModel);
+    void slotShowTrackModel(::mixxx::qml::QmlLibraryTrackListModel* pModel);
 
   private:
-    std::shared_ptr<::mixxx::qml::QmlLibraryTrackListModel> m_tracklist;
+    QPointer<::mixxx::qml::QmlLibraryTrackListModel> m_tracklist;
 };
 
 } // namespace qml
