@@ -1,7 +1,7 @@
 #include "coreservices.h"
 
-#include <QGuiApplication>
 #include <QFileDialog>
+#include <QGuiApplication>
 #include <QProcess>
 #include <QProcessEnvironment>
 #include <QStandardPaths>
@@ -74,6 +74,7 @@
 
 #if defined(Q_OS_LINUX) && QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 #include <X11/Xlibint.h>
+
 #include <QtX11Extras/QX11Info>
 
 #include "engine/channelhandle.h"
@@ -853,11 +854,11 @@ void CoreServices::initializeKeyboard() {
 void CoreServices::slotOptionsKeyboard(bool toggle) {
     UserSettingsPointer pConfig = m_pSettingsManager->settings();
     if (toggle) {
-        //qDebug() << "Enable keyboard shortcuts/mappings";
+        // qDebug() << "Enable keyboard shortcuts/mappings";
         m_pKeyboardEventFilter->setKeyboardConfig(m_pKbdConfig.get());
         pConfig->set(ConfigKey("[Keyboard]", "Enabled"), ConfigValue(1));
     } else {
-        //qDebug() << "Disable keyboard shortcuts/mappings";
+        // qDebug() << "Disable keyboard shortcuts/mappings";
         m_pKeyboardEventFilter->setKeyboardConfig(m_pKbdConfigEmpty.get());
         pConfig->set(ConfigKey("[Keyboard]", "Enabled"), ConfigValue(0));
     }

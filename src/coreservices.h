@@ -6,7 +6,9 @@
 #include "util/timer.h"
 
 class QGuiApplication;
-namespace mixxx { class CmdlineArgs; }
+namespace mixxx {
+class CmdlineArgs;
+}
 using CmdlineArgs = mixxx::CmdlineArgs;
 class KeyboardEventFilter;
 class EffectsManager;

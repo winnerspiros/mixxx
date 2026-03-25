@@ -286,10 +286,12 @@ int main(int argc, char* argv[]) {
             QDir(args.getSettingsPath()).filePath(MIXXX_SETTINGS_FILE),
             QString(),
             QString());
+#ifndef Q_OS_ANDROID
     int notifywarningThreshold = config.getValue<int>(
             ConfigKey(kConfigGroup, kNotifyMaxDbgTimeKey), 10);
-#ifndef Q_OS_ANDROID
     app.setNotifyWarningThreshold(notifywarningThreshold);
+#else
+    Q_UNUSED(config);
 #endif
 
 #ifdef Q_OS_MACOS

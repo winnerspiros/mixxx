@@ -48,13 +48,13 @@ void QmlControllerScreenElement::updateFrame(const LegacyControllerMapping::Scre
     m_lastFrameTimestamp = now;
 
 #ifndef Q_OS_ANDROID
-    QVideoFrameFormat format(frame.size(), QVideoFrameFormat::Format_ARGB32);
+    QVideoFrameFormat format(frame.size(), QVideoFrameFormat::Format_BGRA8888);
     QVideoFrame vframe(format);
     if (vframe.map(QVideoFrame::WriteOnly)) {
         for (int y = 0; y < frame.height(); ++y) {
             std::memcpy(vframe.bits(0) + y * vframe.bytesPerLine(0),
-                   frame.scanLine(y),
-                   static_cast<size_t>(std::min(vframe.bytesPerLine(0), static_cast<int>(frame.bytesPerLine()))));
+                    frame.scanLine(y),
+                    static_cast<size_t>(std::min(vframe.bytesPerLine(0), static_cast<int>(frame.bytesPerLine()))));
         }
         vframe.unmap();
     }
