@@ -54,7 +54,8 @@ void QmlControllerScreenElement::updateFrame(const LegacyControllerMapping::Scre
         for (int y = 0; y < frame.height(); ++y) {
             std::memcpy(vframe.bits(0) + y * vframe.bytesPerLine(0),
                     frame.scanLine(y),
-                    static_cast<size_t>(std::min(vframe.bytesPerLine(0), static_cast<int>(frame.bytesPerLine()))));
+                    static_cast<size_t>(std::min(vframe.bytesPerLine(0),
+                            static_cast<int>(frame.bytesPerLine()))));
         }
         vframe.unmap();
     }

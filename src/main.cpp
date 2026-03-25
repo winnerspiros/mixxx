@@ -163,6 +163,7 @@ void adjustScaleFactor(CmdlineArgs* pArgs) {
     }
 }
 
+#ifndef Q_OS_ANDROID
 void applyStyleOverride(CmdlineArgs* pArgs) {
     if (!pArgs->getStyle().isEmpty()) {
         qDebug() << "Default style is overwritten by command line argument "
@@ -182,6 +183,7 @@ void applyStyleOverride(CmdlineArgs* pArgs) {
         }
     }
 }
+#endif
 
 } // anonymous namespace
 
