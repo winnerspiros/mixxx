@@ -122,7 +122,8 @@ if(
 
   # Remove the extension from the filename (note that our buildenv names contain two dots)
   string(
-    REGEX REPLACE "\\.[^.]*$"
+    REGEX REPLACE
+    "\\.[^.]*$"
     ""
     BUILDENV_NAME
     "${FILENAME_WITH_EXTENSION}"
@@ -148,8 +149,7 @@ if(
         "Downloading file ${BUILDENV_URL} to ${BUILDENV_BASEPATH} ..."
       )
       file(
-        DOWNLOAD ${BUILDENV_URL}
-        "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip"
+        DOWNLOAD ${BUILDENV_URL} "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip"
         SHOW_PROGRESS
         TLS_VERIFY ON
       )
@@ -684,7 +684,8 @@ if(MSVC)
     string(REPLACE "/Zi" "/Z7" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
   elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
     string(
-      REPLACE "/Zi"
+      REPLACE
+      "/Zi"
       "/Z7"
       CMAKE_CXX_FLAGS_RELEASE
       "${CMAKE_CXX_FLAGS_RELEASE}"
@@ -692,13 +693,15 @@ if(MSVC)
     string(REPLACE "/Zi" "/Z7" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
   elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
     string(
-      REPLACE "/Zi"
+      REPLACE
+      "/Zi"
       "/Z7"
       CMAKE_CXX_FLAGS_RELWITHDEBINFO
       "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
     )
     string(
-      REPLACE "/Zi"
+      REPLACE
+      "/Zi"
       "/Z7"
       CMAKE_C_FLAGS_RELWITHDEBINFO
       "${CMAKE_C_FLAGS_RELWITHDEBINFO}"
@@ -730,7 +733,8 @@ if(MSVC)
       add_compile_options(/O2) # this implies /Od2
       # Remove /RTC1 flag set by CMAKE by default (conflicts with /O2)
       string(
-        REPLACE "/RTC1"
+        REPLACE
+        "/RTC1"
         ""
         CMAKE_CXX_FLAGS_DEBUG
         "${CMAKE_CXX_FLAGS_DEBUG}"
@@ -740,13 +744,15 @@ if(MSVC)
       # For some reasons cmake uses /Ob1 in RelWithDebInfo https://gitlab.kitware.com/cmake/cmake/-/issues/20812
       # /O2 is applied by CMake and this implies /Od2
       string(
-        REPLACE "/Ob1"
+        REPLACE
+        "/Ob1"
         ""
         CMAKE_CXX_FLAGS_RELWITHDEBINFO
         "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
       )
       string(
-        REPLACE "/Ob1"
+        REPLACE
+        "/Ob1"
         ""
         CMAKE_C_FLAGS_RELWITHDEBINFO
         "${CMAKE_C_FLAGS_RELWITHDEBINFO}"
@@ -761,7 +767,8 @@ if(MSVC)
       # The CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO can be defined by the user in the GUI or in CMakeSettings.json,
       # therefore we can't rely on the default.
       string(
-        FIND CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO
+        FIND
+        CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO
         "/INCREMENTAL:NO"
         INCREMENTAL_NO_POSITION
       )
@@ -771,7 +778,8 @@ if(MSVC)
           "Overwriting /INCREMENTAL by /INCREMENTAL:NO to allow link time code optimization"
         )
         string(
-          REPLACE "/INCREMENTAL"
+          REPLACE
+          "/INCREMENTAL"
           "/INCREMENTAL:NO"
           CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO
           "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO}"
@@ -827,14 +835,16 @@ if(MSVC)
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
       # Remove optimize flags set by cmake defaults
       string(
-        REPLACE "/O2"
+        REPLACE
+        "/O2"
         ""
         CMAKE_CXX_FLAGS_RELEASE
         "${CMAKE_CXX_FLAGS_RELEASE}"
       )
       string(REPLACE "/O2" "" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
       string(
-        REPLACE "/Ob2"
+        REPLACE
+        "/Ob2"
         ""
         CMAKE_CXX_FLAGS_RELEASE
         "${CMAKE_CXX_FLAGS_RELEASE}"
@@ -845,26 +855,30 @@ if(MSVC)
     elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
       # Remove optimize flags set by cmake defaults
       string(
-        REPLACE "/O2"
+        REPLACE
+        "/O2"
         ""
         CMAKE_CXX_FLAGS_RELWITHDEBINFO
         "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
       )
       string(
-        REPLACE "/O2"
+        REPLACE
+        "/O2"
         ""
         CMAKE_C_FLAGS_RELWITHDEBINFO
         "${CMAKE_C_FLAGS_RELWITHDEBINFO}"
       )
       # For some reasons cmake uses /Ob1 in RelWithDebInfo https://gitlab.kitware.com/cmake/cmake/-/issues/20812
       string(
-        REPLACE "/Ob1"
+        REPLACE
+        "/Ob1"
         ""
         CMAKE_CXX_FLAGS_RELWITHDEBINFO
         "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
       )
       string(
-        REPLACE "/Ob1"
+        REPLACE
+        "/Ob1"
         ""
         CMAKE_C_FLAGS_RELWITHDEBINFO
         "${CMAKE_C_FLAGS_RELWITHDEBINFO}"
@@ -1097,7 +1111,8 @@ if(NOT MSVC)
     )
     if(LLD_VERSION_STRING)
       string(
-        REGEX MATCH "LLD ([0-9]+\\.[0-9]+\\.[0-9]+)"
+        REGEX MATCH
+        "LLD ([0-9]+\\.[0-9]+\\.[0-9]+)"
         LLD_VERSION_MATCH
         "${LLD_VERSION_STRING}"
       )
@@ -3074,8 +3089,7 @@ if(
   )
   message(STATUS "Downloading manual from ${MANUAL_URL}...")
   file(
-    DOWNLOAD "${MANUAL_URL}"
-    "${CMAKE_CURRENT_BINARY_DIR}/res/Mixxx-Manual.pdf"
+    DOWNLOAD "${MANUAL_URL}" "${CMAKE_CURRENT_BINARY_DIR}/res/Mixxx-Manual.pdf"
     SHOW_PROGRESS
     STATUS MANUAL_PDF_DOWNLOAD
     TLS_VERIFY ON
@@ -3094,7 +3108,8 @@ if(
     )
   endif()
   file(
-    RENAME "${CMAKE_CURRENT_BINARY_DIR}/res/Mixxx-Manual.pdf"
+    RENAME
+    "${CMAKE_CURRENT_BINARY_DIR}/res/Mixxx-Manual.pdf"
     "${CMAKE_CURRENT_SOURCE_DIR}/res/Mixxx-Manual.pdf"
   )
 endif()
@@ -3279,7 +3294,8 @@ if(ENGINEPRIME)
     # CMake does not pass lists of paths properly to external projects.
     # This is worked around by changing the list separator.
     string(
-      REPLACE ";"
+      REPLACE
+      ";"
       "|"
       PIPE_DELIMITED_CMAKE_PREFIX_PATH
       "${CMAKE_PREFIX_PATH}"
@@ -3442,7 +3458,8 @@ if(KEYFINDER)
     # CMake does not pass lists of paths properly to external projects.
     # This is worked around by changing the list separator.
     string(
-      REPLACE ";"
+      REPLACE
+      ";"
       "|"
       PIPE_DELIMITED_CMAKE_PREFIX_PATH
       "${CMAKE_PREFIX_PATH}"
@@ -4519,7 +4536,7 @@ if(APPLE OR WIN32)
     # contain just shortcuts to load the qtbase, qtmultimedia etc files.
     FILES_MATCHING
     REGEX
-      "qt_.+\.qm|qtbase_.*\.qm|qtmultimedia_.*\.qm|qtscript_.*\.qm|qtxmlpatterns_.*\.qm"
+    "qt_.+\.qm|qtbase_.*\.qm|qtmultimedia_.*\.qm|qtscript_.*\.qm|qtxmlpatterns_.*\.qm"
   )
 endif()
 
@@ -5336,12 +5353,14 @@ if(QT6)
   endif()
   if(QML)
     list(
-      APPEND CPACK_DEBIAN_PACKAGE_DEPENDS
+      APPEND
+      CPACK_DEBIAN_PACKAGE_DEPENDS
       "qml6-module-qt-labs-folderlistmodel"
     )
     list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml6-module-qt-labs-qmlmodels")
     list(
-      APPEND CPACK_DEBIAN_PACKAGE_DEPENDS
+      APPEND
+      CPACK_DEBIAN_PACKAGE_DEPENDS
       "qml6-module-qt5compat-graphicaleffects"
     )
     list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS "qml6-module-qtmultimedia")
@@ -5373,18 +5392,21 @@ set(
   "${CPACK_DEBIAN_PACKAGE_DESCRIPTION}"
 )
 string(
-  PREPEND CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED
+  PREPEND
+  CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED
   "${CPACK_PACKAGE_DESCRIPTION_SUMMARY}"
   "\n"
 )
 string(
-  REPLACE "\n\n"
+  REPLACE
+  "\n\n"
   "\n.\n"
   CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED
   "${CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED}"
 )
 string(
-  REPLACE "\n"
+  REPLACE
+  "\n"
   "\n "
   CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED
   "${CPACK_DEBIAN_PACKAGE_DESCRIPTION_MERGED}"

@@ -119,6 +119,13 @@ QmlApplication::QmlApplication(
     // follows a strict singleton pattern design
     QmlDlgPreferencesProxy::s_pInstance =
             std::make_unique<QmlDlgPreferencesProxy>(pDlgPreferences, this);
+#else
+    // On Android, DlgPreferences (QWidget-based dialog) cannot be created
+    // because we use QGuiApplication. Create a stub proxy so that the
+    // QML_SINGLETON factory never returns nullptr (Qt would crash if it did).
+    // Calls to PreferencesDialog.show() from QML will gracefully do nothing.
+    QmlDlgPreferencesProxy::s_pInstance =
+            std::make_unique<QmlDlgPreferencesProxy>(nullptr, this);
 #endif
 
     const QStringList visualGroups =
