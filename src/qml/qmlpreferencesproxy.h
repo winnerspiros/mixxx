@@ -189,7 +189,7 @@ class QmlControllerDeviceProxy : public QObject {
             QObject* parent,
             ControllerManager* pControllerManager);
 
-    Type getType() const;
+    QmlControllerDeviceProxy::Type getType() const;
     QString getName() const;
     mixxx::qml::QmlControllerMappingProxy* getMapping() const;
     void setMapping(mixxx::qml::QmlControllerMappingProxy* mapping);
