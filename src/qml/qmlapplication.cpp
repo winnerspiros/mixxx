@@ -1,5 +1,6 @@
 #include "qmlapplication.h"
 
+#include <QCoreApplication>
 #include <QQmlEngineExtensionPlugin>
 #include <QQuickStyle>
 #include <QQuickWindow>
@@ -59,6 +60,15 @@ QmlApplication::QmlApplication(
     QQuickStyle::setStyle("Basic");
 
     m_pCoreServices->initialize(app);
+
+    // Guard against a failed initialization (e.g. database/audio error on
+    // Android where we cannot show a fatal dialog). If initialize() returned
+    // early the managers will be null; dereferencing them would cause a crash.
+    if (!m_pCoreServices->getSoundManager()) {
+        qCritical() << "CoreServices failed to initialize. Cannot start Mixxx.";
+        QCoreApplication::exit(1);
+        return;
+    }
 
     QString configVersion = m_pCoreServices->getSettings()->getValue(
             ConfigKey("[Config]", "Version"), "");
