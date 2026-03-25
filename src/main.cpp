@@ -56,7 +56,7 @@ const QString kNotifyMaxDbgTimeKey = QStringLiteral("notify_max_dbg_time");
 // An indicator that the QPixmapCache was too small.
 constexpr int kPixmapCacheLimitAt100PercentZoom = 32 * 1024; // 32 MByte
 
-int runMixxx(MixxxApplication* pApp, const CmdlineArgs& args) {
+int runMixxx(QGuiApplication* pApp, const CmdlineArgs& args) {
     CmdlineArgs::Instance().parseForUserFeedback();
 
     int exitCode;
@@ -259,13 +259,18 @@ int main(int argc, char* argv[]) {
 
     adjustScaleFactor(&args);
 
+#if defined(Q_OS_ANDROID) && defined(MIXXX_USE_QML)
+    QGuiApplication app(argc, argv);
+#else
     MixxxApplication app(argc, argv);
+#endif
 
 #if defined(Q_OS_WIN)
     // The Mixxx style is based on Qt's WindowsVista style
     QApplication::setStyle("windowsvista");
 #endif
 
+#ifndef Q_OS_ANDROID
     applyStyleOverride(&args);
 
     qInfo() << "Selected Qt style:" << QApplication::style()->objectName();
@@ -275,6 +280,7 @@ int main(int argc, char* argv[]) {
         qWarning() << "Qt style for Windows is not set to 'windowsvista'. GUI might look broken!";
     }
 #endif
+#endif
 
     auto config = ConfigObject<ConfigValue>(
             QDir(args.getSettingsPath()).filePath(MIXXX_SETTINGS_FILE),
@@ -282,7 +288,9 @@ int main(int argc, char* argv[]) {
             QString());
     int notifywarningThreshold = config.getValue<int>(
             ConfigKey(kConfigGroup, kNotifyMaxDbgTimeKey), 10);
+#ifndef Q_OS_ANDROID
     app.setNotifyWarningThreshold(notifywarningThreshold);
+#endif
 
 #ifdef Q_OS_MACOS
     // TODO: At this point it is too late to provide the same settings path to all components
@@ -314,7 +322,7 @@ int main(int argc, char* argv[]) {
 #endif
 
     // When the last window is closed, terminate the Qt event loop.
-    QObject::connect(&app, &MixxxApplication::lastWindowClosed, &app, &MixxxApplication::quit);
+    QObject::connect(&app, &QGuiApplication::lastWindowClosed, &app, &QCoreApplication::quit);
 
     int exitCode = runMixxx(&app, args);
 

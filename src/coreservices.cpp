@@ -1,6 +1,6 @@
 #include "coreservices.h"
 
-#include <QApplication>
+#include <QGuiApplication>
 #include <QFileDialog>
 #include <QProcess>
 #include <QProcessEnvironment>
@@ -355,7 +355,7 @@ inline QLocale inputLocale() {
 
 namespace mixxx {
 
-CoreServices::CoreServices(const CmdlineArgs& args, QApplication* pApp)
+CoreServices::CoreServices(const CmdlineArgs& args, QGuiApplication* pApp)
         : m_runtime_timer(QLatin1String("CoreServices::runtime")),
           m_cmdlineArgs(args),
           m_isInitialized(false) {
@@ -456,7 +456,7 @@ void CoreServices::initializeLogging() {
             logFlags);
 }
 
-void CoreServices::initialize(QApplication* pApp) {
+void CoreServices::initialize(QGuiApplication* pApp) {
     VERIFY_OR_DEBUG_ASSERT(!m_isInitialized) {
         return;
     }

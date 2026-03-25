@@ -1,6 +1,6 @@
 #pragma once
 
-#include <QApplication>
+#include <QGuiApplication>
 #include <QQmlApplicationEngine>
 
 #include "coreservices.h"
@@ -20,7 +20,7 @@ class QmlApplication : public QObject {
     Q_OBJECT
   public:
     QmlApplication(
-            QApplication* app,
+            QGuiApplication* app,
             const CmdlineArgs& args);
     ~QmlApplication() override;
 

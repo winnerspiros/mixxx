@@ -5,7 +5,7 @@
 #include "preferences/settingsmanager.h"
 #include "util/timer.h"
 
-class QApplication;
+class QGuiApplication;
 namespace mixxx { class CmdlineArgs; }
 using CmdlineArgs = mixxx::CmdlineArgs;
 class KeyboardEventFilter;
@@ -35,11 +35,11 @@ class CoreServices : public QObject {
     Q_OBJECT
 
   public:
-    CoreServices(const CmdlineArgs& args, QApplication* pApp);
+    CoreServices(const CmdlineArgs& args, QGuiApplication* pApp);
     ~CoreServices();
 
     /// The secondary long run which should be called after displaying the start up screen
-    void initialize(QApplication* pApp);
+    void initialize(QGuiApplication* pApp);
 
     std::shared_ptr<KeyboardEventFilter> getKeyboardEventFilter() const {
         return m_pKeyboardEventFilter;

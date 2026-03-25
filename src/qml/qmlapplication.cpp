@@ -4,6 +4,10 @@
 #include <QQuickStyle>
 #include <QQuickWindow>
 #include <QTextDocument>
+#ifndef Q_OS_ANDROID
+#include <QMessageBox>
+#include <QPushButton>
+#endif
 
 #include "controllers/controllermanager.h"
 #include "mixer/playermanager.h"
@@ -42,7 +46,7 @@ namespace mixxx {
 namespace qml {
 
 QmlApplication::QmlApplication(
-        QApplication* app,
+        QGuiApplication* app,
         const CmdlineArgs& args)
         : m_pCoreServices(std::make_unique<mixxx::CoreServices>(args, app)),
           m_visualsManager(std::make_unique<VisualsManager>()),
@@ -66,6 +70,7 @@ QmlApplication::QmlApplication(
         m_pCoreServices->getSettings()->setValue(
                 ConfigKey("[Config]", "did_run_with_unstable"), true);
     } else {
+#ifndef Q_OS_ANDROID
         QMessageBox msgBox;
         msgBox.setIcon(QMessageBox::Critical);
         msgBox.setWindowTitle(tr("Existing user profile detected"));
@@ -83,6 +88,13 @@ QmlApplication::QmlApplication(
         msgBox.exec();
         m_pCoreServices.reset();
         exit(-1);
+#else
+        qCritical() << "Trying to run Mixxx 3.0 with an existing" << configVersion
+                    << "user profile! Run Mixxx with --allow-dangerous-data-corruption-risk"
+                    << "to proceed at your own risk.";
+        m_pCoreServices.reset();
+        exit(-1);
+#endif
     }
 
     SoundDeviceStatus result = m_pCoreServices->getSoundManager()->setupDevices();
