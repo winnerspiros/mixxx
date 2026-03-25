@@ -61,7 +61,13 @@ int runMixxx(QGuiApplication* pApp, const CmdlineArgs& args) {
 
     int exitCode;
 #ifdef MIXXX_USE_QML
-    if (args.isQml()) {
+    const bool useQml =
+#if defined(Q_OS_ANDROID)
+            true;
+#else
+            args.isQml();
+#endif
+    if (useQml) {
         // This is a workaround to support Qt 6.4.2, currently shipped on
         // Ubuntu 24.04 See
         // https://github.com/mixxxdj/mixxx/pull/14514#issuecomment-2770811094
