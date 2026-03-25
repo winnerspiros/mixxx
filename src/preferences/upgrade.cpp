@@ -358,11 +358,17 @@ UserSettingsPointer Upgrade::versionUpgrade(const QString& settingsPath) {
 #endif
             // This must have been the first run... right? :)
 #ifdef MIXXX_USE_QML
-            if (CmdlineArgs::Instance().isQml()) {
-                // If running the QML version (aka 3.0 unstable), we set a dummy
-                // unstable version in the settings. This is used to detect if
-                // the current user profile is being used for testing purpose
-                // and if it is safe for the user to potentially lose their data
+            // Android always uses QML (unlike desktop, which requires --qml).
+            // Use a local bool so both platforms share the same if/else below.
+            const bool usesQml =
+#if defined(Q_OS_ANDROID)
+                    true;
+#else
+                    CmdlineArgs::Instance().isQml();
+#endif
+            if (usesQml) {
+                // Mark new profiles as FUTURE_UNSTABLE so QmlApplication's
+                // version check recognises them as QML-mode profiles.
                 config->setValue(ConfigKey("[Config]", "Version"), VersionStore::FUTURE_UNSTABLE);
             } else
 #endif

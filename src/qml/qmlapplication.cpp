@@ -62,7 +62,11 @@ QmlApplication::QmlApplication(
 
     QString configVersion = m_pCoreServices->getSettings()->getValue(
             ConfigKey("[Config]", "Version"), "");
-    if (configVersion == VersionStore::FUTURE_UNSTABLE) {
+    // configVersion is FUTURE_UNSTABLE for fresh profiles created by the QML
+    // build's upgrade path. An empty string means the upgrade code ran but the
+    // version key was not written (should not normally happen, but we treat it
+    // safely as "new profile" to avoid a false "existing profile" error).
+    if (configVersion == VersionStore::FUTURE_UNSTABLE || configVersion.isEmpty()) {
         qDebug() << "Generating a new user profile for safe testing with unstable code";
     } else if (CmdlineArgs::Instance().isAwareOfRisk()) {
         qCritical() << "Existing user profile detected from" << configVersion
@@ -70,7 +74,16 @@ QmlApplication::QmlApplication(
         m_pCoreServices->getSettings()->setValue(
                 ConfigKey("[Config]", "did_run_with_unstable"), true);
     } else {
-#ifndef Q_OS_ANDROID
+#if defined(Q_OS_ANDROID)
+        // On Android, all Mixxx builds use QML, so any existing profile is
+        // already a QML-compatible profile. Update the version marker so the
+        // check passes on subsequent runs. This handles devices that installed
+        // the app before the first-run version marker was set correctly.
+        qWarning() << "Android: existing profile version" << configVersion
+                   << "- updating version marker to FUTURE_UNSTABLE and continuing.";
+        m_pCoreServices->getSettings()->setValue(
+                ConfigKey("[Config]", "Version"), VersionStore::FUTURE_UNSTABLE);
+#else
         QMessageBox msgBox;
         msgBox.setIcon(QMessageBox::Critical);
         msgBox.setWindowTitle(tr("Existing user profile detected"));
@@ -86,12 +99,6 @@ QmlApplication::QmlApplication(
         QPushButton* continueButton =
                 msgBox.addButton(tr("Ok"), QMessageBox::ActionRole);
         msgBox.exec();
-        m_pCoreServices.reset();
-        exit(-1);
-#else
-        qCritical() << "Trying to run Mixxx 3.0 with an existing" << configVersion
-                    << "user profile! Run Mixxx with --allow-dangerous-data-corruption-risk"
-                    << "to proceed at your own risk.";
         m_pCoreServices.reset();
         exit(-1);
 #endif
