@@ -495,12 +495,22 @@ void CoreServices::initialize(QGuiApplication* pApp) {
     emit initializationProgressUpdate(10, tr("database"));
     m_pDbConnectionPool = MixxxDb(pConfig).connectionPool();
     if (!m_pDbConnectionPool) {
+#ifndef Q_OS_ANDROID
         exit(-1);
+#else
+        qCritical() << "Failed to create database connection pool";
+        return;
+#endif
     }
     // Create a connection for the main thread
     m_pDbConnectionPool->createThreadLocalConnection();
     if (!initializeDatabase()) {
+#ifndef Q_OS_ANDROID
         exit(-1);
+#else
+        qCritical() << "Failed to initialize database";
+        return;
+#endif
     }
 
     m_pControlIndicatorTimer = std::make_shared<mixxx::ControlIndicatorTimer>(this);
