@@ -345,7 +345,7 @@ bool QmlControllerDeviceProxy::save(const QmlConfigProxy* pConfig) {
 void QmlControllerDeviceProxy::clear() {
     m_pMapping = nullptr;
     QString currentMappingPath = m_pControllerManager->getConfiguredMappingFileForDevice(m_pInternal->getName());
-    for (auto* pMapping : m_mappings) {
+    for (auto* pMapping : std::as_const(m_mappings)) {
         if (pMapping->definition().getPath() == currentMappingPath) {
             m_pMapping = pMapping;
             break;
@@ -415,7 +415,7 @@ void QmlControllerManagerProxy::refreshKnownDevices() {
     m_unknownDevicesFound.clear();
 
     m_knownControllers = m_pControllerManager->getControllers();
-    for (auto* pInternal : m_knownControllers) {
+    for (auto* pInternal : std::as_const(m_knownControllers)) {
         auto type = QmlControllerDeviceProxy::Type::BULK;
         switch (pInternal->getDataRepresentationProtocol()) {
         case ::DataRepresentationProtocol::MIDI:
@@ -466,17 +466,17 @@ void QmlControllerManagerProxy::loadMappingFromEnumerator(QSharedPointer<Mapping
         return;
     }
 
-    auto midiMappings = enumerator->getMappingsByExtension(MIDI_MAPPING_EXTENSION);
+    const auto midiMappings = enumerator->getMappingsByExtension(MIDI_MAPPING_EXTENSION);
     for (const auto& mapping : midiMappings) {
         m_knownMappings[QmlControllerDeviceProxy::Type::MIDI].append(new QmlControllerMappingProxy(mapping, this));
     }
 
-    auto hidMappings = enumerator->getMappingsByExtension(HID_MAPPING_EXTENSION);
+    const auto hidMappings = enumerator->getMappingsByExtension(HID_MAPPING_EXTENSION);
     for (const auto& mapping : hidMappings) {
         m_knownMappings[QmlControllerDeviceProxy::Type::HID].append(new QmlControllerMappingProxy(mapping, this));
     }
 
-    auto bulkMappings = enumerator->getMappingsByExtension(BULK_MAPPING_EXTENSION);
+    const auto bulkMappings = enumerator->getMappingsByExtension(BULK_MAPPING_EXTENSION);
     for (const auto& mapping : bulkMappings) {
         m_knownMappings[QmlControllerDeviceProxy::Type::BULK].append(new QmlControllerMappingProxy(mapping, this));
     }

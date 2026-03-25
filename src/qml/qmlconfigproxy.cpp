@@ -26,7 +26,7 @@
             return;                                                         \
         }                                                                   \
         m_pConfig->setValue(ConfigKey(GROUP, KEY), value);                  \
-        Q_EMIT NAME##Changed();                                             \
+        emit NAME##Changed();                                               \
     }
 
 namespace {

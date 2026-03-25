@@ -82,7 +82,7 @@ void QmlSidebarModelProxy::update(const QList<QmlLibrarySource*>& sources) {
     endResetModel();
 }
 
-void QmlSidebarModelProxy::slotShowTrackModel(::mixxx::qml::QmlLibraryTrackListModel* pModel) {
+void QmlSidebarModelProxy::slotShowTrackModel(mixxx::qml::QmlLibraryTrackListModel* pModel) {
     if (m_tracklist == pModel) {
         return;
     }

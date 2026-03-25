@@ -106,6 +106,7 @@ QmlApplication::QmlApplication(
 #endif
     }
 
+#ifndef Q_OS_ANDROID
     // FIXME: DlgPreferences has some initialization logic that must be executed
     // before the GUI is shown, at least for the effects system.
     std::shared_ptr<QDialog> pDlgPreferences = m_pCoreServices->makeDlgPreferences();
@@ -118,6 +119,7 @@ QmlApplication::QmlApplication(
     // follows a strict singleton pattern design
     QmlDlgPreferencesProxy::s_pInstance =
             std::make_unique<QmlDlgPreferencesProxy>(pDlgPreferences, this);
+#endif
 
     const QStringList visualGroups =
             m_pCoreServices->getPlayerManager()->getVisualPlayerGroups();

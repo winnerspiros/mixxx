@@ -868,6 +868,7 @@ bool CoreServices::initializeDatabase() {
     kLogger.info() << "Connecting to database";
     QSqlDatabase dbConnection = mixxx::DbConnectionPooled(m_pDbConnectionPool);
     if (!dbConnection.isOpen()) {
+#ifndef Q_OS_ANDROID
         QMessageBox::critical(nullptr,
                 tr("Cannot open database"),
                 tr("Unable to establish a database connection.\n"
@@ -876,6 +877,11 @@ bool CoreServices::initializeDatabase() {
                    "to build it.\n\n"
                    "Click OK to exit."),
                 QMessageBox::Ok);
+#else
+        qCritical() << "Cannot open database:"
+                    << "Unable to establish a database connection."
+                    << "Mixxx requires QT with SQLite support.";
+#endif
         return false;
     }
 
