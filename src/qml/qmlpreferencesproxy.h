@@ -167,7 +167,7 @@ class QmlControllerMappingProxy : public QObject {
 
 class QmlControllerDeviceProxy : public QObject {
     Q_OBJECT
-    Q_PROPERTY(QmlControllerDeviceProxy::Type type READ getType CONSTANT)
+    Q_PROPERTY(Type type READ getType CONSTANT)
     Q_PROPERTY(QString name READ getName CONSTANT)
     Q_PROPERTY(mixxx::qml::QmlControllerMappingProxy* mapping READ getMapping WRITE setMapping NOTIFY mappingChanged)
     Q_PROPERTY(bool enabled READ getEnabled WRITE setEnabled NOTIFY enabledChanged)
@@ -189,7 +189,7 @@ class QmlControllerDeviceProxy : public QObject {
             QObject* parent,
             ControllerManager* pControllerManager);
 
-    QmlControllerDeviceProxy::Type getType() const;
+    Type getType() const;
     QString getName() const;
     mixxx::qml::QmlControllerMappingProxy* getMapping() const;
     void setMapping(mixxx::qml::QmlControllerMappingProxy* mapping);

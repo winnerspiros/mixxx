@@ -582,8 +582,10 @@ void CoreServices::initialize(QGuiApplication* pApp) {
     m_pVCManager->init();
 #endif
 
-#ifdef __MODPLUG__
+#if defined(__MODPLUG__) && !defined(Q_OS_ANDROID)
     // Restore the configuration for the modplug library before trying to load a module.
+    // DlgPrefModplug is a QWidget and cannot be instantiated on Android where
+    // we use QGuiApplication instead of QApplication.
     DlgPrefModplug modplugPrefs{nullptr, pConfig};
     modplugPrefs.loadSettings();
     modplugPrefs.applySettings();
