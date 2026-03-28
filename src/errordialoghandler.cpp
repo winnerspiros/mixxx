@@ -49,15 +49,23 @@ void ErrorDialogProperties::setText(const QString& text) {
 void ErrorDialogProperties::setType(DialogType typeToSet) {
     m_type = typeToSet;
     switch (m_type) {
-        case DLG_FATAL:     // Fatal uses critical icon
-        case DLG_CRITICAL:  m_icon = QMessageBox::Critical; break;
-        case DLG_WARNING:   m_icon = QMessageBox::Warning; break;
-        case DLG_INFO:      m_icon = QMessageBox::Information; break;
-        case DLG_QUESTION:  m_icon = QMessageBox::Question; break;
-        case DLG_NONE:
-        default:
-            // default is NoIcon
-            break;
+    case DLG_FATAL: // Fatal uses critical icon
+    case DLG_CRITICAL:
+        m_icon = QMessageBox::Critical;
+        break;
+    case DLG_WARNING:
+        m_icon = QMessageBox::Warning;
+        break;
+    case DLG_INFO:
+        m_icon = QMessageBox::Information;
+        break;
+    case DLG_QUESTION:
+        m_icon = QMessageBox::Question;
+        break;
+    case DLG_NONE:
+    default:
+        // default is NoIcon
+        break;
     }
 }
 
@@ -101,15 +109,25 @@ bool ErrorDialogHandler::requestErrorDialog(
         props->setShouldQuit(shouldQuit);
     }
     switch (type) {
-        case DLG_FATAL:     props->setTitle(tr("Fatal error")); break;
-        case DLG_CRITICAL:  props->setTitle(tr("Critical error")); break;
-        case DLG_WARNING:   props->setTitle(tr("Warning")); break;
-        case DLG_INFO:      props->setTitle(tr("Information")); break;
-        case DLG_QUESTION:  props->setTitle(tr("Question")); break;
-        case DLG_NONE:
-        default:
-            // Default title & (lack of) icon is fine
-            break;
+    case DLG_FATAL:
+        props->setTitle(tr("Fatal error"));
+        break;
+    case DLG_CRITICAL:
+        props->setTitle(tr("Critical error"));
+        break;
+    case DLG_WARNING:
+        props->setTitle(tr("Warning"));
+        break;
+    case DLG_INFO:
+        props->setTitle(tr("Information"));
+        break;
+    case DLG_QUESTION:
+        props->setTitle(tr("Question"));
+        break;
+    case DLG_NONE:
+    default:
+        // Default title & (lack of) icon is fine
+        break;
     }
     return requestErrorDialog(props);
 }
@@ -138,7 +156,6 @@ bool ErrorDialogHandler::requestErrorDialog(ErrorDialogProperties* props) {
     emit showErrorDialog(props);
     return true;
 }
-
 
 void ErrorDialogHandler::errorDialog(ErrorDialogProperties* pProps) {
     QScopedPointer<ErrorDialogProperties> props(pProps);
@@ -247,7 +264,7 @@ void ErrorDialogHandler::errorDialog(ErrorDialogProperties* pProps) {
             QCoreApplication::instance()->exit(-1);
         } else {
             qDebug() << "QCoreApplication::instance() is NULL! Abruptly quitting...";
-            if (props->m_type==DLG_FATAL) {
+            if (props->m_type == DLG_FATAL) {
                 abort();
             } else {
                 exit(-1);
