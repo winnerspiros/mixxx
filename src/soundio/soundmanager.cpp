@@ -356,6 +356,9 @@ void SoundManager::queryDevicesPortaudio() {
                                            .toString();
                     int32_t id = device->callMethod<jint>("getId");
                     auto channelCounts = device->callMethod<QJniArray<jint>>("getChannelCounts");
+                    if (channelCounts.isEmpty()) {
+                        continue;
+                    }
                     int channelCount = *std::max_element(
                             channelCounts.begin(), channelCounts.end());
                     auto sampleRates = device->callMethod<QJniArray<jint>>("getSampleRates");

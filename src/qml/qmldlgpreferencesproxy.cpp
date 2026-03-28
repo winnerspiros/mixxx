@@ -14,6 +14,10 @@ QmlDlgPreferencesProxy::QmlDlgPreferencesProxy(
 }
 
 void QmlDlgPreferencesProxy::show() {
+    if (!m_pDlgPreferences) {
+        qWarning() << "QmlDlgPreferencesProxy::show called but dialog is null";
+        return;
+    }
     m_pDlgPreferences->show();
 }
 
@@ -29,7 +33,13 @@ QmlDlgPreferencesProxy* QmlDlgPreferencesProxy::create(
     // https://doc.qt.io/qt-6/qqmlengine.html#QML_SINGLETON
 
     // The instance has to exist before it is used. We cannot replace it.
-    DEBUG_ASSERT(s_pInstance);
+    // On Android with QGuiApplication, the DlgPreferences widget cannot
+    // be created, so s_pInstance may be null.
+    if (!s_pInstance) {
+        qWarning() << "QmlDlgPreferencesProxy::create called but s_pInstance is null"
+                   << "(preferences dialog not available on this platform)";
+        return nullptr;
+    }
 
     // The engine has to have the same thread affinity as the singleton.
     DEBUG_ASSERT(pJsEngine->thread() == s_pInstance->thread());

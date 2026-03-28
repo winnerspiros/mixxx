@@ -1,7 +1,7 @@
 #include "coreservices.h"
 
-#include <QApplication>
 #include <QFileDialog>
+#include <QGuiApplication>
 #include <QProcess>
 #include <QProcessEnvironment>
 #include <QStandardPaths>
@@ -74,6 +74,7 @@
 
 #if defined(Q_OS_LINUX) && QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 #include <X11/Xlibint.h>
+
 #include <QtX11Extras/QX11Info>
 
 #include "engine/channelhandle.h"
@@ -355,7 +356,7 @@ inline QLocale inputLocale() {
 
 namespace mixxx {
 
-CoreServices::CoreServices(const CmdlineArgs& args, QApplication* pApp)
+CoreServices::CoreServices(const CmdlineArgs& args, QGuiApplication* pApp)
         : m_runtime_timer(QLatin1String("CoreServices::runtime")),
           m_cmdlineArgs(args),
           m_isInitialized(false) {
@@ -456,7 +457,7 @@ void CoreServices::initializeLogging() {
             logFlags);
 }
 
-void CoreServices::initialize(QApplication* pApp) {
+void CoreServices::initialize(QGuiApplication* pApp) {
     VERIFY_OR_DEBUG_ASSERT(!m_isInitialized) {
         return;
     }
@@ -494,12 +495,22 @@ void CoreServices::initialize(QApplication* pApp) {
     emit initializationProgressUpdate(10, tr("database"));
     m_pDbConnectionPool = MixxxDb(pConfig).connectionPool();
     if (!m_pDbConnectionPool) {
+#ifndef Q_OS_ANDROID
         exit(-1);
+#else
+        qCritical() << "Failed to create database connection pool";
+        return;
+#endif
     }
     // Create a connection for the main thread
     m_pDbConnectionPool->createThreadLocalConnection();
     if (!initializeDatabase()) {
+#ifndef Q_OS_ANDROID
         exit(-1);
+#else
+        qCritical() << "Failed to initialize database";
+        return;
+#endif
     }
 
     m_pControlIndicatorTimer = std::make_shared<mixxx::ControlIndicatorTimer>(this);
@@ -571,8 +582,10 @@ void CoreServices::initialize(QApplication* pApp) {
     m_pVCManager->init();
 #endif
 
-#ifdef __MODPLUG__
+#if defined(__MODPLUG__) && !defined(Q_OS_ANDROID)
     // Restore the configuration for the modplug library before trying to load a module.
+    // DlgPrefModplug is a QWidget and cannot be instantiated on Android where
+    // we use QGuiApplication instead of QApplication.
     DlgPrefModplug modplugPrefs{nullptr, pConfig};
     modplugPrefs.loadSettings();
     modplugPrefs.applySettings();
@@ -853,11 +866,11 @@ void CoreServices::initializeKeyboard() {
 void CoreServices::slotOptionsKeyboard(bool toggle) {
     UserSettingsPointer pConfig = m_pSettingsManager->settings();
     if (toggle) {
-        //qDebug() << "Enable keyboard shortcuts/mappings";
+        // qDebug() << "Enable keyboard shortcuts/mappings";
         m_pKeyboardEventFilter->setKeyboardConfig(m_pKbdConfig.get());
         pConfig->set(ConfigKey("[Keyboard]", "Enabled"), ConfigValue(1));
     } else {
-        //qDebug() << "Disable keyboard shortcuts/mappings";
+        // qDebug() << "Disable keyboard shortcuts/mappings";
         m_pKeyboardEventFilter->setKeyboardConfig(m_pKbdConfigEmpty.get());
         pConfig->set(ConfigKey("[Keyboard]", "Enabled"), ConfigValue(0));
     }
@@ -867,6 +880,7 @@ bool CoreServices::initializeDatabase() {
     kLogger.info() << "Connecting to database";
     QSqlDatabase dbConnection = mixxx::DbConnectionPooled(m_pDbConnectionPool);
     if (!dbConnection.isOpen()) {
+#ifndef Q_OS_ANDROID
         QMessageBox::critical(nullptr,
                 tr("Cannot open database"),
                 tr("Unable to establish a database connection.\n"
@@ -875,6 +889,11 @@ bool CoreServices::initializeDatabase() {
                    "to build it.\n\n"
                    "Click OK to exit."),
                 QMessageBox::Ok);
+#else
+        qCritical() << "Cannot open database:"
+                    << "Unable to establish a database connection."
+                    << "Mixxx requires QT with SQLite support.";
+#endif
         return false;
     }
 

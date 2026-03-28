@@ -2795,17 +2795,17 @@ if(FFMPEG)
   endif()
 
   target_sources(mixxx-lib PRIVATE src/sources/soundsourceffmpeg.cpp)
-if(NETWORKAUTH)
-  target_sources(
-    mixxx-lib
-    PRIVATE
-      src/library/spotify/spotifyfeature.cpp
-      src/library/youtube/youtubefeature.cpp
-      src/library/youtube/youtubeservice.cpp
-      src/sources/spotify/soundsourcespotify.cpp
-      src/sources/youtube/soundsourceyoutube.cpp
-  )
-endif()
+  if(NETWORKAUTH)
+    target_sources(
+      mixxx-lib
+      PRIVATE
+        src/library/spotify/spotifyfeature.cpp
+        src/library/youtube/youtubefeature.cpp
+        src/library/youtube/youtubeservice.cpp
+        src/sources/spotify/soundsourcespotify.cpp
+        src/sources/youtube/soundsourceyoutube.cpp
+    )
+  endif()
   target_compile_definitions(
     mixxx-lib
     PUBLIC
@@ -3171,6 +3171,10 @@ if(WIN32)
     "${CMAKE_PROJECT_VERSION_MAJOR},${CMAKE_PROJECT_VERSION_MINOR},${CMAKE_PROJECT_VERSION_PATCH},0"
   )
   set(MIXXX_PRODUCTVERSION "${MIXXX_FILEVERSION}")
+  set(
+    MIXXX_FILEVERSION_BASE
+    "${CMAKE_PROJECT_VERSION_MAJOR},${CMAKE_PROJECT_VERSION_MINOR},${CMAKE_PROJECT_VERSION_PATCH}"
+  )
 
   if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(MIXXX_DEBUG 1)
@@ -3184,7 +3188,7 @@ if(WIN32)
     set(MIXXX_PRERELEASE 1)
   endif()
 
-  # uses MIXXX_YEAR MIXXX_FILEVERSION MIXXX_PRODUCTVERSION MIXXX_VERSION MIXXX_DEBUG MIXXX_PRERELEASE
+  # uses MIXXX_YEAR MIXXX_FILEVERSION MIXXX_FILEVERSION_BASE MIXXX_PRODUCTVERSION MIXXX_VERSION MIXXX_DEBUG MIXXX_PRERELEASE
   configure_file("src/mixxx.rc.include.in" "src/mixxx.rc.include" @ONLY)
   add_dependencies(mixxx mixxx-gitinfo)
 
@@ -3780,17 +3784,16 @@ find_package(
 )
 # Re-run find_package for extra components added later (like NetworkAuth)
 if(QT_EXTRA_COMPONENTS)
-  find_package(
-    Qt${QT_VERSION_MAJOR}
-    COMPONENTS ${QT_EXTRA_COMPONENTS}
-    QUIET
-  )
+  find_package(Qt${QT_VERSION_MAJOR} COMPONENTS ${QT_EXTRA_COMPONENTS} QUIET)
 endif()
 # PUBLIC is required below to find included headers
 macro(mixxx_link_qt_components components)
   foreach(component ${components})
     if(TARGET Qt${QT_VERSION_MAJOR}::${component})
-      target_link_libraries(mixxx-lib PUBLIC Qt${QT_VERSION_MAJOR}::${component})
+      target_link_libraries(
+        mixxx-lib
+        PUBLIC Qt${QT_VERSION_MAJOR}::${component}
+      )
     endif()
   endforeach()
 endmacro()
@@ -4422,7 +4425,7 @@ elseif(UNIX AND NOT APPLE AND NOT EMSCRIPTEN AND NOT ANDROID)
   endif()
   if(NOT ANDROID)
     find_package(Qt${QT_VERSION_MAJOR} COMPONENTS DBus REQUIRED)
-      target_link_libraries(mixxx-lib PUBLIC Qt${QT_VERSION_MAJOR}::DBus)
+    target_link_libraries(mixxx-lib PUBLIC Qt${QT_VERSION_MAJOR}::DBus)
   endif()
 elseif(WIN32)
   if(Qt_IS_STATIC)
@@ -5096,7 +5099,6 @@ else()
     message(FATAL_ERROR "ms-gsl development headers (libmsgsl-dev) not found")
   endif()
 endif()
-
 
 # NETWORKAUTH
 option(NETWORKAUTH "Enable Spotify AND YouTube features" OFF)

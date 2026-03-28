@@ -133,6 +133,10 @@ Item {
 
         acceptedButtons: Qt.NoButton
         anchors.fill: parent
+        // Mouse wheel is not available on Android/touch-only devices;
+        // disabling this MouseArea prevents it from intercepting touch events
+        // and interfering with the DragHandler above.
+        enabled: Qt.platform.os !== "android"
 
         onWheel: {
             const value = (wheel.angleDelta.y < 0) ? Math.min(root.max, root.value + root.wheelStepSize) : Math.max(root.min, root.value - root.wheelStepSize);
