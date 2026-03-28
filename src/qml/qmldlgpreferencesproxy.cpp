@@ -14,7 +14,9 @@ QmlDlgPreferencesProxy::QmlDlgPreferencesProxy(
 }
 
 void QmlDlgPreferencesProxy::show() {
-    m_pDlgPreferences->show();
+    if (m_pDlgPreferences) {
+        m_pDlgPreferences->show();
+    }
 }
 
 // static
