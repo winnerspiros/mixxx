@@ -2848,6 +2848,7 @@ if(BUILD_TESTING)
   set(
     src-mixxx-test
     src/test/analyserwaveformtest.cpp
+    src/test/cmdlineargs_test.cpp
     src/test/analyzersilence_test.cpp
     src/test/audiotaperpot_test.cpp
     src/test/autodjprocessor_test.cpp

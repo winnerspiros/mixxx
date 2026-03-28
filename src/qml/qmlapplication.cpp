@@ -126,11 +126,16 @@ QmlApplication::QmlApplication(
 #ifndef Q_OS_ANDROID
     // FIXME: DlgPreferences has some initialization logic that must be executed
     // before the GUI is shown, at least for the effects system.
-    std::shared_ptr<QDialog> pDlgPreferences = m_pCoreServices->makeDlgPreferences();
+    std::shared_ptr<QDialog> pDlgPreferences = nullptr;
+#ifndef Q_OS_ANDROID
+    pDlgPreferences = m_pCoreServices->makeDlgPreferences();
+#endif
     // Without this, QApplication will quit when the last QWidget QWindow is
     // closed because it does not take into account the window created by
     // the QQmlApplicationEngine.
-    pDlgPreferences->setAttribute(Qt::WA_QuitOnClose, false);
+    if (pDlgPreferences) {
+        pDlgPreferences->setAttribute(Qt::WA_QuitOnClose, false);
+    }
 
     // Since DlgPreferences is only meant to be used in the main QML engine, it
     // follows a strict singleton pattern design
