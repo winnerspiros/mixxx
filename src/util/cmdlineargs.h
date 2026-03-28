@@ -93,7 +93,7 @@ class CmdlineArgs final {
         return m_scaleFactor;
     }
 
-  private:
+  public:
     enum class ParseMode {
         Initial,
         ForUserFeedback
@@ -101,6 +101,7 @@ class CmdlineArgs final {
 
     bool parse(const QStringList& arguments, ParseMode mode);
 
+  private:
     QList<QString> m_musicFiles;    // List of files to load into players at startup
     bool m_startInFullscreen;       // Start in fullscreen mode
     bool m_startAutoDJ;
