@@ -105,7 +105,11 @@ LibraryScanner::LibraryScanner(
           m_stateSema(1), // only one transaction is possible at a time
           m_state(IDLE),
           m_numRelocatedTracks(0),
+#ifndef Q_OS_ANDROID
           m_pProgressDlg(std::make_unique<LibraryScannerDlg>()),
+#else
+          m_pProgressDlg(nullptr),
+#endif
           m_manualScan(true) {
     // Move LibraryScanner to its own thread so that our signals/slots will
     // queue to our event loop.
@@ -123,32 +127,34 @@ LibraryScanner::LibraryScanner(
 
     connect(this,
             &LibraryScanner::progressLoading,
-            m_pProgressDlg.get(),
+            m_pProgressDlg ? m_pProgressDlg.get() : nullptr,
             &LibraryScannerDlg::slotUpdate);
     connect(this,
             &LibraryScanner::progressHashing,
-            m_pProgressDlg.get(),
+            m_pProgressDlg ? m_pProgressDlg.get() : nullptr,
             &LibraryScannerDlg::slotUpdate);
     connect(this,
             &LibraryScanner::scanStarted,
-            m_pProgressDlg.get(),
+            m_pProgressDlg ? m_pProgressDlg.get() : nullptr,
             &LibraryScannerDlg::slotScanStarted);
     connect(this,
             &LibraryScanner::scanFinished,
-            m_pProgressDlg.get(),
+            m_pProgressDlg ? m_pProgressDlg.get() : nullptr,
             &LibraryScannerDlg::slotScanFinished);
-    connect(m_pProgressDlg.get(),
-            &LibraryScannerDlg::scanCancelled,
-            this,
-            &LibraryScanner::slotCancel,
-            Qt::DirectConnection);
+    if (m_pProgressDlg) {
+        connect(m_pProgressDlg.get(),
+                &LibraryScannerDlg::scanCancelled,
+                this,
+                &LibraryScanner::slotCancel,
+                Qt::DirectConnection);
+    }
     connect(&m_trackDao,
             &TrackDAO::progressVerifyTracksOutside,
-            m_pProgressDlg.get(),
+            m_pProgressDlg ? m_pProgressDlg.get() : nullptr,
             &LibraryScannerDlg::slotUpdate);
     connect(&m_trackDao,
             &TrackDAO::progressCoverArt,
-            m_pProgressDlg.get(),
+            m_pProgressDlg ? m_pProgressDlg.get() : nullptr,
             &LibraryScannerDlg::slotUpdateCover);
 }
 
@@ -568,10 +574,10 @@ void LibraryScanner::queueTask(ScannerTask* pTask) {
     if (pFileTask) {
         // Track and cover files
         int numFiles = pFileTask->numFilesToImport();
-        m_pProgressDlg->addQueuedTasks(numFiles);
+        if (m_pProgressDlg) { m_pProgressDlg->addQueuedTasks(numFiles); }
     } else {
         // RecursiveScanDirectoryTask, queues exactly one directory
-        m_pProgressDlg->addQueuedTasks(1);
+        if (m_pProgressDlg) { m_pProgressDlg->addQueuedTasks(1); }
     }
 
     m_scannerGlobal->getTaskWatcher().watchTask();

@@ -126,7 +126,6 @@ bool ErrorDialogHandler::requestErrorDialog(ErrorDialogProperties* props) {
         delete props;
         return false;
     }
-
     // Skip if a dialog with the same key is already displayed
     auto locker = lockMutex(&m_mutex);
     bool keyExists = m_dialogKeys.contains(props->getKey());
@@ -140,6 +139,7 @@ bool ErrorDialogHandler::requestErrorDialog(ErrorDialogProperties* props) {
     return true;
 }
 
+
 void ErrorDialogHandler::errorDialog(ErrorDialogProperties* pProps) {
     QScopedPointer<ErrorDialogProperties> props(pProps);
     if (!props) {
@@ -152,6 +152,7 @@ void ErrorDialogHandler::errorDialog(ErrorDialogProperties* pProps) {
         return;
     }
 
+#ifndef Q_OS_ANDROID
     QMessageBox* pMsgBox = new QMessageBox();
     pMsgBox->setIcon(props->m_icon);
     pMsgBox->setWindowTitle(props->m_title);
@@ -229,7 +230,16 @@ void ErrorDialogHandler::errorDialog(ErrorDialogProperties* pProps) {
     } else {
         pMsgBox->show();
     }
-
+#else
+    qCritical() << "Error dialog requested on Android (QWidget based dialogs not supported):"
+                << props->m_title << "-" << props->m_text;
+    if (!props->m_infoText.isEmpty()) {
+        qCritical() << "Info text:" << props->m_infoText;
+    }
+    if (!props->m_details.isEmpty()) {
+        qCritical() << "Details:" << props->m_details;
+    }
+#endif
     // If critical/fatal, gracefully exit application if possible
     if (props->m_shouldQuit) {
         m_errorCondition = true;
