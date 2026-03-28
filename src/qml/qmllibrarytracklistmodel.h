@@ -17,7 +17,7 @@ namespace qml {
 class QmlLibraryTrackListModel : public QIdentityProxyModel {
     Q_OBJECT
     Q_PROPERTY(int rowCount READ rowCount NOTIFY rowCountChanged)
-    Q_PROPERTY(QQmlListProperty<::mixxx::qml::QmlLibraryTrackListColumn> columns READ columns CONSTANT)
+    Q_PROPERTY(QQmlListProperty<QmlLibraryTrackListColumn> columns READ columns CONSTANT)
     QML_ANONYMOUS
   public:
     enum Role {
@@ -40,12 +40,12 @@ class QmlLibraryTrackListModel : public QIdentityProxyModel {
     QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
     QHash<int, QByteArray> roleNames() const override;
 
-    QQmlListProperty<::mixxx::qml::QmlLibraryTrackListColumn> columns() {
+    QQmlListProperty<QmlLibraryTrackListColumn> columns() {
         return {this, &m_columns};
     }
 
     Q_INVOKABLE QUrl getUrl(int row) const;
-    Q_INVOKABLE ::mixxx::qml::QmlTrackProxy* getTrack(int row) const;
+    Q_INVOKABLE mixxx::qml::QmlTrackProxy* getTrack(int row) const;
 
     Q_INVOKABLE TrackModel::Capabilities getCapabilities() const;
     Q_INVOKABLE bool hasCapabilities(TrackModel::Capabilities caps) const;

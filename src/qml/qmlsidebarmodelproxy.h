@@ -2,12 +2,12 @@
 
 #include <QAbstractItemModel>
 #include <QObject>
+#include <QPointer>
 #include <QQmlEngine>
 #include <QQmlListProperty>
 #include <QQmlParserStatus>
 #include <QQuickItem>
 #include <QVariant>
-#include <QPointer>
 
 #include "library/libraryfeature.h"
 #include "library/sidebarmodel.h"
@@ -21,7 +21,7 @@ class QmlLibrarySource;
 
 class QmlSidebarModelProxy : public SidebarModel {
     Q_OBJECT
-    Q_PROPERTY(::mixxx::qml::QmlLibraryTrackListModel* tracklist READ tracklist NOTIFY tracklistChanged)
+    Q_PROPERTY(QmlLibraryTrackListModel* tracklist READ tracklist NOTIFY tracklistChanged)
     QML_ANONYMOUS
   public:
     enum Roles {
@@ -33,7 +33,7 @@ class QmlSidebarModelProxy : public SidebarModel {
     explicit QmlSidebarModelProxy(QObject* parent = nullptr);
     ~QmlSidebarModelProxy() override;
 
-    ::mixxx::qml::QmlLibraryTrackListModel* tracklist() const {
+    QmlLibraryTrackListModel* tracklist() const {
         return m_tracklist.data();
     }
 
@@ -45,10 +45,10 @@ class QmlSidebarModelProxy : public SidebarModel {
     void tracklistChanged();
 
   protected slots:
-    void slotShowTrackModel(::mixxx::qml::QmlLibraryTrackListModel* pModel);
+    void slotShowTrackModel(mixxx::qml::QmlLibraryTrackListModel* pModel);
 
   private:
-    QPointer<::mixxx::qml::QmlLibraryTrackListModel> m_tracklist;
+    QPointer<QmlLibraryTrackListModel> m_tracklist;
 };
 
 } // namespace qml

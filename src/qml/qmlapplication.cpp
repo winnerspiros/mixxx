@@ -1,9 +1,14 @@
 #include "qmlapplication.h"
 
+#include <QCoreApplication>
 #include <QQmlEngineExtensionPlugin>
 #include <QQuickStyle>
 #include <QQuickWindow>
 #include <QTextDocument>
+#ifndef Q_OS_ANDROID
+#include <QMessageBox>
+#include <QPushButton>
+#endif
 
 #include "controllers/controllermanager.h"
 #include "mixer/playermanager.h"
@@ -42,7 +47,7 @@ namespace mixxx {
 namespace qml {
 
 QmlApplication::QmlApplication(
-        QApplication* app,
+        QGuiApplication* app,
         const CmdlineArgs& args)
         : m_pCoreServices(std::make_unique<mixxx::CoreServices>(args, app)),
           m_visualsManager(std::make_unique<VisualsManager>()),
@@ -56,9 +61,22 @@ QmlApplication::QmlApplication(
 
     m_pCoreServices->initialize(app);
 
+    // Guard against a failed initialization (e.g. database/audio error on
+    // Android where we cannot show a fatal dialog). If initialize() returned
+    // early the managers will be null; dereferencing them would cause a crash.
+    if (!m_pCoreServices->getSoundManager()) {
+        qCritical() << "CoreServices failed to initialize. Cannot start Mixxx.";
+        QCoreApplication::exit(1);
+        return;
+    }
+
     QString configVersion = m_pCoreServices->getSettings()->getValue(
             ConfigKey("[Config]", "Version"), "");
-    if (configVersion == VersionStore::FUTURE_UNSTABLE) {
+    // configVersion is FUTURE_UNSTABLE for fresh profiles created by the QML
+    // build's upgrade path. An empty string means the upgrade code ran but the
+    // version key was not written (should not normally happen, but we treat it
+    // safely as "new profile" to avoid a false "existing profile" error).
+    if (configVersion == VersionStore::FUTURE_UNSTABLE || configVersion.isEmpty()) {
         qDebug() << "Generating a new user profile for safe testing with unstable code";
     } else if (CmdlineArgs::Instance().isAwareOfRisk()) {
         qCritical() << "Existing user profile detected from" << configVersion
@@ -66,6 +84,16 @@ QmlApplication::QmlApplication(
         m_pCoreServices->getSettings()->setValue(
                 ConfigKey("[Config]", "did_run_with_unstable"), true);
     } else {
+#if defined(Q_OS_ANDROID)
+        // On Android, all Mixxx builds use QML, so any existing profile is
+        // already a QML-compatible profile. Update the version marker so the
+        // check passes on subsequent runs. This handles devices that installed
+        // the app before the first-run version marker was set correctly.
+        qWarning() << "Android: existing profile version" << configVersion
+                   << "- updating version marker to FUTURE_UNSTABLE and continuing.";
+        m_pCoreServices->getSettings()->setValue(
+                ConfigKey("[Config]", "Version"), VersionStore::FUTURE_UNSTABLE);
+#else
         QMessageBox msgBox;
         msgBox.setIcon(QMessageBox::Critical);
         msgBox.setWindowTitle(tr("Existing user profile detected"));
@@ -83,6 +111,7 @@ QmlApplication::QmlApplication(
         msgBox.exec();
         m_pCoreServices.reset();
         exit(-1);
+#endif
     }
 
     SoundDeviceStatus result = m_pCoreServices->getSoundManager()->setupDevices();
@@ -94,6 +123,7 @@ QmlApplication::QmlApplication(
 #endif
     }
 
+#ifndef Q_OS_ANDROID
     // FIXME: DlgPreferences has some initialization logic that must be executed
     // before the GUI is shown, at least for the effects system.
     std::shared_ptr<QDialog> pDlgPreferences = nullptr;
@@ -111,6 +141,14 @@ QmlApplication::QmlApplication(
     // follows a strict singleton pattern design
     QmlDlgPreferencesProxy::s_pInstance =
             std::make_unique<QmlDlgPreferencesProxy>(pDlgPreferences, this);
+#else
+    // On Android, DlgPreferences (QWidget-based dialog) cannot be created
+    // because we use QGuiApplication. Create a stub proxy so that the
+    // QML_SINGLETON factory never returns nullptr (Qt would crash if it did).
+    // Calls to PreferencesDialog.show() from QML will gracefully do nothing.
+    QmlDlgPreferencesProxy::s_pInstance =
+            std::make_unique<QmlDlgPreferencesProxy>(nullptr, this);
+#endif
 
     const QStringList visualGroups =
             m_pCoreServices->getPlayerManager()->getVisualPlayerGroups();
