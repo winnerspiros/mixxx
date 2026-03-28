@@ -225,7 +225,11 @@ void LibraryScanner::slotStartScan() {
     m_numRelocatedTracks = 0;
 
     m_scannerGlobal = ScannerGlobalPointer(
-            new ScannerGlobal(trackLocations, directoryHashes, extensionFilter, coverExtensionFilter, directoryBlacklist));
+            new ScannerGlobal(trackLocations,
+                    directoryHashes,
+                    extensionFilter,
+                    coverExtensionFilter,
+                    directoryBlacklist));
 
     m_scannerGlobal->startTimer();
 
