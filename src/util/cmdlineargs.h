@@ -68,9 +68,6 @@ class CmdlineArgs final {
     bool useColors() const {
         return m_useColors;
     }
-    bool getUseLegacyVuMeter() const {
-        return m_useLegacyVuMeter;
-    }
     bool getUseLegacySpinny() const {
         return m_useLegacySpinny;
     }
@@ -119,7 +116,8 @@ class CmdlineArgs final {
         return m_scaleFactor;
     }
 
-  public:
+  private:
+    friend class CmdlineArgsTest;
     enum class ParseMode {
         Initial,
         ForUserFeedback
@@ -127,7 +125,6 @@ class CmdlineArgs final {
 
     bool parse(const QStringList& arguments, ParseMode mode);
 
-  private:
     QList<QString> m_musicFiles; // List of files to load into players at startup
     bool m_startInFullscreen;    // Start in fullscreen mode
     bool m_startAutoDJ;
@@ -139,7 +136,6 @@ class CmdlineArgs final {
     bool m_qml;
     bool m_awareOfRisk;
     bool m_safeMode;
-    bool m_useLegacyVuMeter;
     bool m_useLegacySpinny;
     bool m_debugAssertBreak;
     bool m_settingsPathSet; // has --settingsPath been set on command line ?
@@ -157,5 +153,3 @@ class CmdlineArgs final {
 };
 
 } // namespace mixxx
-
-using CmdlineArgs = mixxx::CmdlineArgs;
