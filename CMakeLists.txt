@@ -3224,7 +3224,7 @@ if(NOT SQLite3_FOUND)
   set(LOCALECOMPARE_DEFAULT OFF)
 else()
   is_static_library(SQLite3_IS_STATIC SQLite::SQLite3)
-  if(SQLite3_IS_STATIC OR NOT APPLE)
+  if(SQLite3_IS_STATIC OR NOT (APPLE OR ANDROID))
     set(LOCALECOMPARE_DEFAULT ON)
   else()
     set(LOCALECOMPARE_DEFAULT OFF)
@@ -3270,7 +3270,7 @@ if(ENGINEPRIME)
   else()
     # On MacOS, Mixxx does not use system SQLite, so we will use libdjinterop's
     # embedded SQLite in such a case.
-    if(APPLE AND NOT SQLite3_IS_STATIC)
+    if(ANDROID OR (APPLE AND NOT SQLite3_IS_STATIC))
       message(
         STATUS
         "Building libdjinterop sources (with embedded SQLite) fetched from GitHub"
@@ -3338,6 +3338,7 @@ if(ENGINEPRIME)
         -DCMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}
         -DCMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME}
         -DSYSTEM_SQLITE=${DJINTEROP_SYSTEM_SQLITE}
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
       BUILD_COMMAND ${CMAKE_COMMAND} --build . --target DjInterop
       BUILD_BYPRODUCTS <INSTALL_DIR>/${DJINTEROP_LIBRARY}
       EXCLUDE_FROM_ALL TRUE

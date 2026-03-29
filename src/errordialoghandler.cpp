@@ -13,6 +13,7 @@
 #include "util/versionstore.h"
 #include "util/widgethelper.h"
 
+#ifndef Q_OS_ANDROID
 namespace {
 // Gross estimated dimensions for the size of the error dialog,
 // with Show Details expanded.
@@ -22,6 +23,7 @@ constexpr int kEstimatedDialogPadding = 50;             // px
 // used to push the dialog away from screen borders to not cover taskbars
 constexpr int kMinimumDialogMargin = 40; // px
 } // namespace
+#endif
 
 ErrorDialogProperties::ErrorDialogProperties()
         : m_title(VersionStore::applicationName()),
@@ -49,15 +51,23 @@ void ErrorDialogProperties::setText(const QString& text) {
 void ErrorDialogProperties::setType(DialogType typeToSet) {
     m_type = typeToSet;
     switch (m_type) {
-        case DLG_FATAL:     // Fatal uses critical icon
-        case DLG_CRITICAL:  m_icon = QMessageBox::Critical; break;
-        case DLG_WARNING:   m_icon = QMessageBox::Warning; break;
-        case DLG_INFO:      m_icon = QMessageBox::Information; break;
-        case DLG_QUESTION:  m_icon = QMessageBox::Question; break;
-        case DLG_NONE:
-        default:
-            // default is NoIcon
-            break;
+    case DLG_FATAL: // Fatal uses critical icon
+    case DLG_CRITICAL:
+        m_icon = QMessageBox::Critical;
+        break;
+    case DLG_WARNING:
+        m_icon = QMessageBox::Warning;
+        break;
+    case DLG_INFO:
+        m_icon = QMessageBox::Information;
+        break;
+    case DLG_QUESTION:
+        m_icon = QMessageBox::Question;
+        break;
+    case DLG_NONE:
+    default:
+        // default is NoIcon
+        break;
     }
 }
 
@@ -101,15 +111,25 @@ bool ErrorDialogHandler::requestErrorDialog(
         props->setShouldQuit(shouldQuit);
     }
     switch (type) {
-        case DLG_FATAL:     props->setTitle(tr("Fatal error")); break;
-        case DLG_CRITICAL:  props->setTitle(tr("Critical error")); break;
-        case DLG_WARNING:   props->setTitle(tr("Warning")); break;
-        case DLG_INFO:      props->setTitle(tr("Information")); break;
-        case DLG_QUESTION:  props->setTitle(tr("Question")); break;
-        case DLG_NONE:
-        default:
-            // Default title & (lack of) icon is fine
-            break;
+    case DLG_FATAL:
+        props->setTitle(tr("Fatal error"));
+        break;
+    case DLG_CRITICAL:
+        props->setTitle(tr("Critical error"));
+        break;
+    case DLG_WARNING:
+        props->setTitle(tr("Warning"));
+        break;
+    case DLG_INFO:
+        props->setTitle(tr("Information"));
+        break;
+    case DLG_QUESTION:
+        props->setTitle(tr("Question"));
+        break;
+    case DLG_NONE:
+    default:
+        // Default title & (lack of) icon is fine
+        break;
     }
     return requestErrorDialog(props);
 }
@@ -152,6 +172,7 @@ void ErrorDialogHandler::errorDialog(ErrorDialogProperties* pProps) {
         return;
     }
 
+#ifndef Q_OS_ANDROID
     QMessageBox* pMsgBox = new QMessageBox();
     pMsgBox->setIcon(props->m_icon);
     pMsgBox->setWindowTitle(props->m_title);
@@ -229,6 +250,16 @@ void ErrorDialogHandler::errorDialog(ErrorDialogProperties* pProps) {
     } else {
         pMsgBox->show();
     }
+#else
+    qCritical() << "Error dialog requested on Android (QWidget based dialogs not supported):"
+                << props->m_title << "-" << props->m_text;
+    if (!props->m_infoText.isEmpty()) {
+        qCritical() << "Info text:" << props->m_infoText;
+    }
+    if (!props->m_details.isEmpty()) {
+        qCritical() << "Details:" << props->m_details;
+    }
+#endif
 
     // If critical/fatal, gracefully exit application if possible
     if (props->m_shouldQuit) {
@@ -237,7 +268,7 @@ void ErrorDialogHandler::errorDialog(ErrorDialogProperties* pProps) {
             QCoreApplication::instance()->exit(-1);
         } else {
             qDebug() << "QCoreApplication::instance() is NULL! Abruptly quitting...";
-            if (props->m_type==DLG_FATAL) {
+            if (props->m_type == DLG_FATAL) {
                 abort();
             } else {
                 exit(-1);
