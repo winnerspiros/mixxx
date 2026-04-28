@@ -392,11 +392,12 @@ void KeyboardEventFilter::registerMenuBarActionSetShortcut(QAction* pAction,
     }
     VERIFY_OR_DEBUG_ASSERT(cfgKey.isValid()) {
         kLogger.warning() << "registerMenuBarActionSetShortcut: ConfigKey invalid"
-                          << cfgKey.group << cfgKey.item << "- Ignoring";
+                          << cfgKey << "- Ignoring";
         return;
     }
     // TODO Allow clearing the shortcut so it can be used for something else ??
-    m_menuBarActions.emplace(pAction, std::make_pair(cfgKey, defaultShortcut));
+    CfgkeyAndShortcut cfgKeyShortcut(cfgKey, defaultShortcut);
+    m_menuBarActions.emplace(pAction, cfgKeyShortcut);
     const QKeySequence ks = safeKeySequence(m_pKbdConfig->getValue(cfgKey, defaultShortcut));
     pAction->setShortcut(ks);
     pAction->setShortcutContext(Qt::ApplicationShortcut);
@@ -408,15 +409,18 @@ void KeyboardEventFilter::clearMenuBarActions() {
 
 void KeyboardEventFilter::updateMenuBarActionShortcuts() {
     kLogger.debug() << "updateMenuBarActionShortcuts";
-    QHashIterator<QAction*, std::pair<ConfigKey, QString>> it(m_menuBarActions);
+    QHashIterator<QAction*, CfgkeyAndShortcut> it(m_menuBarActions);
     while (it.hasNext()) {
         it.next();
         auto* pAction = it.key();
+        CfgkeyAndShortcut cfgKeyShortcut(it.value());
         VERIFY_OR_DEBUG_ASSERT(pAction) {
-            kLogger.warning() << "Could not find a valid action for" << it.value() << "- Ignoring";
+            kLogger.warning() << "Could not find a menubar action for"
+                              << cfgKeyShortcut.cfgKey << "- Ignoring";
             continue;
         }
-        const QString keyStr = m_pKbdConfig->getValue(it.value().first, it.value().second);
+        const QString keyStr = m_pKbdConfig->getValue(
+                cfgKeyShortcut.cfgKey, cfgKeyShortcut.defaultShortcut);
         const QKeySequence ks = safeKeySequence(keyStr);
         pAction->setShortcut(ks);
     }
@@ -450,10 +454,10 @@ void KeyboardEventFilter::createKeyboardConfig() {
         if (QFile::exists(keyboardFile)) {
             kLogger.debug() << "Found and will use default keyboard mapping" << keyboardFile;
         } else {
-            kLogger.debug() << keyboardFile << " not found, using en_US.kbd.cfg";
+            kLogger.debug() << keyboardFile << " not found, trying en_US.kbd.cfg";
             keyboardFile = mappingFilePath(resourcePath, QStringLiteral("en_US"));
             if (!QFile::exists(keyboardFile)) {
-                kLogger.debug() << keyboardFile << " not found, starting without shortcuts";
+                kLogger.warning() << keyboardFile << " not found, starting without shortcuts";
                 keyboardFile = "";
             }
         }

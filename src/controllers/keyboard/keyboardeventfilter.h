@@ -30,6 +30,11 @@ class KeyboardEventFilter : public QObject {
         return m_pKbdConfig;
     };
 
+    struct CfgkeyAndShortcut {
+        ConfigKey cfgKey;
+        QString defaultShortcut;
+    };
+
     // Returns a valid QString with modifier keys from a QKeyEvent
     static QKeySequence getKeySeq(QKeyEvent* e);
 
@@ -110,9 +115,9 @@ class KeyboardEventFilter : public QObject {
 
     AutoFileReloader m_autoReloader;
 
-    // Actions in the menu bar
-    // Value pair is the ConfigKey and the default QKeySequence (as QString).
-    QHash<QAction*, std::pair<ConfigKey, QString>> m_menuBarActions;
+    // Actions in the menu bar with the associated ConfigKey and
+    // the default QKeySequence (as QString).
+    QHash<QAction*, CfgkeyAndShortcut> m_menuBarActions;
 
     // Widgets that have mappable connections, registered by LegacySkinParser
     // during skin construction.
