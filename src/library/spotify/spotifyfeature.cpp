@@ -304,20 +304,20 @@ void SpotifyFeature::rebuildSidebar() {
     if (!m_playlists.isEmpty()) {
         TreeItem* pPlaylists = pRoot->appendChild(tr("Playlists"));
         for (const auto& it : std::as_const(m_playlists)) {
-            pPlaylists->appendChild(it.label, kPlaylistPrefix + it.uri);
+            pPlaylists->appendChild(it.label, QString(kPlaylistPrefix + it.uri));
         }
     }
     if (!m_savedTracks.isEmpty()) {
         TreeItem* pSaved = pRoot->appendChild(tr("Liked Songs"));
         for (const auto& it : std::as_const(m_savedTracks)) {
-            pSaved->appendChild(it.label, kTrackPrefix + it.uri);
+            pSaved->appendChild(it.label, QString(kTrackPrefix + it.uri));
         }
     }
     if (!m_searchResults.isEmpty()) {
         TreeItem* pSearch = pRoot->appendChild(
                 m_lastQuery.isEmpty() ? tr("Search") : tr("Results: %1").arg(m_lastQuery));
         for (const auto& it : std::as_const(m_searchResults)) {
-            pSearch->appendChild(it.label, kTrackPrefix + it.uri);
+            pSearch->appendChild(it.label, QString(kTrackPrefix + it.uri));
         }
     }
 

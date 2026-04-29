@@ -92,7 +92,8 @@ void YouTubeService::searchVideos(const QString& query, int cap) {
     }
     QJsonObject body;
     body.insert(QStringLiteral("query"), query);
-    innerTubePost(QStringLiteral("search"), makeInnerTubeBody(body), [this, query, cap](const QByteArray& data) {
+    const QJsonObject req = makeInnerTubeBody(body);
+    innerTubePost(QStringLiteral("search"), req, [this, query, cap](const QByteArray& data) {
                 // Walk InnerTube's deeply-nested response to find videoRenderer
                 // entries. Schema is stable enough to traverse by key name.
                 const QJsonDocument doc = QJsonDocument::fromJson(data);
@@ -177,7 +178,8 @@ void YouTubeService::downloadVideo(const QString& videoId, const QString& cacheD
     QDir().mkpath(cacheDir);
     QJsonObject body;
     body.insert(QStringLiteral("videoId"), videoId);
-    innerTubePost(QStringLiteral("player"), makeInnerTubeBody(body), [this, videoId, cacheDir](const QByteArray& data) {
+    const QJsonObject req = makeInnerTubeBody(body);
+    innerTubePost(QStringLiteral("player"), req, [this, videoId, cacheDir](const QByteArray& data) {
                 const QJsonObject root = QJsonDocument::fromJson(data).object();
                 const QJsonObject streamingData =
                         root.value(QStringLiteral("streamingData")).toObject();
