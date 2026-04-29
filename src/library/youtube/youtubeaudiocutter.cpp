@@ -35,8 +35,7 @@ QList<Range> normaliseRanges(const QList<SponsorSegment>& segments, double& tota
             ranges.append({s.start, s.end});
         }
     }
-    std::sort(ranges.begin(), ranges.end(),
-            [](const Range& a, const Range& b) { return a.start < b.start; });
+    std::sort(ranges.begin(), ranges.end(), [](const Range& a, const Range& b) { return a.start < b.start; });
     QList<Range> merged;
     for (const auto& r : ranges) {
         if (!merged.isEmpty() && r.start <= merged.last().end) {
@@ -106,8 +105,7 @@ bool cutAudioRanges(const QString& path, const QList<SponsorSegment>& segments) 
     }
 
     AVFormatContext* oc = nullptr;
-    if (avformat_alloc_output_context2(&oc, nullptr, nullptr, outPath.constData()) < 0
-            || !oc) {
+    if (avformat_alloc_output_context2(&oc, nullptr, nullptr, outPath.constData()) < 0 || !oc) {
         avformat_close_input(&ic);
         kLogger.warning() << "cutAudioRanges: cannot allocate output for" << tmpPath;
         return false;
@@ -180,13 +178,13 @@ bool cutAudioRanges(const QString& path, const QList<SponsorSegment>& segments) 
         // Shift PTS/DTS back by the total cut time accumulated before this
         // packet, so the output has a contiguous timeline starting at 0.
         const double shiftSec = cutTimeBefore(ranges, tsSec);
-        const int64_t shiftIn = static_cast<int64_t>(
+        const int64_t shiftTicks = static_cast<int64_t>(
                 shiftSec / av_q2d(is->time_base));
         if (pkt->pts != AV_NOPTS_VALUE) {
-            pkt->pts = av_rescale_q(pkt->pts - shiftIn, is->time_base, os->time_base);
+            pkt->pts = av_rescale_q(pkt->pts - shiftTicks, is->time_base, os->time_base);
         }
         if (pkt->dts != AV_NOPTS_VALUE) {
-            pkt->dts = av_rescale_q(pkt->dts - shiftIn, is->time_base, os->time_base);
+            pkt->dts = av_rescale_q(pkt->dts - shiftTicks, is->time_base, os->time_base);
         }
         pkt->duration = av_rescale_q(pkt->duration, is->time_base, os->time_base);
         pkt->stream_index = oi;

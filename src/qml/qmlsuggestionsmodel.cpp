@@ -4,11 +4,11 @@
 #include <QSqlError>
 #include <QSqlQuery>
 
+#include "library/dao/playlistdao.h"
+#include "library/dao/trackschema.h"
 #include "library/library.h"
 #include "library/trackcollection.h"
 #include "library/trackcollectionmanager.h"
-#include "library/dao/playlistdao.h"
-#include "library/dao/trackschema.h"
 #include "mixer/playerinfo.h"
 #include "qml/qmllibraryproxy.h"
 #include "qml/qmlplayermanagerproxy.h"

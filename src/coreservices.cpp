@@ -878,7 +878,6 @@ bool CoreServices::initializeDatabase() {
                     "to build it.");
         }
 
-
         QMessageBox::critical(nullptr,
                 tr("Cannot open database"),
                 errorDetail + QStringLiteral("\n\n") + tr("Click OK to exit."),

@@ -92,8 +92,7 @@ void YouTubeService::searchVideos(const QString& query, int cap) {
     }
     QJsonObject body;
     body.insert(QStringLiteral("query"), query);
-    innerTubePost(QStringLiteral("search"), makeInnerTubeBody(body),
-            [this, query, cap](const QByteArray& data) {
+    innerTubePost(QStringLiteral("search"), makeInnerTubeBody(body), [this, query, cap](const QByteArray& data) {
                 // Walk InnerTube's deeply-nested response to find videoRenderer
                 // entries. Schema is stable enough to traverse by key name.
                 const QJsonDocument doc = QJsonDocument::fromJson(data);
@@ -169,20 +168,16 @@ void YouTubeService::searchVideos(const QString& query, int cap) {
                 walk(doc.object());
                 kLogger.info() << "InnerTube returned" << results.size()
                                << "results for" << query;
-                Q_EMIT searchResultsReady(query, results);
-            },
-            [this, query](const QString& err) {
+                Q_EMIT searchResultsReady(query, results); }, [this, query](const QString& err) {
                 kLogger.warning() << "InnerTube search failed:" << err;
-                Q_EMIT searchFailed(query, err);
-            });
+                Q_EMIT searchFailed(query, err); });
 }
 
 void YouTubeService::downloadVideo(const QString& videoId, const QString& cacheDir) {
     QDir().mkpath(cacheDir);
     QJsonObject body;
     body.insert(QStringLiteral("videoId"), videoId);
-    innerTubePost(QStringLiteral("player"), makeInnerTubeBody(body),
-            [this, videoId, cacheDir](const QByteArray& data) {
+    innerTubePost(QStringLiteral("player"), makeInnerTubeBody(body), [this, videoId, cacheDir](const QByteArray& data) {
                 const QJsonObject root = QJsonDocument::fromJson(data).object();
                 const QJsonObject streamingData =
                         root.value(QStringLiteral("streamingData")).toObject();
@@ -244,7 +239,8 @@ void YouTubeService::downloadVideo(const QString& videoId, const QString& cacheD
                             // THEN tell consumers the file is ready.
                             fetchSponsorSegmentsInternal(videoId,
                                     [this, videoId, outPath](
-                                            const QList<SponsorSegment>& segments) {
+                                            const QList<SponsorSegment>&
+                                                    segments) {
                                         if (!segments.isEmpty()) {
                                             const bool cut = cutAudioRanges(
                                                     outPath, segments);
@@ -270,14 +266,12 @@ void YouTubeService::downloadVideo(const QString& videoId, const QString& cacheD
                                                 }
                                             }
                                         }
-                                        Q_EMIT downloadFinished(videoId, outPath);
+                                        Q_EMIT downloadFinished(
+                                                videoId, outPath);
                                     });
-                        });
-            },
-            [this, videoId](const QString& err) {
+                        }); }, [this, videoId](const QString& err) {
                 kLogger.warning() << "InnerTube player failed:" << err;
-                Q_EMIT downloadFailed(videoId, err);
-            });
+                Q_EMIT downloadFailed(videoId, err); });
 }
 
 void YouTubeService::fetchSponsorSegments(const QString& videoId) {

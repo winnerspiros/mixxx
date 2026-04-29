@@ -34,7 +34,7 @@ class QmlSuggestionsModel : public QAbstractListModel {
         DurationSecRole,
         BpmRole,
         LocationRole,
-        SourceRole,  // "autodj" or "recent" – lets QML colour-code differently
+        SourceRole, // "autodj" or "recent" – lets QML colour-code differently
     };
 
     explicit QmlSuggestionsModel(QObject* parent = nullptr);

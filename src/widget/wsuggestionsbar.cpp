@@ -21,6 +21,7 @@
 #include "mixer/playerinfo.h"
 #include "mixer/playermanager.h"
 #include "moc_wsuggestionsbar.cpp"
+#include "track/track.h"
 #include "track/trackid.h"
 #include "util/logger.h"
 

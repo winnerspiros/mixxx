@@ -60,6 +60,9 @@ DlgPreferences::DlgPreferences(
           m_pConfig(pSettingsManager->settings()),
           m_pageSizeHint(QSize(0, 0)) {
     setupUi(this);
+#ifndef __VINYLCONTROL__
+    Q_UNUSED(pVCManager);
+#endif
     fixSliderStyle();
     contentsTreeWidget->setHeaderHidden(true);
 

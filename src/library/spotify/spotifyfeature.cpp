@@ -64,10 +64,8 @@ SpotifyFeature::SpotifyFeature(Library* pLibrary, UserSettingsPointer pConfig)
         m_oauth2.setClientIdentifier(clientId);
     }
 
-    connect(&m_oauth2, &QOAuth2AuthorizationCodeFlow::authorizeWithBrowser,
-            &QDesktopServices::openUrl);
-    connect(&m_oauth2, &QOAuth2AuthorizationCodeFlow::granted,
-            this, &SpotifyFeature::slotAuthGranted);
+    connect(&m_oauth2, &QOAuth2AuthorizationCodeFlow::authorizeWithBrowser, &QDesktopServices::openUrl);
+    connect(&m_oauth2, &QOAuth2AuthorizationCodeFlow::granted, this, &SpotifyFeature::slotAuthGranted);
 
     loadPersistedTokens();
 #endif
@@ -229,12 +227,11 @@ void SpotifyFeature::apiGet(
             // We use a manual one-shot connection (rather than Qt 6.0+'s
             // Qt::SingleShotConnection) so this works on Qt 5 builds too.
             auto pConn = std::make_shared<QMetaObject::Connection>();
-            *pConn = connect(&m_oauth2, &QOAuth2AuthorizationCodeFlow::granted, this,
-                    [this, endpoint, cb, pConn]() {
-                        QObject::disconnect(*pConn);
-                        persistTokens();
-                        apiGet(endpoint, cb);
-                    });
+            *pConn = connect(&m_oauth2, &QOAuth2AuthorizationCodeFlow::granted, this, [this, endpoint, cb, pConn]() {
+                QObject::disconnect(*pConn);
+                persistTokens();
+                apiGet(endpoint, cb);
+            });
             m_oauth2.refreshAccessToken();
             return;
         }
