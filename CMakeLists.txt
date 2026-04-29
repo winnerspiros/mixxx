@@ -2431,7 +2431,9 @@ if(QT6)
       # We deliberately copy a subset of res/ to keep the APK small. The bits
       # we drop are pure desktop-platform clutter on Android (and DeX, the
       # primary target for this build, doesn't need icon themes from
-      # res/linux or res/osx either):
+      # res/linux or res/osx either). Approximate APK savings from this
+      # filter: ~80 MiB raw / ~25-35 MiB compressed. Re-add a directory
+      # below if you genuinely need it on Android.
       #   - res/linux, res/osx  → desktop-only icon themes / Info.plist
       #   - res/Mixxx-Keyboard-Shortcuts.pdf → ~360 KiB doc, never opened
       #   - res/skins/{Deere,Shade,Tango,*64 Samplers}  → ~12 MiB; we ship
