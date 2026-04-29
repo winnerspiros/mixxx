@@ -302,13 +302,13 @@ void SpotifyFeature::rebuildSidebar() {
     if (needsAuth) {
         pRoot->appendChild(
                 tr("Sign in to Spotify (click \"Spotify\" above)"),
-                kInfoPrefix + QStringLiteral("auth"));
+                QString(kInfoPrefix + QStringLiteral("auth")));
     }
 
     // Honest disclosure: nobody likes silent feature gaps.
     pRoot->appendChild(
             tr("⚠ Playback requires librespot (not yet bundled)"),
-            kInfoPrefix + QStringLiteral("librespot"));
+            QString(kInfoPrefix + QStringLiteral("librespot")));
 
     if (!m_playlists.isEmpty()) {
         TreeItem* pPlaylists = pRoot->appendChild(tr("Playlists"));
