@@ -2376,7 +2376,7 @@ if(QT6)
     set_target_properties(
       mixxx
       PROPERTIES
-        QT_ANDROID_APPLICATION_ARGUMENTS "--qml --log-level debug --developer"
+        QT_ANDROID_APPLICATION_ARGUMENTS "--log-level warning"
     )
     qt_add_android_permission(mixxx
     NAME android.permission.ACCESS_NETWORK_STATE
@@ -3944,6 +3944,7 @@ if(QML)
       src/qml/qmlplayermanagerproxy.cpp
       src/qml/qmlplayerproxy.cpp
       src/qml/qmlsidebarmodelproxy.cpp
+      src/qml/qmlsuggestionsmodel.cpp
       src/qml/qmllibrarytracklistcolumn.cpp
       src/qml/qmltrackproxy.cpp
       src/qml/qmlvisibleeffectsmodel.cpp

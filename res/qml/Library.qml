@@ -19,10 +19,24 @@ Item {
         id: librarySources
 
     }
+
+    // "Up Next" suggestions strip pinned to the top of the library area.
+    // Tap a card to load on the next free deck; long-press to queue in AutoDJ.
+    Skin.SuggestionsStrip {
+        id: suggestionsStrip
+
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+    }
+
     SplitView {
         id: librarySplitView
 
-        anchors.fill: parent
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: suggestionsStrip.bottom
         orientation: Qt.Horizontal
 
         handle: Rectangle {

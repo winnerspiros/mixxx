@@ -61,12 +61,13 @@ int runMixxx(QGuiApplication* pApp, const CmdlineArgs& args) {
 
     int exitCode;
 #ifdef MIXXX_USE_QML
-    const bool useQml =
-#if defined(Q_OS_ANDROID)
-            true;
-#else
-            args.isQml();
-#endif
+    // The user can opt in to the experimental QML UI on any platform with
+    // `--qml`. On Android we used to force this on (no Qt-Widgets support
+    // assumption was wrong — Qt 6 supports Widgets on Android, and on Samsung
+    // DeX / large tablets the desktop skin is actually preferred), so the
+    // override is now opt-in everywhere. The skin engine + LateNight skin run
+    // on Android via `MixxxApplication` (QApplication) below.
+    const bool useQml = args.isQml();
     if (useQml) {
         // This is a workaround to support Qt 6.4.2, currently shipped on
         // Ubuntu 24.04 See
@@ -267,11 +268,11 @@ int main(int argc, char* argv[]) {
 
     adjustScaleFactor(&args);
 
-#if defined(Q_OS_ANDROID) && defined(MIXXX_USE_QML)
-    QGuiApplication app(argc, argv);
-#else
+    // On Android we now use the same MixxxApplication (QApplication-based)
+    // as desktop builds, so the legacy skin engine works on Samsung DeX /
+    // large tablets. QApplication still satisfies QGuiApplication, so the
+    // optional --qml UI keeps working on top of it.
     MixxxApplication app(argc, argv);
-#endif
 
 #if defined(Q_OS_WIN)
     // The Mixxx style is based on Qt's WindowsVista style
