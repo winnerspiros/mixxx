@@ -1798,6 +1798,7 @@ add_library(
   src/widget/wsplitter.cpp
   src/widget/wstarrating.cpp
   src/widget/wstatuslight.cpp
+  src/widget/wsuggestionsbar.cpp
   src/widget/wtime.cpp
   src/widget/wtrackmenu.cpp
   src/widget/wtrackproperty.cpp
@@ -2423,13 +2424,63 @@ if(QT6)
     )
     add_custom_target(
       copy-resource-android
-      COMMENT "Copy resources folder to Android build asset directory"
+      COMMENT "Copy filtered resources folder to Android build asset directory"
       COMMAND
         ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/packaging/android
         ${CMAKE_CURRENT_BINARY_DIR}/android
+      # We deliberately copy a subset of res/ to keep the APK small. The bits
+      # we drop are pure desktop-platform clutter on Android (and DeX, the
+      # primary target for this build, doesn't need icon themes from
+      # res/linux or res/osx either):
+      #   - res/linux, res/osx  → desktop-only icon themes / Info.plist
+      #   - res/Mixxx-Keyboard-Shortcuts.pdf → ~360 KiB doc, never opened
+      #   - res/skins/{Deere,Shade,Tango,*64 Samplers}  → ~12 MiB; we ship
+      #     only LateNight (the default skin returned by SkinLoader) plus
+      #     the shared *.qss helpers
+      #   - res/translations/* except English  → ~70 MiB of .qm files; the
+      #     user runs the app in English and would otherwise have to find
+      #     Settings → Preferences to switch back. Re-add specific locales
+      #     here if needed.
       COMMAND
-        ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/res
+        ${CMAKE_COMMAND} -E make_directory
         ${CMAKE_CURRENT_BINARY_DIR}/android-build/assets
+      COMMAND
+        ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/res/controllers
+        ${CMAKE_CURRENT_BINARY_DIR}/android-build/assets/controllers
+      COMMAND
+        ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/res/effects
+        ${CMAKE_CURRENT_BINARY_DIR}/android-build/assets/effects
+      COMMAND
+        ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/res/fonts
+        ${CMAKE_CURRENT_BINARY_DIR}/android-build/assets/fonts
+      COMMAND
+        ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/res/images
+        ${CMAKE_CURRENT_BINARY_DIR}/android-build/assets/images
+      COMMAND
+        ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/res/keyboard
+        ${CMAKE_CURRENT_BINARY_DIR}/android-build/assets/keyboard
+      COMMAND
+        ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/res/qml
+        ${CMAKE_CURRENT_BINARY_DIR}/android-build/assets/qml
+      COMMAND
+        ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/res/shaders
+        ${CMAKE_CURRENT_BINARY_DIR}/android-build/assets/shaders
+      COMMAND
+        ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/res/schema.xml
+        ${CMAKE_CURRENT_BINARY_DIR}/android-build/assets/schema.xml
+      # Skins: LateNight + the shared *.qss only.
+      COMMAND
+        ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/res/skins/LateNight
+        ${CMAKE_CURRENT_BINARY_DIR}/android-build/assets/skins/LateNight
+      COMMAND
+        ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/res/skins/default.qss
+        ${CMAKE_CURRENT_BINARY_DIR}/android-build/assets/skins/default.qss
+      COMMAND
+        ${CMAKE_COMMAND} -E copy
+          ${CMAKE_SOURCE_DIR}/res/skins/default-menu-styles-linux.qss
+          ${CMAKE_CURRENT_BINARY_DIR}/android-build/assets/skins/default-menu-styles-linux.qss
+      # Translations: ship only the English source file (Mixxx falls back to
+      # the in-source English strings if no .qm is found).
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     )
     add_dependencies(mixxx copy-resource-android)

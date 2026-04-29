@@ -5,6 +5,7 @@
 #include <QDebug>
 #include <QFileDialog>
 #include <QOpenGLContext>
+#include <QStatusBar>
 #include <QUrl>
 
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
@@ -21,6 +22,7 @@
 
 #include "widget/tooltipqopengl.h"
 #include "widget/winitialglwidget.h"
+#include "widget/wsuggestionsbar.h"
 #endif
 
 #include "controllers/keyboard/keyboardeventfilter.h"
@@ -411,6 +413,20 @@ void MixxxMainWindow::initialize() {
     // million different variables the first waveform may be horribly
     // corrupted. See bug 521509 -- bkgood ?? -- vrince
     setCentralWidget(m_pCentralWidget);
+
+    // "Up Next" suggestions strip lives in the QStatusBar at the bottom of
+    // the main window, so it's visible regardless of which library view the
+    // user is currently in (mirrors the QML-mode SuggestionsStrip). Hidden by
+    // default if the user prefers a clean LateNight look — the menu toggle
+    // (View → Show Suggestions Bar) is added in MixxxMainWindow::createMenu.
+    if (!m_pSuggestionsBar) {
+        m_pSuggestionsBar = new WSuggestionsBar(m_pCoreServices, this);
+        statusBar()->addPermanentWidget(m_pSuggestionsBar, /*stretch=*/1);
+        statusBar()->setSizeGripEnabled(false);
+        statusBar()->setStyleSheet(QStringLiteral(
+                "QStatusBar { background-color: #000000; border: 0; } "
+                "QStatusBar::item { border: 0; }"));
+    }
 
 #ifndef __APPLE__
     // Ask for permission to auto-hide the menu bar if applicable.

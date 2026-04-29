@@ -638,7 +638,7 @@ WBeatSpinBox,
 WBpmEditor QDoubleSpinBox,
 #spinBoxTransition,
 #spinBoxRecentDays {
-  background-color: #0f0f0f;
+  background-color: #000000;
   }
   WBeatSpinBox {
     border-width: 2px 19px 2px 2px;
@@ -2303,7 +2303,7 @@ WLibrarySidebar {
     stop:1 #444);
   border-bottom: 1px solid #444;
   border-left: 1px solid #0a0a0a;
-  background-color: #0f0f0f;
+  background-color: #000000;
   alternate-background-color: #1a1a1a;
 /* In selected library rows this sets the color of
   * shapes in star rating delegate
@@ -2335,7 +2335,7 @@ WTrackTableView::item:selected,
   WTrackTableView::item:!selected:focus {
     /* For outline to be applied, background-color must be set, too ...
        Use a value between #0f0f0f and #0a0a0a (alternate-background-color) */
-    background-color: #0c0c0c;
+    background-color: #000000;
     outline: 1px solid #fff;
     color: #fff;
   }
@@ -2383,7 +2383,7 @@ WTrackPropertyEditor,
 WTrackProperty[selected="true"],
 #BpmTapSelectButton, #BpmEditSelectButton {
   color: #ddd;
-  background-color: #0f0f0f;
+  background-color: #000000;
   selection-color: #000;
   selection-background-color: #ccc;
   border: 1px solid #5E4507;
@@ -2599,7 +2599,7 @@ WSearchLineEdit QAbstractScrollArea QScrollBar::corner {
 /*********** library search bar *********************************/
 WSearchLineEdit {
   padding: 2px;
-  background-color: #0f0f0f;
+  background-color: #000000;
   selection-color: #000;
   selection-background-color: #ccc;
   }
@@ -2702,7 +2702,7 @@ WLibrarySidebar::branch:open:has-children:has-siblings {
   WLibrarySidebar::branch:open:!has-children:!has-siblings:selected,
   WLibrarySidebar::branch:open:!has-children:has-siblings:selected {
     border-image: none;
-    background-color: #0f0f0f;
+    background-color: #000000;
   }
 /************** Library *******************************************************/
 
@@ -2770,7 +2770,7 @@ WSearchLineEdit QAbstractScrollArea,
 WSearchLineEdit::item,
 #fadeModeCombobox QAbstractScrollArea,
 #fadeModeCombobox::item {
-  background-color: #0f0f0f;
+  background-color: #000000;
 }
 WEffectSelector,
 #fadeModeCombobox {
