@@ -36,7 +36,7 @@ namespace {
 const QVersionNumber kMixxxVersionNumber = QVersionNumber(
         MIXXX_VERSION_MAJOR, MIXXX_VERSION_MINOR, MIXXX_VERSION_PATCH);
 const QString kMixxxVersionSuffix = QStringLiteral(MIXXX_VERSION_SUFFIX);
-const QString kMixxx = QStringLiteral("Mixxx");
+const QString kMixxx = QStringLiteral("DJ Sugar");
 const QString kBuildFlags = QStringLiteral(MIXXX_BUILD_FLAGS);
 
 QString ebur128Version() {

@@ -2801,6 +2801,7 @@ if(FFMPEG)
       mixxx-lib
       PRIVATE
         src/library/spotify/spotifyfeature.cpp
+        src/library/youtube/sponsorblockcontroller.cpp
         src/library/youtube/youtubefeature.cpp
         src/library/youtube/youtubeservice.cpp
         src/sources/spotify/soundsourcespotify.cpp

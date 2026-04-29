@@ -34,6 +34,7 @@
 #include "mixer/playermanager.h"
 #ifdef NETWORKAUTH
 #include "library/spotify/spotifyfeature.h"
+#include "library/youtube/sponsorblockcontroller.h"
 #include "library/youtube/youtubefeature.h"
 #endif
 #include "moc_library.cpp"
@@ -171,6 +172,11 @@ Library::Library(
     addFeature(m_pSpotifyFeature);
     m_pYouTubeFeature = make_parented<YouTubeFeature>(this, m_pConfig);
     addFeature(m_pYouTubeFeature);
+    // The SponsorBlock controller observes deck loads globally and skips
+    // segments inside YouTube-cached tracks. It is owned by Library so it
+    // lives as long as the player decks do.
+    m_pSponsorBlockController = make_parented<mixxx::SponsorBlockController>(
+            m_pYouTubeFeature->cacheDir(), this);
 #endif
     // Suspend a batch analysis while an ad-hoc analysis of
     // loaded tracks is in progress and resume it afterwards.
