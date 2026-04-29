@@ -1,14 +1,18 @@
 #include "library/youtube/youtubefeature.h"
 
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QMessageBox>
 #include <QStandardPaths>
+#include <QTimer>
 
 #include "library/library.h"
 #include "library/trackcollectionmanager.h"
+#include "library/dao/trackschema.h"
 #include "library/treeitem.h"
 #include "library/treeitemmodel.h"
+#include "mixer/playerinfo.h"
 #include "mixer/playermanager.h"
 #include "track/track.h"
 #include "track/trackref.h"
@@ -30,21 +34,6 @@ YouTubeFeature::YouTubeFeature(Library* pLibrary, UserSettingsPointer pConfig)
         : BaseExternalLibraryFeature(pLibrary, pConfig, "youtube"),
           m_pSidebarModel(make_parented<TreeItemModel>(this)),
           m_service(this) {
-    // Allow the user to override the yt-dlp binary path from prefs (useful on
-    // Android where we ship the binary inside the APK and resolve a different
-    // absolute path at runtime).
-    const QString configured = pConfig->getValueString(
-            ConfigKey(QStringLiteral("[YouTube]"), QStringLiteral("yt_dlp_path")));
-    if (!configured.isEmpty()) {
-        m_service.setYtDlpPath(configured);
-    }
-    // Optional destructive sponsor removal at download time. Off by default;
-    // see YouTubeService::setRemoveSponsorsAtDownload for the trade-off.
-    m_service.setRemoveSponsorsAtDownload(
-            pConfig->getValue(
-                    ConfigKey(QStringLiteral("[YouTube]"),
-                            QStringLiteral("sponsorblock_remove_at_download")),
-                    false));
 
     connect(&m_service, &mixxx::YouTubeService::searchResultsReady,
             this, &YouTubeFeature::onSearchResultsReady);
@@ -54,6 +43,34 @@ YouTubeFeature::YouTubeFeature(Library* pLibrary, UserSettingsPointer pConfig)
             this, &YouTubeFeature::onDownloadFinished);
     connect(&m_service, &mixxx::YouTubeService::downloadFailed,
             this, &YouTubeFeature::onDownloadFailed);
+
+    // Auto-cleanup: when a YouTube-cached track is ejected from a deck (i.e.
+    // replaced by a new one or unloaded), and no other deck still has it
+    // loaded, delete the cached audio + sponsorblock sidecar from disk and
+    // purge the database entry. This gives the user the "search → on deck →
+    // forget about it" experience without unbounded disk growth. Analysis
+    // results (BPM/key/waveform) are already persisted at this point so they
+    // are not lost — only the audio bytes are.
+    connect(&PlayerInfo::instance(), &PlayerInfo::trackChanged,
+            this, [this](const QString& /*group*/, TrackPointer pNew, TrackPointer pOld) {
+                // Pre-download safety net: if AutoDJ (or the user from a stale
+                // playlist) is loading a YouTube-cache track whose file no
+                // longer exists, kick off a background re-download so the
+                // next play attempt or analysis pass succeeds without the
+                // user noticing a stall.
+                ensureDownloaded(pNew);
+                if (pOld) {
+                    maybeReleaseCachedTrack(pOld);
+                }
+            });
+
+    // At startup, pre-fetch every YouTube-cache track that's queued in AutoDJ
+    // but no longer present on disk. This is the "I closed the app halfway
+    // through a set, restart, hit play" case — without this you'd hear a gap
+    // when AutoDJ tried to crossfade into the missing track.
+    QTimer::singleShot(0, this, [this]() {
+        prefetchAutoDjQueue();
+    });
 
     rebuildSidebar();
 }
@@ -129,6 +146,7 @@ void YouTubeFeature::onSearchFailed(const QString& query, const QString& error) 
 }
 
 void YouTubeFeature::requestDownload(const QString& videoId) {
+    m_videoIdsToAutoLoad.insert(videoId);
     // If we already have a cached file for this id, skip the download and load
     // it straight away.
     const QDir dir(cacheDir());
@@ -136,7 +154,8 @@ void YouTubeFeature::requestDownload(const QString& videoId) {
             dir.entryList({videoId + QStringLiteral(".*")},
                     QDir::Files | QDir::NoDotAndDotDot);
     for (const QString& f : existing) {
-        if (f.endsWith(QStringLiteral(".info.json"))) {
+        if (f.endsWith(QStringLiteral(".info.json")) ||
+                f.endsWith(QStringLiteral(".sponsor.json"))) {
             continue;
         }
         onDownloadFinished(videoId, dir.filePath(f));
@@ -146,16 +165,34 @@ void YouTubeFeature::requestDownload(const QString& videoId) {
     m_service.downloadVideo(videoId, cacheDir());
 }
 
+void YouTubeFeature::requestPrefetch(const QString& videoId) {
+    // Background re-download — do NOT register for auto-load. Only kicks off
+    // if the file isn't already there.
+    const QDir dir(cacheDir());
+    const QStringList existing =
+            dir.entryList({videoId + QStringLiteral(".*")},
+                    QDir::Files | QDir::NoDotAndDotDot);
+    for (const QString& f : existing) {
+        if (!f.endsWith(QStringLiteral(".info.json")) &&
+                !f.endsWith(QStringLiteral(".sponsor.json"))) {
+            return; // already on disk
+        }
+    }
+    kLogger.info() << "Pre-fetching YouTube video" << videoId;
+    m_service.downloadVideo(videoId, cacheDir());
+}
+
 void YouTubeFeature::onDownloadFinished(
         const QString& videoId, const QString& localPath) {
     if (!QFileInfo::exists(localPath)) {
         kLogger.warning() << "Downloaded file disappeared:" << localPath;
         return;
     }
-    // Pre-fetch SponsorBlock segments and cache them next to the audio so the
-    // SponsorBlockController can pick them up when this track is loaded onto a
-    // deck — without depending on network at play time.
-    m_service.fetchSponsorSegments(videoId);
+    // SponsorBlock cuts have already been physically applied to the file by
+    // YouTubeService at this point (or, on cut failure, a .sponsor.json
+    // sidecar has been written so SponsorBlockController can fall back to
+    // skip-at-playback). Either way, the file we hand to the analyzer here
+    // already represents the music-only timeline.
 
     // Look up a friendly label from m_lastResults if the video came from the
     // current search, otherwise just fall back to the videoId.
@@ -169,19 +206,130 @@ void YouTubeFeature::onDownloadFinished(
     m_downloadedTracks.insert(videoId, label);
     rebuildSidebar();
 
-    // Add to the track collection and load onto the first available deck.
+    // Always register with the track collection so analysis runs and the DB
+    // entry exists. Only emit loadTrack for downloads triggered by a user
+    // click — background prefetches must not yank what's currently on a deck.
     TrackRef ref = TrackRef::fromFilePath(localPath);
     TrackPointer pTrack = m_pLibrary->trackCollectionManager()->getOrAddTrack(ref);
-    if (pTrack) {
-        Q_EMIT loadTrack(pTrack);
-    } else {
+    if (!pTrack) {
         kLogger.warning() << "Could not add downloaded track to library:"
                           << localPath;
+        return;
     }
+    if (m_videoIdsToAutoLoad.remove(videoId)) {
+        Q_EMIT loadTrack(pTrack);
+    }
+}
 }
 
 void YouTubeFeature::onDownloadFailed(const QString& videoId, const QString& error) {
     kLogger.warning() << "YouTube download failed for" << videoId << ":" << error;
+}
+
+void YouTubeFeature::maybeReleaseCachedTrack(const TrackPointer& pTrack) {
+    if (!pTrack) {
+        return;
+    }
+    const QString location = pTrack->getLocation();
+    if (location.isEmpty()) {
+        return;
+    }
+    // Only files we own under our cache dir are eligible for cleanup.
+    const QDir cache(cacheDir());
+    if (!QFileInfo(location).absoluteFilePath().startsWith(
+                cache.absolutePath() + QLatin1Char('/'))) {
+        return;
+    }
+    // Don't delete if any other deck still has it loaded — common when the
+    // user practices crossfading the same track between decks.
+    const auto loaded = PlayerInfo::instance().getLoadedTracks();
+    for (auto it = loaded.cbegin(); it != loaded.cend(); ++it) {
+        if (it.value() && it.value()->getLocation() == location) {
+            return;
+        }
+    }
+    // Don't delete if the track is referenced by *anything* the user might
+    // come back to: any playlist (which includes the AutoDJ queue — that's a
+    // hidden playlist of type AutoDJ), or any crate. This is what makes
+    // pre-queued AutoDJ sets safe — queued YouTube tracks survive eject.
+    auto* pTcm = m_pLibrary->trackCollectionManager();
+    if (!pTcm) {
+        return;
+    }
+    auto* pInternal = pTcm->internalCollection();
+    const TrackId trackId = pTrack->getId();
+    if (trackId.isValid()) {
+        QSet<int> playlistSet;
+        pInternal->getPlaylistDAO().getPlaylistsTrackIsIn(trackId, &playlistSet);
+        if (!playlistSet.isEmpty()) {
+            return;
+        }
+        if (pInternal->crates().selectTrackCratesSorted(trackId).next()) {
+            return;
+        }
+    }
+    // All checks passed → safe to drop bytes + DB row. Defer the unlink so the
+    // engine has a moment to release any open file descriptor on slow Android
+    // storage; failure here is non-fatal because the next sweep will retry.
+    QString videoId = QFileInfo(location).completeBaseName();
+    QTimer::singleShot(2000, this, [this, location, videoId, trackId]() {
+        if (QFile::remove(location)) {
+            kLogger.info() << "Released cached YouTube track" << videoId;
+        }
+        // SponsorBlock sidecar lives next to the audio file.
+        const QString sidecar = QFileInfo(location).absoluteFilePath() +
+                QStringLiteral(".sponsor.json");
+        QFile::remove(sidecar);
+        if (trackId.isValid()) {
+            m_pLibrary->trackCollectionManager()->purgeTracks(
+                    {TrackRef::fromFilePath(location, trackId)});
+        }
+        m_downloadedTracks.remove(videoId);
+        rebuildSidebar();
+    });
+}
+
+void YouTubeFeature::ensureDownloaded(const TrackPointer& pTrack) {
+    if (!pTrack) {
+        return;
+    }
+    const QString location = pTrack->getLocation();
+    if (location.isEmpty()) {
+        return;
+    }
+    // Only re-fetch tracks under our cache dir.
+    const QDir cache(cacheDir());
+    if (!QFileInfo(location).absoluteFilePath().startsWith(
+                cache.absolutePath() + QLatin1Char('/'))) {
+        return;
+    }
+    if (QFileInfo::exists(location)) {
+        return; // already on disk
+    }
+    const QString videoId = QFileInfo(location).completeBaseName();
+    if (videoId.isEmpty()) {
+        return;
+    }
+    requestPrefetch(videoId);
+}
+
+void YouTubeFeature::prefetchAutoDjQueue() {
+    auto* pTcm = m_pLibrary->trackCollectionManager();
+    if (!pTcm) {
+        return;
+    }
+    auto* pInternal = pTcm->internalCollection();
+    const int autoDjId = pInternal->getPlaylistDAO().getPlaylistIdFromName(
+            AUTODJ_TABLE);
+    if (autoDjId < 0) {
+        return;
+    }
+    const QList<TrackId> ids =
+            pInternal->getPlaylistDAO().getTrackIdsInPlaylistOrder(autoDjId);
+    for (const TrackId& id : ids) {
+        TrackPointer pTrack = pTcm->getTrackById(id);
+        ensureDownloaded(pTrack);
+    }
 }
 
 void YouTubeFeature::appendTrackIdsFromRightClickIndex(

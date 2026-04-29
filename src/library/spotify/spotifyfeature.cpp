@@ -9,6 +9,8 @@
 #include <QNetworkRequest>
 #include <QUrl>
 #include <QUrlQuery>
+#include <functional>
+#include <memory>
 
 #include "library/library.h"
 #include "library/treeitem.h"
@@ -224,12 +226,15 @@ void SpotifyFeature::apiGet(
         // 401 means token is stale — try a refresh and replay the request once.
         if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 401) {
             kLogger.info() << "Spotify token expired, refreshing";
-            connect(&m_oauth2, &QOAuth2AuthorizationCodeFlow::granted, this,
-                    [this, endpoint, cb]() {
+            // We use a manual one-shot connection (rather than Qt 6.0+'s
+            // Qt::SingleShotConnection) so this works on Qt 5 builds too.
+            auto pConn = std::make_shared<QMetaObject::Connection>();
+            *pConn = connect(&m_oauth2, &QOAuth2AuthorizationCodeFlow::granted, this,
+                    [this, endpoint, cb, pConn]() {
+                        QObject::disconnect(*pConn);
                         persistTokens();
                         apiGet(endpoint, cb);
-                    },
-                    Qt::SingleShotConnection);
+                    });
             m_oauth2.refreshAccessToken();
             return;
         }

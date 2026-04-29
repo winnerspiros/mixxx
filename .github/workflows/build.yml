@@ -174,21 +174,53 @@ jobs:
             arch: arm64
           - name: Android 15 arm64
             os: ubuntu-24.04
-            # DBUILD_TESTING=OFF: error: OpenMP support and version of OpenMP (31, 40 or 45) differs
-            # NETWORKAUTH=ON enables the YouTube + Spotify integrations and the
-            # SponsorBlock controller. CMake will gracefully turn it back off
-            # if QtNetworkAuth is missing from the vcpkg triplet.
-            # CMAKE_BUILD_TYPE=MinSizeRel + LTO trim the APK; LOCALECOMPARE=OFF
-            # because Qt's bundled SQLite on Android is not compatible.
+            # Build flags rationale (DJ Sugar personal-use Android target):
+            #
+            #   Size / perf:
+            #     CMAKE_BUILD_TYPE=MinSizeRel       prefer -Os over -O3
+            #     CMAKE_INTERPROCEDURAL_OPTIMIZATION=ON  thin-LTO across .o files
+            #     CMAKE_CXX_FLAGS_MINSIZEREL='-Oz'  clang's "even smaller" pass
+            #     CMAKE_*_LINKER_FLAGS '-Wl,--gc-sections -Wl,--icf=safe -Wl,-s'
+            #                                       drop unused sections, fold
+            #                                       identical functions, strip.
+            #     OPTIMIZE=portable                 keep arm64-baseline tuning
+            #                                       (Android arm64 = ARMv8.0-A).
+            #
+            #   Features off on a phone:
+            #     LOCALECOMPARE=OFF                 Qt's bundled SQLite isn't
+            #                                       compatible with libdjinterop.
+            #     BROADCAST=OFF                     Shoutcast/Icecast on a phone
+            #                                       is not realistic.
+            #     LILV=OFF                          LV2 plugins don't ship.
+            #     VINYLCONTROL=OFF                  No turntable inputs.
+            #     BENCHMARK=OFF / BUILD_TESTING=OFF Skip the test/bench builds.
+            #     MAD=OFF                           Use FFmpeg's MP3 decoder
+            #                                       instead of the standalone
+            #                                       libmad/id3tag combo to avoid
+            #                                       two near-duplicate decoders.
+            #
+            #   Features kept ON for usability:
+            #     QML, HID, BULK, NETWORKAUTH, FFMPEG, MODPLUG, WAVPACK, OPUS
+            #
+            # OpenMP differs across Qt versions on Android, so we disable
+            # tests and benchmarks (they pull in BasicThreadPoolWorker).
             cmake_args: >-
               -DBULK=ON
               -DQT6=ON
               -DQML=ON
               -DHID=ON
               -DNETWORKAUTH=ON
+              -DFFMPEG=ON
               -DLOCALECOMPARE=OFF
+              -DBROADCAST=OFF
+              -DLILV=OFF
+              -DVINYLCONTROL=OFF
+              -DMAD=OFF
+              -DOPTIMIZE=portable
               -DCMAKE_BUILD_TYPE=MinSizeRel
               -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON
+              -DCMAKE_EXE_LINKER_FLAGS=-Wl,--gc-sections,--icf=safe,-s
+              -DCMAKE_SHARED_LINKER_FLAGS=-Wl,--gc-sections,--icf=safe,-s
               -DVCPKG_TARGET_TRIPLET=arm64-android
               -DVCPKG_DEFAULT_HOST_TRIPLET=x64-linux-release
               -DCMAKE_SYSTEM_NAME=Android

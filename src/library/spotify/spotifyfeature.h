@@ -2,6 +2,7 @@
 
 #include <QDesktopServices>
 #include <QHash>
+#include <functional>
 
 #include "library/baseexternallibraryfeature.h"
 #include "util/parented_ptr.h"
@@ -11,8 +12,8 @@
 #include <QtNetworkAuth/QOAuthHttpServerReplyHandler>
 #endif
 
+class QJsonDocument;
 class QNetworkAccessManager;
-class QNetworkReply;
 class TreeItem;
 
 class SpotifyFeature : public BaseExternalLibraryFeature {
