@@ -35,7 +35,9 @@ QList<Range> normaliseRanges(const QList<SponsorSegment>& segments, double& tota
             ranges.append({s.start, s.end});
         }
     }
-    std::sort(ranges.begin(), ranges.end(), [](const Range& a, const Range& b) { return a.start < b.start; });
+    std::sort(ranges.begin(), ranges.end(), [](const Range& a, const Range& b) {
+        return a.start < b.start;
+    });
     QList<Range> merged;
     for (const auto& r : ranges) {
         if (!merged.isEmpty() && r.start <= merged.last().end) {

@@ -263,8 +263,10 @@ void YouTubeService::downloadVideo(const QString& videoId, const QString& cacheD
                                                                 s.category);
                                                         arr.append(o);
                                                     }
-                                                    sidecar.write(QJsonDocument(arr)
-                                                                          .toJson(QJsonDocument::Compact));
+                                                    sidecar.write(
+                                                            QJsonDocument(arr).toJson(
+                                                                    QJsonDocument::
+                                                                            Compact));
                                                 }
                                             }
                                         }

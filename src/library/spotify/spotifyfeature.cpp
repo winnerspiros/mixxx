@@ -113,7 +113,10 @@ void SpotifyFeature::activateChild(const QModelIndex& index) {
                 [this, playlistId](const QJsonDocument& doc) {
                     QList<Item> tracks;
                     for (const auto& item : doc.object().value(QStringLiteral("items")).toArray()) {
-                        const QJsonObject t = item.toObject().value(QStringLiteral("track")).toObject();
+                        const QJsonObject t =
+                                item.toObject()
+                                        .value(QStringLiteral("track"))
+                                        .toObject();
                         if (t.isEmpty()) {
                             continue;
                         }
@@ -122,7 +125,10 @@ void SpotifyFeature::activateChild(const QModelIndex& index) {
                         const QJsonArray artists = t.value(QStringLiteral("artists")).toArray();
                         if (!artists.isEmpty()) {
                             it.label += QStringLiteral(" — ") +
-                                    artists.first().toObject().value(QStringLiteral("name")).toString();
+                                    artists.first()
+                                            .toObject()
+                                            .value(QStringLiteral("name"))
+                                            .toString();
                         }
                         it.uri = t.value(QStringLiteral("uri")).toString();
                         tracks.append(it);
@@ -227,11 +233,14 @@ void SpotifyFeature::apiGet(
             // We use a manual one-shot connection (rather than Qt 6.0+'s
             // Qt::SingleShotConnection) so this works on Qt 5 builds too.
             auto pConn = std::make_shared<QMetaObject::Connection>();
-            *pConn = connect(&m_oauth2, &QOAuth2AuthorizationCodeFlow::granted, this, [this, endpoint, cb, pConn]() {
-                QObject::disconnect(*pConn);
-                persistTokens();
-                apiGet(endpoint, cb);
-            });
+            *pConn = connect(&m_oauth2,
+                    &QOAuth2AuthorizationCodeFlow::granted,
+                    this,
+                    [this, endpoint, cb, pConn]() {
+                        QObject::disconnect(*pConn);
+                        persistTokens();
+                        apiGet(endpoint, cb);
+                    });
             m_oauth2.refreshAccessToken();
             return;
         }

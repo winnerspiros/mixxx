@@ -43,8 +43,14 @@ SponsorBlockController::SponsorBlockController(
         : QObject(parent),
           m_cacheDir(cacheDir),
           m_service(this) {
-    connect(&m_service, &YouTubeService::sponsorSegmentsFetched, this, &SponsorBlockController::onSponsorSegmentsFetched);
-    connect(&PlayerInfo::instance(), &PlayerInfo::trackChanged, this, &SponsorBlockController::onTrackChanged);
+    connect(&m_service,
+            &YouTubeService::sponsorSegmentsFetched,
+            this,
+            &SponsorBlockController::onSponsorSegmentsFetched);
+    connect(&PlayerInfo::instance(),
+            &PlayerInfo::trackChanged,
+            this,
+            &SponsorBlockController::onTrackChanged);
 }
 
 SponsorBlockController::~SponsorBlockController() {

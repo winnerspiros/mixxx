@@ -468,13 +468,13 @@ jobs:
         if: runner.os != 'Windows'
         uses: ammaraskar/gcc-problem-matcher@0.3.0
         env:
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
       - name: "[Windows] Set up MSVC problem matcher"
         if: runner.os == 'Windows'
         uses: ammaraskar/msvc-problem-matcher@0.3.0
         env:
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
       - name: "Build"
         run: cmake --build . --config RelWithDebInfo

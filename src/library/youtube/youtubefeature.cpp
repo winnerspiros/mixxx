@@ -34,10 +34,22 @@ YouTubeFeature::YouTubeFeature(Library* pLibrary, UserSettingsPointer pConfig)
         : BaseExternalLibraryFeature(pLibrary, pConfig, "youtube"),
           m_pSidebarModel(make_parented<TreeItemModel>(this)),
           m_service(this) {
-    connect(&m_service, &mixxx::YouTubeService::searchResultsReady, this, &YouTubeFeature::onSearchResultsReady);
-    connect(&m_service, &mixxx::YouTubeService::searchFailed, this, &YouTubeFeature::onSearchFailed);
-    connect(&m_service, &mixxx::YouTubeService::downloadFinished, this, &YouTubeFeature::onDownloadFinished);
-    connect(&m_service, &mixxx::YouTubeService::downloadFailed, this, &YouTubeFeature::onDownloadFailed);
+    connect(&m_service,
+            &mixxx::YouTubeService::searchResultsReady,
+            this,
+            &YouTubeFeature::onSearchResultsReady);
+    connect(&m_service,
+            &mixxx::YouTubeService::searchFailed,
+            this,
+            &YouTubeFeature::onSearchFailed);
+    connect(&m_service,
+            &mixxx::YouTubeService::downloadFinished,
+            this,
+            &YouTubeFeature::onDownloadFinished);
+    connect(&m_service,
+            &mixxx::YouTubeService::downloadFailed,
+            this,
+            &YouTubeFeature::onDownloadFailed);
 
     // Auto-cleanup: when a YouTube-cached track is ejected from a deck (i.e.
     // replaced by a new one or unloaded), and no other deck still has it
@@ -46,17 +58,22 @@ YouTubeFeature::YouTubeFeature(Library* pLibrary, UserSettingsPointer pConfig)
     // forget about it" experience without unbounded disk growth. Analysis
     // results (BPM/key/waveform) are already persisted at this point so they
     // are not lost — only the audio bytes are.
-    connect(&PlayerInfo::instance(), &PlayerInfo::trackChanged, this, [this](const QString& /*group*/, TrackPointer pNew, TrackPointer pOld) {
-        // Pre-download safety net: if AutoDJ (or the user from a stale
-        // playlist) is loading a YouTube-cache track whose file no
-        // longer exists, kick off a background re-download so the
-        // next play attempt or analysis pass succeeds without the
-        // user noticing a stall.
-        ensureDownloaded(pNew);
-        if (pOld) {
-            maybeReleaseCachedTrack(pOld);
-        }
-    });
+    connect(&PlayerInfo::instance(),
+            &PlayerInfo::trackChanged,
+            this,
+            [this](const QString& /*group*/,
+                    TrackPointer pNew,
+                    TrackPointer pOld) {
+                // Pre-download safety net: if AutoDJ (or the user from a stale
+                // playlist) is loading a YouTube-cache track whose file no
+                // longer exists, kick off a background re-download so the
+                // next play attempt or analysis pass succeeds without the
+                // user noticing a stall.
+                ensureDownloaded(pNew);
+                if (pOld) {
+                    maybeReleaseCachedTrack(pOld);
+                }
+            });
 
     // At startup, pre-fetch every YouTube-cache track that's queued in AutoDJ
     // but no longer present on disk. This is the "I closed the app halfway

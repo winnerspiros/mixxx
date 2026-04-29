@@ -51,7 +51,7 @@ jobs:
           ESLINT_PLUGIN_DIFF_COMMIT: ${{ inputs.pull_request && 'HEAD^1' || '' }}
           # pre-commit/action@v3.0.1 internally uses actions/cache@v4 (Node.js 20).
           # Opt into Node.js 24 to silence the deprecation warning.
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
         with:
           # HEAD is the not yet integrated PR merge commit +refs/pull/xxxx/merge
           # HEAD^1 is the PR target branch and HEAD^2 is the HEAD of the source branch
