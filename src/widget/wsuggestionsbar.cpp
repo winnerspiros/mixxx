@@ -13,10 +13,11 @@
 #include <QStyle>
 
 #include "coreservices.h"
+#include "library/dao/playlistdao.h"
+#include "library/dao/trackschema.h"
 #include "library/library.h"
 #include "library/trackcollection.h"
 #include "library/trackcollectionmanager.h"
-#include "library/dao/playlistdao.h"
 #include "mixer/playerinfo.h"
 #include "mixer/playermanager.h"
 #include "moc_wsuggestionsbar.cpp"
@@ -47,7 +48,8 @@ QSet<int> currentlyLoadedTrackIds() {
 
 WSuggestionsBar::WSuggestionsBar(
         std::shared_ptr<mixxx::CoreServices> pCoreServices, QWidget* pParent)
-        : QFrame(pParent), m_pCoreServices(std::move(pCoreServices)) {
+        : QFrame(pParent),
+          m_pCoreServices(std::move(pCoreServices)) {
     setObjectName(QStringLiteral("SuggestionsBar"));
     // Match the LateNight palette: pure black on OLED, faint border so the
     // strip is visible against the also-black status bar.
@@ -216,7 +218,7 @@ void WSuggestionsBar::rebuildButtons(const QList<Pick>& picks) {
         }
         auto* btn = new QPushButton(elide(text), this);
         btn->setToolTip(tr("Click: load on next deck. Right-click: queue in AutoDJ.\n%1")
-                                .arg(text));
+                        .arg(text));
         btn->setProperty("autodj", pick.fromAutoDj);
         btn->setCursor(Qt::PointingHandCursor);
         btn->setFlat(false);

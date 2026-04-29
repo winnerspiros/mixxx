@@ -228,10 +228,9 @@ jobs:
               -DMODPLUG=OFF
               -DWAVPACK=OFF
               -DOPTIMIZE=portable
-              -DCMAKE_BUILD_TYPE=MinSizeRel
               -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON
-              -DCMAKE_C_FLAGS=-ffunction-sections\ -fdata-sections\ -fvisibility=hidden
-              -DCMAKE_CXX_FLAGS=-ffunction-sections\ -fdata-sections\ -fvisibility=hidden\ -fvisibility-inlines-hidden
+              -DCMAKE_C_FLAGS=-ffunction-sections\ -fdata-sections\ -fvisibility=hidden\ -Os
+              -DCMAKE_CXX_FLAGS=-ffunction-sections\ -fdata-sections\ -fvisibility=hidden\ -fvisibility-inlines-hidden\ -Os
               -DCMAKE_EXE_LINKER_FLAGS=-Wl,--gc-sections,--icf=safe,-s
               -DCMAKE_SHARED_LINKER_FLAGS=-Wl,--gc-sections,--icf=safe,-s
               -DVCPKG_TARGET_TRIPLET=arm64-android
