@@ -24,12 +24,12 @@ Rectangle {
         count: 4
     }
 
-    // Keep the strip fresh: poll once a second. The query is two indexed
-    // SQLite reads, so the cost is negligible compared to the audio engine
-    // workload, and this avoids depending on PlayerInfo signal exposure
-    // changing across Qt versions.
+    // Keep the strip fresh: poll every 2 s while visible. Two indexed SQLite
+    // reads are negligible vs. the engine workload, and the timer auto-stops
+    // when `visible` flips to false (e.g. user maximises a deck), so there is
+    // no cost during heavy mixing when the library is hidden.
     Timer {
-        interval: 1000
+        interval: 2000
         repeat: true
         running: root.visible
         triggeredOnStart: true
