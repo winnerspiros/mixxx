@@ -2376,8 +2376,7 @@ if(QT6)
     )
     set_target_properties(
       mixxx
-      PROPERTIES
-        QT_ANDROID_APPLICATION_ARGUMENTS "--log-level warning"
+      PROPERTIES QT_ANDROID_APPLICATION_ARGUMENTS "--log-level warning"
     )
     qt_add_android_permission(mixxx
     NAME android.permission.ACCESS_NETWORK_STATE
@@ -2472,15 +2471,16 @@ if(QT6)
         ${CMAKE_CURRENT_BINARY_DIR}/android-build/assets/schema.xml
       # Skins: LateNight + the shared *.qss only.
       COMMAND
-        ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/res/skins/LateNight
+        ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/res/skins/LateNight
         ${CMAKE_CURRENT_BINARY_DIR}/android-build/assets/skins/LateNight
       COMMAND
         ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/res/skins/default.qss
         ${CMAKE_CURRENT_BINARY_DIR}/android-build/assets/skins/default.qss
       COMMAND
         ${CMAKE_COMMAND} -E copy
-          ${CMAKE_SOURCE_DIR}/res/skins/default-menu-styles-linux.qss
-          ${CMAKE_CURRENT_BINARY_DIR}/android-build/assets/skins/default-menu-styles-linux.qss
+        ${CMAKE_SOURCE_DIR}/res/skins/default-menu-styles-linux.qss
+        ${CMAKE_CURRENT_BINARY_DIR}/android-build/assets/skins/default-menu-styles-linux.qss
       # Translations: ship only the English source file (Mixxx falls back to
       # the in-source English strings if no .qm is found).
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"

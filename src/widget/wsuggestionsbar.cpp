@@ -38,7 +38,7 @@ QSet<int> currentlyLoadedTrackIds() {
     const auto loaded = PlayerInfo::instance().getLoadedTracks();
     for (auto it = loaded.cbegin(); it != loaded.cend(); ++it) {
         if (it.value() && it.value()->getId().isValid()) {
-            ids.insert(it.value()->getId().value());
+            ids.insert(it.value()->getId().toVariant().toInt());
         }
     }
     return ids;
@@ -132,7 +132,7 @@ QList<WSuggestionsBar::Pick> WSuggestionsBar::queryPicks(int limit) const {
         QSqlQuery q(db);
         q.prepare(QStringLiteral(
                 "SELECT library.id, library.title, library.artist, "
-                "       (track_locations.directory || '/' || track_locations.filename) "
+                "       track_locations.location "
                 "FROM PlaylistTracks "
                 "JOIN library ON library.id = PlaylistTracks.track_id "
                 "JOIN track_locations ON track_locations.id = library.location "
@@ -153,7 +153,7 @@ QList<WSuggestionsBar::Pick> WSuggestionsBar::queryPicks(int limit) const {
         QSqlQuery q(db);
         q.prepare(QStringLiteral(
                 "SELECT library.id, library.title, library.artist, "
-                "       (track_locations.directory || '/' || track_locations.filename) "
+                "       track_locations.location "
                 "FROM library "
                 "JOIN track_locations ON track_locations.id = library.location "
                 "WHERE library.mixxx_deleted = 0 AND track_locations.fs_deleted = 0 "
@@ -198,7 +198,7 @@ void WSuggestionsBar::appendToAutoDj(const Pick& pick) {
     if (autoDjId < 0) {
         return;
     }
-    pdao.appendTrackToPlaylist(TrackId(pick.trackId), autoDjId);
+    pdao.appendTrackToPlaylist(TrackId(QVariant(pick.trackId)), autoDjId);
     refresh();
 }
 

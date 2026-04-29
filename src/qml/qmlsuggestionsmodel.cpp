@@ -26,7 +26,7 @@ QSet<int> currentlyLoadedTrackIds() {
     const auto loaded = PlayerInfo::instance().getLoadedTracks();
     for (auto it = loaded.cbegin(); it != loaded.cend(); ++it) {
         if (it.value() && it.value()->getId().isValid()) {
-            ids.insert(it.value()->getId().value());
+            ids.insert(it.value()->getId().toVariant().toInt());
         }
     }
     return ids;
@@ -137,7 +137,7 @@ void QmlSuggestionsModel::refresh() {
         q.prepare(QStringLiteral(
                 "SELECT library.id, library.title, library.artist, "
                 "       library.duration, library.bpm, "
-                "       (track_locations.directory || '/' || track_locations.filename) AS path "
+                "       track_locations.location AS path "
                 "FROM PlaylistTracks "
                 "JOIN library ON library.id = PlaylistTracks.track_id "
                 "JOIN track_locations ON track_locations.id = library.location "
@@ -162,7 +162,7 @@ void QmlSuggestionsModel::refresh() {
         q.prepare(QStringLiteral(
                 "SELECT library.id, library.title, library.artist, "
                 "       library.duration, library.bpm, "
-                "       (track_locations.directory || '/' || track_locations.filename) AS path "
+                "       track_locations.location AS path "
                 "FROM library "
                 "JOIN track_locations ON track_locations.id = library.location "
                 "WHERE library.mixxx_deleted = 0 AND track_locations.fs_deleted = 0 "
@@ -216,7 +216,7 @@ void QmlSuggestionsModel::appendToAutoDj(int row) {
     if (autoDjId < 0) {
         return;
     }
-    pdao.appendTrackToPlaylist(TrackId(m_rows.at(row).trackId), autoDjId);
+    pdao.appendTrackToPlaylist(TrackId(QVariant(m_rows.at(row).trackId)), autoDjId);
     refresh();
 }
 

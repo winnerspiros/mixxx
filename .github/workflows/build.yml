@@ -204,6 +204,15 @@ jobs:
             #
             # OpenMP differs across Qt versions on Android, so we disable
             # tests and benchmarks (they pull in BasicThreadPoolWorker).
+            # Compile flags below are passed via matrix.cmake_args. They
+            # require -ffunction-sections / -fdata-sections so --gc-sections
+            # has something to fold; -fvisibility=hidden then hides everything
+            # not explicitly exported, so unused symbols are dead-stripped from
+            # libmixxx-lib.so. Combined these consistently shave 8–12% off the
+            # compressed APK size for our build. NB: do NOT put `# comments`
+            # inside the `>-` block — YAML's folded scalar would splice them
+            # into the bash command line and the shell would treat the rest of
+            # the line as a comment, breaking the cmake invocation entirely.
             cmake_args: >-
               -DBULK=ON
               -DQT6=ON
@@ -221,11 +230,6 @@ jobs:
               -DOPTIMIZE=portable
               -DCMAKE_BUILD_TYPE=MinSizeRel
               -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON
-              # -ffunction-sections / -fdata-sections give --gc-sections something
-              # to actually fold; -fvisibility=hidden hides everything not
-              # explicitly exported, so unused symbols are dead-stripped from
-              # libmixxx-lib.so. Combined these consistently shave 8–12% off
-              # the compressed APK size for our build.
               -DCMAKE_C_FLAGS=-ffunction-sections\ -fdata-sections\ -fvisibility=hidden
               -DCMAKE_CXX_FLAGS=-ffunction-sections\ -fdata-sections\ -fvisibility=hidden\ -fvisibility-inlines-hidden
               -DCMAKE_EXE_LINKER_FLAGS=-Wl,--gc-sections,--icf=safe,-s
@@ -432,8 +436,13 @@ jobs:
         run: mkdir build
 
       - name: "Configure"
+        # NB: ${{ matrix.cmake_args }} is placed AFTER the per-job defaults
+        # so that matrix-specific overrides win — cmake takes the last `-D`
+        # for any given variable. (Previously the Android matrix's
+        # CMAKE_BUILD_TYPE=MinSizeRel and BROADCAST=OFF were silently
+        # overridden by the trailing defaults below.)
         run: >-
-          cmake ${{ matrix.cmake_args }} ${{ env.CMAKE_ARGS_EXTRA }}
+          cmake ${{ env.CMAKE_ARGS_EXTRA }}
           -DCMAKE_BUILD_TYPE=RelWithDebInfo
           -DCMAKE_PREFIX_PATH="${{ env.CMAKE_PREFIX_PATH }}"
           -DWARNINGS_FATAL=ON
@@ -448,6 +457,7 @@ jobs:
           -DQTKEYCHAIN=ON
           -DVINYLCONTROL=ON
           -DCMAKE_VERBOSE_MAKEFILE=OFF
+          ${{ matrix.cmake_args }}
           -L
           ..
         working-directory: build
