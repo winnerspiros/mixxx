@@ -38,6 +38,13 @@ YouTubeFeature::YouTubeFeature(Library* pLibrary, UserSettingsPointer pConfig)
     if (!configured.isEmpty()) {
         m_service.setYtDlpPath(configured);
     }
+    // Optional destructive sponsor removal at download time. Off by default;
+    // see YouTubeService::setRemoveSponsorsAtDownload for the trade-off.
+    m_service.setRemoveSponsorsAtDownload(
+            pConfig->getValue(
+                    ConfigKey(QStringLiteral("[YouTube]"),
+                            QStringLiteral("sponsorblock_remove_at_download")),
+                    false));
 
     connect(&m_service, &mixxx::YouTubeService::searchResultsReady,
             this, &YouTubeFeature::onSearchResultsReady);

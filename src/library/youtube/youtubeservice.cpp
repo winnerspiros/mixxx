@@ -104,8 +104,16 @@ void YouTubeService::downloadVideo(const QString& videoId, const QString& cacheD
          << QStringLiteral("--audio-format") << QStringLiteral("opus")
          << QStringLiteral("--audio-quality") << QStringLiteral("0")
          << QStringLiteral("--write-info-json")
-         << QStringLiteral("-o") << outputTemplate
-         << QStringLiteral("https://www.youtube.com/watch?v=") + videoId;
+         << QStringLiteral("-o") << outputTemplate;
+    // Optional belt-and-braces ad/sponsor removal at download time. Off by
+    // default because physically removing segments shifts beat positions in
+    // the resulting file, which corrupts BPM analysis for music videos. Power
+    // users on personal-use installs can opt in for podcast-style content.
+    if (m_removeSponsorsAtDownload) {
+        args << QStringLiteral("--sponsorblock-remove")
+             << QStringLiteral("sponsor,selfpromo,interaction,intro,outro,preview,music_offtopic");
+    }
+    args << QStringLiteral("https://www.youtube.com/watch?v=") + videoId;
     connect(process,
             QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
             this,
@@ -153,9 +161,15 @@ void YouTubeService::downloadVideo(const QString& videoId, const QString& cacheD
 void YouTubeService::fetchSponsorSegments(const QString& videoId) {
     auto* manager = new QNetworkAccessManager(this);
     // SponsorBlock public API: https://wiki.sponsor.ajay.app/w/API_Docs
-    // We only request user-flagged categories that make sense to skip in a DJ
-    // context. Notably we do NOT skip ads here — that is YouTube's job and
-    // bundling YouTube ad-blocking would put the project in violation of YT ToS.
+    //
+    // We request the union of every category that is "ad-like" for a DJ
+    // workflow: third-party sponsor reads, creator self-promo, intros/outros,
+    // viewer-interaction reminders ("smash that like button"), previews of
+    // future content, and non-music sections within music videos.
+    //
+    // Note on YouTube's served ads (pre-/mid-/post-roll): those are never
+    // present in the audio yt-dlp downloads, so there is nothing to block at
+    // this layer — the architecture is already ad-free for them.
     const QUrl url(
             QStringLiteral("https://sponsor.ajay.app/api/skipSegments?videoID=%1"
                            "&categories=[\"sponsor\",\"selfpromo\",\"interaction\","

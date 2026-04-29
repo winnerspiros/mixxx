@@ -39,6 +39,15 @@ class YouTubeService : public QObject {
         m_ytDlpPath = path;
     }
 
+    /// Enable destructive (download-time) removal of sponsor/ad segments via
+    /// yt-dlp's --sponsorblock-remove. Default off because cutting segments
+    /// shifts beat grids; only enable for podcast-like content where BPM
+    /// analysis is meaningless. Playback-time skipping via SponsorBlockController
+    /// is always on regardless of this setting.
+    void setRemoveSponsorsAtDownload(bool enabled) {
+        m_removeSponsorsAtDownload = enabled;
+    }
+
     /// Run a search; emits searchResultsReady(query, results) on completion.
     /// Cap is the max number of results requested from yt-dlp.
     void searchVideos(const QString& query, int cap = 25);
@@ -63,6 +72,7 @@ class YouTubeService : public QObject {
 
   private:
     QString m_ytDlpPath;
+    bool m_removeSponsorsAtDownload = false;
 };
 
 } // namespace mixxx
