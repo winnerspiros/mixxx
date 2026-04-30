@@ -237,7 +237,7 @@ void maybeAutoDetectScaleFactor(CmdlineArgs* pArgs) {
     const bool sameAsConfig =
             ok && existing > 0 && std::fabs(existing - scale) < 0.005;
 
-    qDebug() << "Auto-fit ScaleFactor" << scale << "for screen" << screenSize
+    qDebug() << "Auto-detected ScaleFactor" << scale << "for screen" << screenSize
              << "(LateNight nominal" << kSkinNominalWidth << "x"
              << kSkinNominalHeight << ", previous=" << existingStr << ")";
 

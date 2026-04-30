@@ -104,8 +104,13 @@ void YouTubeService::runYtDlp(const QStringList& args,
 
     // Watchdog timer — yt-dlp normally exits on its own well before this,
     // but a hung download or DNS stall would otherwise block the user
-    // forever. Killing the process triggers errorOccurred / finished, which
-    // the lambdas below convert into a user-visible error.
+    // forever. Killing the process triggers `finished`, which the lambda
+    // below converts into a user-visible error.
+    //
+    // The timer is parented to `proc`, so when `proc` is destroyed the
+    // timer is destroyed with it (preventing any chance of a fire after
+    // proc tear-down). We additionally stop() it explicitly in the
+    // finished/errorOccurred handlers so it can't race deleteLater().
     auto* watchdog = new QTimer(proc);
     watchdog->setSingleShot(true);
     watchdog->setInterval(timeoutMs);
@@ -114,10 +119,17 @@ void YouTubeService::runYtDlp(const QStringList& args,
         proc->kill();
     });
 
+    // Cleanup is centralized: `finished` is the single place that calls
+    // deleteLater(). FailedToStart is the one error case where `finished`
+    // does *not* fire (Qt skips it because the process never started), so
+    // the errorOccurred handler synthesizes a failure for that one case
+    // only and routes it through the same callback.
     connect(proc,
             &QProcess::finished,
             this,
-            [proc, onSuccess, onFailure](int exitCode, QProcess::ExitStatus status) {
+            [proc, watchdog, onSuccess, onFailure](
+                    int exitCode, QProcess::ExitStatus status) {
+                watchdog->stop();
                 proc->deleteLater();
                 const QByteArray out = proc->readAllStandardOutput();
                 const QByteArray err = proc->readAllStandardError();
@@ -134,14 +146,15 @@ void YouTubeService::runYtDlp(const QStringList& args,
     connect(proc,
             &QProcess::errorOccurred,
             this,
-            [proc, onFailure](QProcess::ProcessError error) {
-                if (error == QProcess::FailedToStart) {
-                    proc->deleteLater();
-                    onFailure(tr("Failed to launch yt-dlp"));
+            [proc, watchdog, onFailure](QProcess::ProcessError error) {
+                if (error != QProcess::FailedToStart) {
+                    // Crashed / Timedout / WriteError / ReadError / Unknown
+                    // are all followed by `finished`, which owns cleanup.
+                    return;
                 }
-                // For other errors (Crashed, Timedout, WriteError, ReadError,
-                // UnknownError) the `finished` slot will fire and handle the
-                // failure path uniformly via exit-code / status.
+                watchdog->stop();
+                proc->deleteLater();
+                onFailure(tr("Failed to launch yt-dlp"));
             });
 
     watchdog->start();
