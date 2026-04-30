@@ -1,13 +1,17 @@
 #pragma once
 
 #include <QHash>
+#include <QPointer>
 #include <QSet>
 
 #include "library/baseexternallibraryfeature.h"
 #include "library/youtube/youtubeservice.h"
 #include "util/parented_ptr.h"
 
+class KeyboardEventFilter;
 class TreeItem;
+class WLibrary;
+class WLibraryTextBrowser;
 
 class YouTubeFeature : public BaseExternalLibraryFeature {
     Q_OBJECT
@@ -21,6 +25,8 @@ class YouTubeFeature : public BaseExternalLibraryFeature {
     void activate() override;
     void activateChild(const QModelIndex& index) override;
     TreeItemModel* sidebarModel() const override;
+    void bindLibraryWidget(WLibrary* pLibraryWidget,
+            KeyboardEventFilter* pKeyboard) override;
 
     void searchAndActivate(const QString& query);
 
@@ -42,6 +48,11 @@ class YouTubeFeature : public BaseExternalLibraryFeature {
     /// Rebuild the sidebar tree from the current search-result and
     /// downloaded-track caches.
     void rebuildSidebar();
+    /// Rebuild the HTML for the main YOUTUBE_HOME pane (the right-hand area
+    /// the user sees when YouTube is selected). Mirrors the sidebar listing
+    /// so the user has feedback that a search returned results, even before
+    /// they unfold the tree node.
+    void rebuildHomeHtml();
     /// Trigger a download (or short-circuit if already cached) for `videoId`.
     /// The downloaded track will be auto-loaded onto the next free deck.
     void requestDownload(const QString& videoId);
@@ -63,6 +74,7 @@ class YouTubeFeature : public BaseExternalLibraryFeature {
     void prefetchAutoDjQueue();
 
     parented_ptr<TreeItemModel> m_pSidebarModel;
+    QPointer<WLibraryTextBrowser> m_pHomeView;
     mixxx::YouTubeService m_service;
     QString m_lastQuery;
     QList<mixxx::YouTubeVideoInfo> m_lastResults;

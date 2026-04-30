@@ -6,6 +6,7 @@
 #include <QMessageBox>
 #include <QStandardPaths>
 #include <QTimer>
+#include <QUrl>
 
 #include "library/dao/trackschema.h"
 #include "library/library.h"
@@ -19,6 +20,8 @@
 #include "track/trackref.h"
 #include "util/file.h"
 #include "util/logger.h"
+#include "widget/wlibrary.h"
+#include "widget/wlibrarytextbrowser.h"
 
 namespace {
 const mixxx::Logger kLogger("YouTubeFeature");
@@ -100,8 +103,13 @@ QString YouTubeFeature::cacheDir() const {
 void YouTubeFeature::activate() {
     kLogger.debug() << "YouTube feature activated";
     Q_EMIT switchToView(QStringLiteral("YOUTUBE_HOME"));
-    Q_EMIT disableSearch();
+    // Intentionally do NOT emit disableSearch(): the main library search box
+    // is the only way the user can drive a YouTube search (Library forwards
+    // queries to YouTubeFeature::searchAndActivate). Greying it out — which
+    // is what BaseExternalLibraryFeature siblings do — would make the pane
+    // appear empty with no way to populate it.
     Q_EMIT enableCoverArtDisplay(false);
+    rebuildHomeHtml();
 }
 
 void YouTubeFeature::activateChild(const QModelIndex& index) {
