@@ -3,8 +3,10 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QLocale>
 #include <QMessageBox>
 #include <QStandardPaths>
+#include <QTextBrowser>
 #include <QTimer>
 #include <QUrl>
 
@@ -32,6 +34,51 @@ constexpr int kSearchResultsMax = 25;
 // "search result the user wants to load" from "already-downloaded track".
 const QString kSearchPrefix = QStringLiteral("yt-search:");
 const QString kCachedPrefix = QStringLiteral("yt-cached:");
+
+// URL schemes used by the clickable links rendered into the home-pane HTML.
+// Plain `<li>title</li>` would only render text — the user reported "songs..
+// just text. Nothing to click, play". Wrapping each entry in <a href> +
+// dispatching anchorClicked() to the existing requestDownload / load paths
+// gives them a real action with no extra UI surface.
+const QString kHomePlayScheme = QStringLiteral("ytplay");
+const QString kHomeCachedScheme = QStringLiteral("ytcached");
+
+// Derive the user's ISO 3166-1 alpha-2 country code from the system locale
+// in a way that compiles on both Qt 5 and Qt 6 (Mixxx still supports both).
+// QLocale::system().name() returns e.g. "en_US.UTF-8"; the country segment
+// is between '_' and the first '.' or end. Falls back to "US" if we cannot
+// extract two upper-case letters — Piped's /trending requires a region.
+QString systemCountryCode() {
+    const QString name = QLocale::system().name();
+    const int us = name.indexOf(QLatin1Char('_'));
+    if (us > 0 && name.size() >= us + 3) {
+        QString code = name.mid(us + 1, 2);
+        const int dot = code.indexOf(QLatin1Char('.'));
+        if (dot >= 0) {
+            code = code.left(dot);
+        }
+        if (code.size() == 2 && code.at(0).isLetter() && code.at(1).isLetter()) {
+            return code.toUpper();
+        }
+    }
+    return QStringLiteral("US");
+}
+
+// Human-readable country name for display in the "Trending in <Country>"
+// header. QLocale knows how to localize country names from the alpha-2 code,
+// but the API names changed between Qt 5 (countryToString / Country) and
+// Qt 6 (territoryToString / Territory) — Mixxx still supports both.
+QString countryDisplayName(const QString& code) {
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    const QLocale forCountry(QStringLiteral("en_") + code);
+    const QString name = QLocale::countryToString(forCountry.country());
+#else
+    const QLocale forCountry(QLocale::AnyLanguage,
+            QLocale::codeToTerritory(code));
+    const QString name = QLocale::territoryToString(forCountry.territory());
+#endif
+    return name.isEmpty() ? code : name;
+}
 } // namespace
 
 YouTubeFeature::YouTubeFeature(Library* pLibrary, UserSettingsPointer pConfig)
@@ -110,16 +157,23 @@ void YouTubeFeature::activate() {
     // appear empty with no way to populate it.
     Q_EMIT enableCoverArtDisplay(false);
     rebuildHomeHtml();
-    // Prime the pane with a "what's hot" list on first open so the user has
-    // something to click before they've typed anything. We piggyback on the
-    // existing search path rather than hitting a dedicated trending endpoint
-    // (InnerTube's `browse:FEtrending` exists but would double the API
-    // surface in YouTubeService for marginal benefit).
+    // Prime the pane with a real "what's hot in your country" feed on first
+    // open so the user has something to click before they've typed anything.
+    // Previously this issued a literal `searchAndActivate("trending music")`
+    // — which is just a keyword search and produced unrelated junk. The
+    // proper Piped `/trending?region=XX` endpoint returns the actual YouTube
+    // trending feed for the user's country.
     if (m_lastQuery.isEmpty() && m_lastResults.isEmpty()) {
-        // Use an untranslated literal as the API query — translating
-        // "trending music" would send a localized phrase to YouTube and
-        // produce inconsistent (or empty) results for non-English users.
-        searchAndActivate(QStringLiteral("trending music"));
+        const QString country = systemCountryCode();
+        m_lastQuery = mixxx::YouTubeService::kTrendingQueryPrefix + country;
+        m_lastResults.clear();
+        m_lastSearchError.clear();
+        m_autoLoadNextResult = false;
+        m_autoLoadDisplayLabel.clear();
+        rebuildSidebar();
+        rebuildHomeHtml();
+        kLogger.info() << "Fetching YouTube trending for region" << country;
+        m_service.fetchTrending(country, kSearchResultsMax);
     }
 }
 
@@ -132,9 +186,32 @@ void YouTubeFeature::bindLibraryWidget(WLibrary* pLibraryWidget,
     // search ran).
     auto pBrowser = make_parented<WLibraryTextBrowser>(pLibraryWidget);
     pBrowser->setOpenLinks(false);
+    // Without this connection the home pane is a wall of unclickable text
+    // (the user can only act on items via the sidebar tree) — the rendered
+    // <a href="ytplay:…"> / <a href="ytcached:…"> links need a sink.
+    connect(pBrowser.get(),
+            &QTextBrowser::anchorClicked,
+            this,
+            &YouTubeFeature::onHomeAnchorClicked);
     m_pHomeView = pBrowser.get();
     pLibraryWidget->registerView(QStringLiteral("YOUTUBE_HOME"), pBrowser);
     rebuildHomeHtml();
+}
+
+void YouTubeFeature::onHomeAnchorClicked(const QUrl& url) {
+    const QString scheme = url.scheme();
+    // Both schemes carry the YouTube video id as their path component (the
+    // 11-char `[A-Za-z0-9_-]+` token). For ytplay we kick off a download (or
+    // short-circuit if cached); for ytcached we go through the same path
+    // because requestDownload() already handles the cached case by calling
+    // onDownloadFinished synchronously, which is exactly what we want for a
+    // user click on a previously-downloaded track.
+    if (scheme == kHomePlayScheme || scheme == kHomeCachedScheme) {
+        const QString videoId = url.path();
+        if (!videoId.isEmpty()) {
+            requestDownload(videoId);
+        }
+    }
 }
 
 void YouTubeFeature::activateChild(const QModelIndex& index) {
@@ -423,8 +500,18 @@ void YouTubeFeature::rebuildSidebar() {
     auto pRoot = TreeItem::newRoot(this);
 
     if (!m_lastQuery.isEmpty()) {
-        TreeItem* pSearchNode = pRoot->appendChild(
-                tr("Search: %1").arg(m_lastQuery));
+        // Show a friendly "Trending in <Country>" label for the trending
+        // sentinel rather than the raw `__trending__:US` token.
+        QString headerLabel;
+        if (m_lastQuery.startsWith(
+                    mixxx::YouTubeService::kTrendingQueryPrefix)) {
+            const QString region = m_lastQuery.mid(
+                    mixxx::YouTubeService::kTrendingQueryPrefix.size());
+            headerLabel = tr("Trending in %1").arg(countryDisplayName(region));
+        } else {
+            headerLabel = tr("Search: %1").arg(m_lastQuery);
+        }
+        TreeItem* pSearchNode = pRoot->appendChild(headerLabel);
         for (const auto& info : std::as_const(m_lastResults)) {
             const QString durationText = info.durationSec > 0
                     ? QString::fromLatin1("%1:%2")
@@ -483,18 +570,30 @@ void YouTubeFeature::rebuildHomeHtml() {
 
     html += QStringLiteral("<p>") +
             tr("Type a song, artist or video title in the search box at the "
-               "top of the library to search YouTube. Click a result in the "
-               "sidebar to download it — finished tracks appear under "
-               "<b>Downloaded</b> and in the main library view, ready to drag "
-               "onto any deck. Audio is downloaded ad-free and SponsorBlock "
-               "automatically trims sponsored intros, self-promo and other "
-               "non-music segments out of the file.") +
+               "top of the library to search YouTube. Click a result below "
+               "(or in the sidebar) to download it — finished tracks appear "
+               "under <b>Downloaded</b> and in the main library view, ready "
+               "to drag onto any deck. Audio is downloaded ad-free and "
+               "SponsorBlock automatically trims sponsored intros, self-promo "
+               "and other non-music segments out of the file.") +
             QStringLiteral("</p>");
 
     if (!m_lastQuery.isEmpty()) {
-        html += QStringLiteral("<h3>") +
-                tr("Results for: %1").arg(m_lastQuery.toHtmlEscaped()) +
-                QStringLiteral("</h3>");
+        // Trending sentinel query — render a friendly "Trending in <Country>"
+        // header instead of the raw `__trending__:US` token.
+        const bool isTrending = m_lastQuery.startsWith(
+                mixxx::YouTubeService::kTrendingQueryPrefix);
+        if (isTrending) {
+            const QString region = m_lastQuery.mid(
+                    mixxx::YouTubeService::kTrendingQueryPrefix.size());
+            html += QStringLiteral("<h3>") +
+                    tr("Trending in %1").arg(countryDisplayName(region)) +
+                    QStringLiteral("</h3>");
+        } else {
+            html += QStringLiteral("<h3>") +
+                    tr("Results for: %1").arg(m_lastQuery.toHtmlEscaped()) +
+                    QStringLiteral("</h3>");
+        }
         if (!m_lastSearchError.isEmpty()) {
             // Surface the underlying error so the user can act on it (e.g.
             // network failure, yt-dlp out-of-date, region-blocked content).
@@ -505,7 +604,7 @@ void YouTubeFeature::rebuildHomeHtml() {
                     QStringLiteral("</p>");
         } else if (m_lastResults.isEmpty()) {
             html += QStringLiteral("<p><i>") +
-                    tr("Searching…") +
+                    (isTrending ? tr("Loading trending…") : tr("Searching…")) +
                     QStringLiteral("</i></p>");
         } else {
             html += QStringLiteral("<ul>");
@@ -523,7 +622,15 @@ void YouTubeFeature::rebuildHomeHtml() {
                                             10,
                                             QLatin1Char('0'));
                 }
-                html += QStringLiteral("<li>") + line + QStringLiteral("</li>");
+                // Wrap the entry in an <a href="ytplay:VIDEOID"> so the user
+                // can actually act on it from the main pane. We rely on
+                // setOpenLinks(false) + the anchorClicked handler set up in
+                // bindLibraryWidget() to dispatch the click. The video id
+                // matches [A-Za-z0-9_-]+ and so needs no extra escaping.
+                html += QStringLiteral("<li><a href=\"") + kHomePlayScheme +
+                        QStringLiteral(":") + info.id +
+                        QStringLiteral("\">") + line +
+                        QStringLiteral("</a></li>");
             }
             html += QStringLiteral("</ul>");
         }
@@ -535,8 +642,14 @@ void YouTubeFeature::rebuildHomeHtml() {
         for (auto it = m_downloadedTracks.cbegin();
                 it != m_downloadedTracks.cend();
                 ++it) {
-            html += QStringLiteral("<li>") + it.value().toHtmlEscaped() +
-                    QStringLiteral("</li>");
+            // Same href shape as search results — videoId in the path. The
+            // anchor handler routes via requestDownload(), which short-
+            // circuits when the cached file is on disk and loads it onto a
+            // deck via the standard onDownloadFinished path.
+            html += QStringLiteral("<li><a href=\"") + kHomeCachedScheme +
+                    QStringLiteral(":") + it.key() +
+                    QStringLiteral("\">") + it.value().toHtmlEscaped() +
+                    QStringLiteral("</a></li>");
         }
         html += QStringLiteral("</ul>");
     }

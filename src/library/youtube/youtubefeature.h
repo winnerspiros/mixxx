@@ -51,6 +51,10 @@ class YouTubeFeature : public BaseExternalLibraryFeature {
     void onSearchFailed(const QString& query, const QString& error);
     void onDownloadFinished(const QString& videoId, const QString& localPath);
     void onDownloadFailed(const QString& videoId, const QString& error);
+    /// Dispatch clicks on links rendered in the home pane HTML.
+    /// `ytplay:VIDEOID`     → download (or load from cache) and load on a deck.
+    /// `ytcached:LOCALPATH` → load the already-downloaded file on a deck.
+    void onHomeAnchorClicked(const QUrl& url);
 
   private:
     /// Rebuild the sidebar tree from the current search-result and

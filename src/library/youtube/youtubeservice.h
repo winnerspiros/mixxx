@@ -62,6 +62,19 @@ class YouTubeService : public QObject {
     /// `cap` is the max number of results returned to the caller.
     void searchVideos(const QString& query, int cap = 25);
 
+    /// Fetch the YouTube "trending" feed for the given ISO 3166-1 alpha-2
+    /// country code (e.g. "US", "DE", "BR"). Results are surfaced via the
+    /// existing searchResultsReady signal with `query` set to the sentinel
+    /// kTrendingQueryPrefix + region — YouTubeFeature recognizes that
+    /// prefix and renders a "Trending in <Country>" header instead of
+    /// "Results for: ...". This keeps the signal surface small.
+    void fetchTrending(const QString& region, int cap = 25);
+
+    /// Sentinel `query` value prefix used for trending results. Anything
+    /// emitted on searchResultsReady whose query starts with this prefix is
+    /// the trending feed for the region given after the colon.
+    static const QString kTrendingQueryPrefix;
+
     /// Download `videoId` to `cacheDir`. Picks the best audio-only stream
     /// (typically opus-in-webm or aac-in-m4a), writes it to
     /// `<cacheDir>/<videoId>.<ext>`. Emits downloadFinished(videoId, path)
@@ -103,6 +116,12 @@ class YouTubeService : public QObject {
             int cap,
             int instanceIdx,
             const std::function<void(const QString& lastError)>& onAllFailed);
+
+    /// Try Piped's `/trending?region=XX` against `m_pipedInstances[instanceIdx]`.
+    /// On per-instance failure, recurses to the next one. Emits
+    /// searchResultsReady(kTrendingQueryPrefix + region, results) on success;
+    /// emits searchFailed(...) once every instance is exhausted.
+    void fetchTrendingViaPiped(const QString& region, int cap, int instanceIdx);
 
     /// Try a Piped resolve+download against `m_pipedInstances[instanceIdx]`.
     /// Same failover semantics as searchViaPiped.

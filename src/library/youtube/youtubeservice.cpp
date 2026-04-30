@@ -107,7 +107,48 @@ QString extFromMime(const QString& mime, const QString& codec) {
     }
     return QStringLiteral("m4a"); // safe default — FFmpeg SoundSource handles it
 }
+
+// Parse a Piped JSON array of stream items (the same `items[]` shape returned
+// by /search and the top-level array returned by /trending) into our internal
+// YouTubeVideoInfo list, capped at `cap`. Non-stream entries (channels,
+// playlists) and items with missing id/title are skipped. Factored out so the
+// trending and search response paths share one parser.
+QList<YouTubeVideoInfo> parsePipedItems(const QJsonArray& items, int cap) {
+    QList<YouTubeVideoInfo> results;
+    results.reserve(items.size());
+    for (const QJsonValue& v : items) {
+        if (results.size() >= cap) {
+            break;
+        }
+        const QJsonObject obj = v.toObject();
+        const QString type = obj.value(QStringLiteral("type")).toString();
+        if (!type.isEmpty() && type != QStringLiteral("stream")) {
+            continue;
+        }
+        YouTubeVideoInfo info;
+        // "url" is a relative "/watch?v=ID" path. Strip the prefix to recover
+        // the bare videoId for /streams/<id> lookup.
+        const QString relUrl = obj.value(QStringLiteral("url")).toString();
+        const int eq = relUrl.indexOf(QLatin1Char('='));
+        if (eq > 0 && eq + 1 < relUrl.size()) {
+            info.id = relUrl.mid(eq + 1);
+        }
+        info.title = obj.value(QStringLiteral("title")).toString();
+        info.uploader = obj.value(QStringLiteral("uploaderName")).toString();
+        const QJsonValue dur = obj.value(QStringLiteral("duration"));
+        if (dur.isDouble()) {
+            info.durationSec = static_cast<int>(dur.toDouble());
+        }
+        if (!info.id.isEmpty() && !info.title.isEmpty()) {
+            results.append(info);
+        }
+    }
+    return results;
+}
 } // namespace
+
+const QString YouTubeService::kTrendingQueryPrefix =
+        QStringLiteral("__trending__:");
 
 YouTubeService::YouTubeService(QObject* parent)
         : QObject(parent),
@@ -197,6 +238,19 @@ void YouTubeService::downloadVideo(const QString& videoId, const QString& cacheD
             });
 }
 
+void YouTubeService::fetchTrending(const QString& region, int cap) {
+    // Empty / malformed region: fall back to "US" rather than failing,
+    // because Piped requires a non-empty region= and an empty pane is the
+    // worst possible UX for a freshly-opened YouTube tab.
+    QString r = region.toUpper();
+    if (r.size() != 2) {
+        kLogger.warning() << "fetchTrending: ignoring unsupported region"
+                          << region << "— defaulting to US";
+        r = QStringLiteral("US");
+    }
+    fetchTrendingViaPiped(r, cap, /*instanceIdx=*/0);
+}
+
 // =============================================================================
 // Piped (primary backend, works on every Qt platform incl. Android)
 // =============================================================================
@@ -237,40 +291,7 @@ void YouTubeService::searchViaPiped(const QString& query,
                         QJsonDocument::fromJson(reply->readAll());
                 const QJsonArray items =
                         doc.object().value(QStringLiteral("items")).toArray();
-                QList<YouTubeVideoInfo> results;
-                results.reserve(items.size());
-                for (const QJsonValue& v : items) {
-                    if (results.size() >= cap) {
-                        break;
-                    }
-                    const QJsonObject obj = v.toObject();
-                    // Piped marks non-video items (channels, playlists) with a
-                    // different "type"; skip anything that isn't a stream.
-                    const QString type = obj.value(QStringLiteral("type")).toString();
-                    if (!type.isEmpty() && type != QStringLiteral("stream")) {
-                        continue;
-                    }
-                    YouTubeVideoInfo info;
-                    // "url" is a relative "/watch?v=ID" path. Strip the prefix
-                    // to recover the bare videoId for /streams/<id> lookup.
-                    const QString relUrl =
-                            obj.value(QStringLiteral("url")).toString();
-                    const int eq = relUrl.indexOf(QLatin1Char('='));
-                    if (eq > 0 && eq + 1 < relUrl.size()) {
-                        info.id = relUrl.mid(eq + 1);
-                    }
-                    info.title = obj.value(QStringLiteral("title")).toString();
-                    info.uploader =
-                            obj.value(QStringLiteral("uploaderName")).toString();
-                    const QJsonValue dur =
-                            obj.value(QStringLiteral("duration"));
-                    if (dur.isDouble()) {
-                        info.durationSec = static_cast<int>(dur.toDouble());
-                    }
-                    if (!info.id.isEmpty() && !info.title.isEmpty()) {
-                        results.append(info);
-                    }
-                }
+                QList<YouTubeVideoInfo> results = parsePipedItems(items, cap);
                 if (results.isEmpty()) {
                     // Empty result set is a legitimate "no matches" answer
                     // for a unique query, but for popular queries it almost
@@ -284,6 +305,58 @@ void YouTubeService::searchViaPiped(const QString& query,
                 kLogger.info() << "Piped (" << instance << ") returned"
                                << results.size() << "results for" << query;
                 Q_EMIT searchResultsReady(query, results);
+            });
+}
+
+void YouTubeService::fetchTrendingViaPiped(
+        const QString& region, int cap, int instanceIdx) {
+    const QString sentinelQuery = kTrendingQueryPrefix + region;
+    if (instanceIdx >= m_pipedInstances.size()) {
+        Q_EMIT searchFailed(sentinelQuery,
+                tr("All Piped instances failed to return trending for %1")
+                        .arg(region));
+        return;
+    }
+    const QString instance = m_pipedInstances.at(instanceIdx);
+    QUrl url(instance + QStringLiteral("/trending"));
+    QUrlQuery q;
+    q.addQueryItem(QStringLiteral("region"), region);
+    url.setQuery(q);
+
+    QNetworkRequest req(url);
+    req.setRawHeader("User-Agent", "Mixxx/YouTube");
+    req.setRawHeader("Accept", "application/json");
+    req.setTransferTimeout(kPipedHttpTimeoutMs);
+
+    QNetworkReply* reply = m_pNam->get(req);
+    connect(reply,
+            &QNetworkReply::finished,
+            this,
+            [this, reply, region, cap, instanceIdx, instance, sentinelQuery]() {
+                reply->deleteLater();
+                if (reply->error() != QNetworkReply::NoError) {
+                    kLogger.info() << "Piped /trending via" << instance
+                                   << "failed:" << reply->errorString()
+                                   << "— trying next";
+                    fetchTrendingViaPiped(region, cap, instanceIdx + 1);
+                    return;
+                }
+                // /trending returns a top-level JSON array of stream objects
+                // (unlike /search which wraps them in {items:[…]}).
+                const QJsonArray items =
+                        QJsonDocument::fromJson(reply->readAll()).array();
+                QList<YouTubeVideoInfo> results = parsePipedItems(items, cap);
+                if (results.isEmpty()) {
+                    kLogger.info() << "Piped instance" << instance
+                                   << "returned 0 trending items for region"
+                                   << region << "— trying next";
+                    fetchTrendingViaPiped(region, cap, instanceIdx + 1);
+                    return;
+                }
+                kLogger.info() << "Piped (" << instance << ") returned"
+                               << results.size() << "trending items for region"
+                               << region;
+                Q_EMIT searchResultsReady(sentinelQuery, results);
             });
 }
 
