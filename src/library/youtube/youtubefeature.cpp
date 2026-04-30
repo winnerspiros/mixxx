@@ -481,36 +481,14 @@ void YouTubeFeature::rebuildHomeHtml() {
     QString html;
     html += QStringLiteral("<h2>") + tr("YouTube") + QStringLiteral("</h2>");
 
-    // Setup gate: if yt-dlp isn't installed, the search and download paths
-    // can't possibly succeed. Tell the user up front rather than letting them
-    // type queries that silently fail.
-    if (m_service.ytDlpPath().isEmpty()) {
-        html += QStringLiteral("<p><b>") +
-                tr("YouTube backend not configured") +
-                QStringLiteral("</b></p><p>") +
-                tr("Mixxx uses the <code>yt-dlp</code> command-line tool to "
-                   "search and stream from YouTube. It does not appear to be "
-                   "installed on this system. Install it with one of:") +
-                QStringLiteral("</p><ul>"
-                               "<li><code>pip install -U yt-dlp</code></li>"
-                               "<li><code>brew install yt-dlp</code> (macOS)</li>"
-                               "<li><code>sudo apt install yt-dlp</code> (Debian/Ubuntu)</li>"
-                               "<li>Download the binary from "
-                               "<a href=\"https://github.com/yt-dlp/yt-dlp\">"
-                               "github.com/yt-dlp/yt-dlp</a></li>"
-                               "</ul><p>") +
-                tr("If you have it installed in a non-standard location, set "
-                   "the <code>MIXXX_YTDLP</code> environment variable to its "
-                   "full path and restart Mixxx.") +
-                QStringLiteral("</p>");
-        m_pHomeView->setHtml(html);
-        return;
-    }
-
     html += QStringLiteral("<p>") +
             tr("Type a song, artist or video title in the search box at the "
                "top of the library to search YouTube. Click a result in the "
-               "sidebar to download it and load it onto the next free deck.") +
+               "sidebar to download it — finished tracks appear under "
+               "<b>Downloaded</b> and in the main library view, ready to drag "
+               "onto any deck. Audio is downloaded ad-free and SponsorBlock "
+               "automatically trims sponsored intros, self-promo and other "
+               "non-music segments out of the file.") +
             QStringLiteral("</p>");
 
     if (!m_lastQuery.isEmpty()) {

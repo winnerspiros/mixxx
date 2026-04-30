@@ -1,6 +1,7 @@
 #include "library/youtube/youtubeservice.h"
 
 #include <QByteArray>
+#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -11,11 +12,11 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QProcess>
-#include <QProcessEnvironment>
 #include <QStandardPaths>
 #include <QStringList>
 #include <QTimer>
 #include <QUrl>
+#include <QUrlQuery>
 #include <utility>
 
 #include "library/youtube/youtubeaudiocutter.h"
@@ -26,91 +27,431 @@ namespace mixxx {
 namespace {
 const Logger kLogger("YouTubeService");
 
-// Default per-request budgets. Search is bounded — yt-dlp talks to the
-// regular YouTube search endpoint and parses the page. Downloads can be
-// large, but bestaudio for a song is typically <10 MB and finishes in
-// seconds; we leave a generous ceiling for slow connections / long mixes.
-constexpr int kSearchTimeoutMs = 30 * 1000;       // 30 s
+// Per-request budgets. Search is bounded — Piped's /search and yt-dlp's
+// page-parse both finish well under a second on a healthy network. Downloads
+// can be larger, but bestaudio for a song is typically <10 MB; the ceiling
+// is generous so a slow connection or long mix doesn't get killed.
+constexpr int kSearchTimeoutMs = 30 * 1000;        // 30 s
 constexpr int kDownloadTimeoutMs = 10 * 60 * 1000; // 10 min
+// Piped HTTP requests get a tighter ceiling — each instance failure should
+// surface fast so we can fail over to the next one without burning a minute
+// per dead instance. /streams is included because it can wait on YouTube
+// upstream, but we still want to move on within ~15 s.
+constexpr int kPipedHttpTimeoutMs = 15 * 1000;
 
-// Locations to probe for yt-dlp when it is not on PATH (covers the most
-// common installs that QStandardPaths::findExecutable misses on Mac/Linux
-// because /opt/homebrew/bin and ~/.local/bin are often outside the GUI app's
-// inherited PATH).
-const QStringList kFallbackBins = {
-        QStringLiteral("/usr/local/bin/yt-dlp"),
-        QStringLiteral("/usr/bin/yt-dlp"),
-        QStringLiteral("/opt/homebrew/bin/yt-dlp"),
-        QStringLiteral("/opt/local/bin/yt-dlp"),
-        QStringLiteral("/data/data/com.termux/files/usr/bin/yt-dlp"),
+// Hardcoded list of Piped API instances tried in order on per-request
+// failure. Picked from the official Piped instance list
+// (https://github.com/TeamPiped/documentation/blob/main/content/docs/public-instances/index.md)
+// for geographic spread + uptime track record. Keep the list short — every
+// extra instance only adds latency on full-failure paths.
+const QStringList kPipedInstances = {
+        QStringLiteral("https://api.piped.private.coffee"),
+        QStringLiteral("https://pipedapi.kavin.rocks"),
+        QStringLiteral("https://api.piped.projectsegfau.lt"),
+        QStringLiteral("https://pipedapi.adminforge.de"),
+        QStringLiteral("https://pipedapi.r4fo.com"),
 };
+
+// Locations to probe for yt-dlp when it is not on PATH. Order matters:
+// the bundled binary next to the Mixxx executable wins, then the user's
+// PATH, then common install dirs that GUI launches often miss because
+// /opt/homebrew/bin and ~/.local/bin are outside the inherited PATH.
+QStringList ytDlpFallbackBins() {
+    QStringList bins;
+#if defined(Q_OS_WIN)
+    const QString exe = QStringLiteral("yt-dlp.exe");
+#else
+    const QString exe = QStringLiteral("yt-dlp");
+#endif
+    // 1. Bundled next to the Mixxx executable (Win/Mac/Linux desktop installs
+    //    ship the official self-contained PyInstaller binary here — see
+    //    cmake/modules/FetchYtDlp.cmake).
+    const QString appDir = QCoreApplication::applicationDirPath();
+    if (!appDir.isEmpty()) {
+        bins << QDir(appDir).filePath(exe);
+#if defined(Q_OS_MAC)
+        // .app bundle layout: yt-dlp lives in Contents/MacOS alongside the
+        // Mixxx binary, but applicationDirPath() already returns that path.
+        // Also probe Contents/Resources just in case.
+        bins << QDir(appDir).filePath(QStringLiteral("../Resources/") + exe);
+#endif
+    }
+    // 2. Common system locations.
+    bins << QStringLiteral("/usr/local/bin/yt-dlp")
+         << QStringLiteral("/usr/bin/yt-dlp")
+         << QStringLiteral("/opt/homebrew/bin/yt-dlp")
+         << QStringLiteral("/opt/local/bin/yt-dlp")
+         // Termux-on-Android: only path that ever yields a working yt-dlp
+         // on Android, and only if the user has installed it themselves.
+         // Piped is the primary Android backend so this is purely a bonus.
+         << QStringLiteral("/data/data/com.termux/files/usr/bin/yt-dlp");
+    return bins;
+}
+
+// Map a Piped audio stream's ext-hint (mimeType) to a sensible file
+// extension for the downloaded blob. We name files <id>.<ext> so the rest
+// of YouTubeFeature (and the SoundSource picker) can identify them.
+QString extFromMime(const QString& mime, const QString& codec) {
+    const QString m = mime.toLower();
+    if (m.contains(QStringLiteral("webm"))) {
+        return QStringLiteral("webm");
+    }
+    if (m.contains(QStringLiteral("mp4")) || m.contains(QStringLiteral("m4a"))) {
+        return QStringLiteral("m4a");
+    }
+    if (codec.startsWith(QStringLiteral("opus"))) {
+        return QStringLiteral("webm");
+    }
+    if (codec.startsWith(QStringLiteral("mp4a"))) {
+        return QStringLiteral("m4a");
+    }
+    return QStringLiteral("m4a"); // safe default — FFmpeg SoundSource handles it
+}
 } // namespace
 
 YouTubeService::YouTubeService(QObject* parent)
         : QObject(parent),
           m_pNam(new QNetworkAccessManager(this)),
-          m_ytDlpPath(locateYtDlp()) {
-    if (m_ytDlpPath.isEmpty()) {
-        kLogger.warning() << "yt-dlp binary not found. YouTube search and "
-                             "download will fail until yt-dlp is installed "
-                             "(https://github.com/yt-dlp/yt-dlp) or the "
-                             "MIXXX_YTDLP environment variable points at it.";
+          m_ytDlpPath(locateYtDlp()),
+          m_pipedInstances(kPipedInstances) {
+    if (!m_ytDlpPath.isEmpty()) {
+        kLogger.info() << "yt-dlp fallback available at" << m_ytDlpPath;
     } else {
-        kLogger.info() << "Using yt-dlp at" << m_ytDlpPath;
+        kLogger.info() << "yt-dlp not found; YouTube tab will rely on Piped only "
+                          "(this is normal on Android and minimal desktop installs)";
     }
 }
 
 QString YouTubeService::locateYtDlp() {
-    // 1. Explicit override wins. Useful for portable installs and for users
-    //    on macOS GUI launches where the inherited PATH lacks /opt/homebrew.
-    const QByteArray envPath =
-            qgetenv("MIXXX_YTDLP");
+    // 1. Explicit override — useful for portable installs and for users on
+    //    macOS GUI launches where the inherited PATH lacks /opt/homebrew.
+    const QByteArray envPath = qgetenv("MIXXX_YTDLP");
     if (!envPath.isEmpty()) {
         const QString p = QString::fromLocal8Bit(envPath);
         if (QFileInfo(p).isExecutable()) {
             return p;
         }
         kLogger.warning() << "MIXXX_YTDLP set to" << p
-                          << "but that path is not executable; falling back to PATH";
+                          << "but that path is not executable; ignoring";
     }
-    // 2. PATH lookup (handles "yt-dlp" and "yt-dlp.exe" on Windows).
-    const QString fromPath = QStandardPaths::findExecutable(QStringLiteral("yt-dlp"));
-    if (!fromPath.isEmpty()) {
-        return fromPath;
-    }
-    // 3. Common install locations not always in $PATH for GUI apps.
-    for (const QString& candidate : kFallbackBins) {
+    // 2. Bundled-next-to-binary + common install dirs.
+    for (const QString& candidate : ytDlpFallbackBins()) {
         if (QFileInfo(candidate).isExecutable()) {
             return candidate;
         }
     }
+    // 3. PATH lookup — handles "yt-dlp" and "yt-dlp.exe" on Windows.
+    const QString fromPath =
+            QStandardPaths::findExecutable(QStringLiteral("yt-dlp"));
+    if (!fromPath.isEmpty()) {
+        return fromPath;
+    }
     return QString();
 }
+
+// =============================================================================
+// Public API — picks Piped first, yt-dlp as desktop fallback
+// =============================================================================
+
+void YouTubeService::searchVideos(const QString& query, int cap) {
+    if (query.trimmed().isEmpty()) {
+        Q_EMIT searchResultsReady(query, {});
+        return;
+    }
+    const bool hasYtDlpFallback = !m_ytDlpPath.isEmpty();
+    searchViaPiped(query,
+            cap,
+            /*instanceIdx=*/0,
+            [this, query, cap, hasYtDlpFallback](const QString& lastError) {
+                if (hasYtDlpFallback) {
+                    kLogger.warning() << "All Piped instances failed for search"
+                                      << query << ":" << lastError
+                                      << "— falling back to yt-dlp";
+                    searchViaYtDlp(query, cap);
+                } else {
+                    kLogger.warning() << "All Piped instances failed for search"
+                                      << query << ":" << lastError;
+                    Q_EMIT searchFailed(query, lastError);
+                }
+            });
+}
+
+void YouTubeService::downloadVideo(const QString& videoId, const QString& cacheDir) {
+    QDir().mkpath(cacheDir);
+    const bool hasYtDlpFallback = !m_ytDlpPath.isEmpty();
+    downloadViaPiped(videoId,
+            cacheDir,
+            /*instanceIdx=*/0,
+            [this, videoId, cacheDir, hasYtDlpFallback](const QString& lastError) {
+                if (hasYtDlpFallback) {
+                    kLogger.warning() << "All Piped instances failed for download"
+                                      << videoId << ":" << lastError
+                                      << "— falling back to yt-dlp";
+                    downloadViaYtDlp(videoId, cacheDir);
+                } else {
+                    kLogger.warning() << "All Piped instances failed for download"
+                                      << videoId << ":" << lastError;
+                    Q_EMIT downloadFailed(videoId, lastError);
+                }
+            });
+}
+
+// =============================================================================
+// Piped (primary backend, works on every Qt platform incl. Android)
+// =============================================================================
+
+void YouTubeService::searchViaPiped(const QString& query,
+        int cap,
+        int instanceIdx,
+        const std::function<void(const QString&)>& onAllFailed) {
+    if (instanceIdx >= m_pipedInstances.size()) {
+        onAllFailed(tr("All Piped instances failed (network or upstream YouTube error)"));
+        return;
+    }
+    const QString instance = m_pipedInstances.at(instanceIdx);
+    QUrl url(instance + QStringLiteral("/search"));
+    QUrlQuery q;
+    q.addQueryItem(QStringLiteral("q"), query);
+    q.addQueryItem(QStringLiteral("filter"), QStringLiteral("videos"));
+    url.setQuery(q);
+
+    QNetworkRequest req(url);
+    req.setRawHeader("User-Agent", "Mixxx/YouTube");
+    req.setRawHeader("Accept", "application/json");
+    req.setTransferTimeout(kPipedHttpTimeoutMs);
+
+    QNetworkReply* reply = m_pNam->get(req);
+    connect(reply,
+            &QNetworkReply::finished,
+            this,
+            [this, reply, query, cap, instanceIdx, instance, onAllFailed]() {
+                reply->deleteLater();
+                if (reply->error() != QNetworkReply::NoError) {
+                    kLogger.info() << "Piped search via" << instance << "failed:"
+                                   << reply->errorString() << "— trying next";
+                    searchViaPiped(query, cap, instanceIdx + 1, onAllFailed);
+                    return;
+                }
+                const QJsonDocument doc =
+                        QJsonDocument::fromJson(reply->readAll());
+                const QJsonArray items =
+                        doc.object().value(QStringLiteral("items")).toArray();
+                QList<YouTubeVideoInfo> results;
+                results.reserve(items.size());
+                for (const QJsonValue& v : items) {
+                    if (results.size() >= cap) {
+                        break;
+                    }
+                    const QJsonObject obj = v.toObject();
+                    // Piped marks non-video items (channels, playlists) with a
+                    // different "type"; skip anything that isn't a stream.
+                    const QString type = obj.value(QStringLiteral("type")).toString();
+                    if (!type.isEmpty() && type != QStringLiteral("stream")) {
+                        continue;
+                    }
+                    YouTubeVideoInfo info;
+                    // "url" is a relative "/watch?v=ID" path. Strip the prefix
+                    // to recover the bare videoId for /streams/<id> lookup.
+                    const QString relUrl =
+                            obj.value(QStringLiteral("url")).toString();
+                    const int eq = relUrl.indexOf(QLatin1Char('='));
+                    if (eq > 0 && eq + 1 < relUrl.size()) {
+                        info.id = relUrl.mid(eq + 1);
+                    }
+                    info.title = obj.value(QStringLiteral("title")).toString();
+                    info.uploader =
+                            obj.value(QStringLiteral("uploaderName")).toString();
+                    const QJsonValue dur =
+                            obj.value(QStringLiteral("duration"));
+                    if (dur.isDouble()) {
+                        info.durationSec = static_cast<int>(dur.toDouble());
+                    }
+                    if (!info.id.isEmpty() && !info.title.isEmpty()) {
+                        results.append(info);
+                    }
+                }
+                if (results.isEmpty()) {
+                    // Empty result set is a legitimate "no matches" answer
+                    // for a unique query, but for popular queries it almost
+                    // always means the instance is degraded. Try the next.
+                    kLogger.info() << "Piped instance" << instance
+                                   << "returned 0 results for" << query
+                                   << "— trying next";
+                    searchViaPiped(query, cap, instanceIdx + 1, onAllFailed);
+                    return;
+                }
+                kLogger.info() << "Piped (" << instance << ") returned"
+                               << results.size() << "results for" << query;
+                Q_EMIT searchResultsReady(query, results);
+            });
+}
+
+void YouTubeService::downloadViaPiped(const QString& videoId,
+        const QString& cacheDir,
+        int instanceIdx,
+        const std::function<void(const QString&)>& onAllFailed) {
+    if (instanceIdx >= m_pipedInstances.size()) {
+        onAllFailed(tr("All Piped instances failed for video %1").arg(videoId));
+        return;
+    }
+    const QString instance = m_pipedInstances.at(instanceIdx);
+    const QUrl url(instance + QStringLiteral("/streams/") + videoId);
+
+    QNetworkRequest req(url);
+    req.setRawHeader("User-Agent", "Mixxx/YouTube");
+    req.setRawHeader("Accept", "application/json");
+    req.setTransferTimeout(kPipedHttpTimeoutMs);
+
+    QNetworkReply* reply = m_pNam->get(req);
+    connect(reply,
+            &QNetworkReply::finished,
+            this,
+            [this, reply, videoId, cacheDir, instanceIdx, instance, onAllFailed]() {
+                reply->deleteLater();
+                if (reply->error() != QNetworkReply::NoError) {
+                    kLogger.info() << "Piped /streams via" << instance << "failed:"
+                                   << reply->errorString() << "— trying next";
+                    downloadViaPiped(
+                            videoId, cacheDir, instanceIdx + 1, onAllFailed);
+                    return;
+                }
+                const QJsonObject root =
+                        QJsonDocument::fromJson(reply->readAll()).object();
+                const QJsonArray audio =
+                        root.value(QStringLiteral("audioStreams")).toArray();
+                if (audio.isEmpty()) {
+                    kLogger.info() << "Piped instance" << instance
+                                   << "returned no audioStreams for" << videoId
+                                   << "— trying next";
+                    downloadViaPiped(
+                            videoId, cacheDir, instanceIdx + 1, onAllFailed);
+                    return;
+                }
+                downloadAudioStream(videoId,
+                        cacheDir,
+                        audio,
+                        [this, videoId, cacheDir, instanceIdx, onAllFailed](
+                                const QString& err) {
+                            kLogger.info() << "Piped audio download failed:"
+                                           << err << "— trying next instance";
+                            downloadViaPiped(videoId,
+                                    cacheDir,
+                                    instanceIdx + 1,
+                                    onAllFailed);
+                        });
+            });
+}
+
+void YouTubeService::downloadAudioStream(const QString& videoId,
+        const QString& cacheDir,
+        const QJsonArray& audioStreams,
+        const std::function<void(const QString&)>& onFailure) {
+    // Pick the highest-bitrate stream. Prefer opus (better quality per bit)
+    // when bitrates are tied or close, since Piped sometimes lists a low
+    // bitrate AAC alongside high bitrate opus.
+    QJsonObject best;
+    int bestBitrate = -1;
+    bool bestIsOpus = false;
+    for (const QJsonValue& v : audioStreams) {
+        const QJsonObject s = v.toObject();
+        const int br = s.value(QStringLiteral("bitrate")).toInt();
+        const QString codec =
+                s.value(QStringLiteral("codec")).toString().toLower();
+        const bool isOpus = codec.startsWith(QStringLiteral("opus"));
+        // Prefer higher bitrate; on a tie prefer opus.
+        if (br > bestBitrate ||
+                (br == bestBitrate && isOpus && !bestIsOpus)) {
+            best = s;
+            bestBitrate = br;
+            bestIsOpus = isOpus;
+        }
+    }
+    const QString streamUrl = best.value(QStringLiteral("url")).toString();
+    if (streamUrl.isEmpty()) {
+        onFailure(tr("No usable audio stream URL"));
+        return;
+    }
+    const QString ext = extFromMime(
+            best.value(QStringLiteral("mimeType")).toString(),
+            best.value(QStringLiteral("codec")).toString().toLower());
+    const QString outPath =
+            QDir(cacheDir).filePath(videoId + QLatin1Char('.') + ext);
+
+    // Stream straight to disk via a temp file we rename on completion. A
+    // partial file left behind from a kill/crash would otherwise look like
+    // a complete download to the next launch's library scanner.
+    auto* outFile = new QFile(outPath + QStringLiteral(".part"));
+    if (!outFile->open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        const QString err = outFile->errorString();
+        delete outFile;
+        onFailure(tr("Cannot open %1: %2").arg(outPath, err));
+        return;
+    }
+
+    QNetworkRequest req((QUrl(streamUrl)));
+    req.setRawHeader("User-Agent", "Mixxx/YouTube");
+    // googlevideo CDN is generally fast; a transfer timeout of 10 min mirrors
+    // the yt-dlp watchdog and matches kDownloadTimeoutMs.
+    req.setTransferTimeout(kDownloadTimeoutMs);
+
+    QNetworkReply* reply = m_pNam->get(req);
+
+    // Stream the body to disk as it arrives — important on Android where
+    // RAM-buffering a full audio file can OOM on large mixes.
+    connect(reply, &QNetworkReply::readyRead, this, [reply, outFile]() {
+        outFile->write(reply->readAll());
+    });
+    connect(reply,
+            &QNetworkReply::finished,
+            this,
+            [this, reply, outFile, outPath, videoId, onFailure]() {
+                reply->deleteLater();
+                outFile->write(reply->readAll());
+                outFile->close();
+                if (reply->error() != QNetworkReply::NoError) {
+                    QFile::remove(outFile->fileName());
+                    delete outFile;
+                    onFailure(reply->errorString());
+                    return;
+                }
+                // Atomic rename .part → final path. If a previous run left a
+                // stale final file behind (rare — we only get here on
+                // success), QFile::rename refuses to overwrite, so unlink
+                // first.
+                QFile::remove(outPath);
+                if (!outFile->rename(outPath)) {
+                    const QString err = outFile->errorString();
+                    QFile::remove(outFile->fileName());
+                    delete outFile;
+                    onFailure(tr("Cannot finalize %1: %2").arg(outPath, err));
+                    return;
+                }
+                delete outFile;
+                kLogger.info() << "Downloaded" << videoId << "→" << outPath
+                               << "via Piped";
+                finalizeDownload(videoId, outPath);
+            });
+}
+
+// =============================================================================
+// yt-dlp (desktop fallback only)
+// =============================================================================
 
 void YouTubeService::runYtDlp(const QStringList& args,
         int timeoutMs,
         const std::function<void(const QByteArray&)>& onSuccess,
         const std::function<void(const QString&)>& onFailure) {
     if (m_ytDlpPath.isEmpty()) {
-        onFailure(tr("yt-dlp is not installed. Install it from "
-                     "https://github.com/yt-dlp/yt-dlp (or `pip install yt-dlp`) "
-                     "and restart Mixxx. You can also set the MIXXX_YTDLP "
-                     "environment variable to a custom binary path."));
+        onFailure(tr("yt-dlp not available"));
         return;
     }
 
     auto* proc = new QProcess(this);
     proc->setProcessChannelMode(QProcess::SeparateChannels);
 
-    // Watchdog timer — yt-dlp normally exits on its own well before this,
-    // but a hung download or DNS stall would otherwise block the user
-    // forever. Killing the process triggers `finished`, which the lambda
-    // below converts into a user-visible error.
-    //
-    // The timer is parented to `proc`, so when `proc` is destroyed the
-    // timer is destroyed with it (preventing any chance of a fire after
-    // proc tear-down). We additionally stop() it explicitly in the
-    // finished/errorOccurred handlers so it can't race deleteLater().
+    // Watchdog timer parented to `proc`; the connect target is also `proc`,
+    // so when proc is destroyed both the timer and its lambda are torn down
+    // before any post-cleanup fire is possible.
     auto* watchdog = new QTimer(proc);
     watchdog->setSingleShot(true);
     watchdog->setInterval(timeoutMs);
@@ -122,8 +463,7 @@ void YouTubeService::runYtDlp(const QStringList& args,
     // Cleanup is centralized: `finished` is the single place that calls
     // deleteLater(). FailedToStart is the one error case where `finished`
     // does *not* fire (Qt skips it because the process never started), so
-    // the errorOccurred handler synthesizes a failure for that one case
-    // only and routes it through the same callback.
+    // the errorOccurred handler synthesizes a failure for that one case.
     connect(proc,
             &QProcess::finished,
             this,
@@ -148,9 +488,7 @@ void YouTubeService::runYtDlp(const QStringList& args,
             this,
             [proc, watchdog, onFailure](QProcess::ProcessError error) {
                 if (error != QProcess::FailedToStart) {
-                    // Crashed / Timedout / WriteError / ReadError / Unknown
-                    // are all followed by `finished`, which owns cleanup.
-                    return;
+                    return; // `finished` will run cleanup
                 }
                 watchdog->stop();
                 proc->deleteLater();
@@ -161,15 +499,7 @@ void YouTubeService::runYtDlp(const QStringList& args,
     proc->start(m_ytDlpPath, args);
 }
 
-void YouTubeService::searchVideos(const QString& query, int cap) {
-    if (query.trimmed().isEmpty()) {
-        Q_EMIT searchResultsReady(query, {});
-        return;
-    }
-    // --flat-playlist makes yt-dlp return only metadata for each result
-    // (no per-video page fetch), which keeps the round-trip under a second
-    // and is enough for id/title/uploader/duration. --skip-download is
-    // implied by the dump but kept explicit for safety.
+void YouTubeService::searchViaYtDlp(const QString& query, int cap) {
     const QStringList args = {
             QStringLiteral("--flat-playlist"),
             QStringLiteral("--skip-download"),
@@ -185,32 +515,26 @@ void YouTubeService::searchVideos(const QString& query, int cap) {
             args,
             kSearchTimeoutMs,
             [this, query, cap](const QByteArray& stdoutBytes) {
-                const QJsonDocument doc = QJsonDocument::fromJson(stdoutBytes);
-                const QJsonObject root = doc.object();
+                const QJsonObject root =
+                        QJsonDocument::fromJson(stdoutBytes).object();
                 const QJsonArray entries =
                         root.value(QStringLiteral("entries")).toArray();
                 QList<YouTubeVideoInfo> results;
                 results.reserve(entries.size());
-                for (const auto& v : entries) {
+                for (const QJsonValue& v : entries) {
                     if (results.size() >= cap) {
                         break;
                     }
                     const QJsonObject entry = v.toObject();
                     YouTubeVideoInfo info;
                     info.id = entry.value(QStringLiteral("id")).toString();
-                    info.title =
-                            entry.value(QStringLiteral("title")).toString();
-                    // yt-dlp populates "channel" for most extractors and
-                    // "uploader" as a fallback; prefer channel as it is
-                    // closer to the user-visible "Artist".
+                    info.title = entry.value(QStringLiteral("title")).toString();
                     info.uploader =
                             entry.value(QStringLiteral("channel")).toString();
                     if (info.uploader.isEmpty()) {
                         info.uploader = entry.value(QStringLiteral("uploader"))
                                                 .toString();
                     }
-                    // duration is a JSON number (seconds) for video entries
-                    // and may be null for channels/playlists/live streams.
                     const QJsonValue dur = entry.value(QStringLiteral("duration"));
                     if (dur.isDouble()) {
                         info.durationSec = static_cast<int>(dur.toDouble());
@@ -229,16 +553,9 @@ void YouTubeService::searchVideos(const QString& query, int cap) {
             });
 }
 
-void YouTubeService::downloadVideo(const QString& videoId, const QString& cacheDir) {
-    QDir().mkpath(cacheDir);
+void YouTubeService::downloadViaYtDlp(const QString& videoId, const QString& cacheDir) {
     const QString outTemplate =
             QDir(cacheDir).filePath(QStringLiteral("%(id)s.%(ext)s"));
-    // -f bestaudio: pick the best audio-only stream without re-encoding.
-    // --no-playlist: defensive — guard against playlist URLs being passed.
-    // --print after_move:filepath: emit the final on-disk path on stdout
-    //   *after* yt-dlp's atomic .part rename, so we read it deterministically.
-    // -- separates options from the videoId so an id like "-abc123" cannot
-    //   be misparsed as a flag.
     const QStringList args = {
             QStringLiteral("-f"),
             QStringLiteral("bestaudio"),
@@ -259,9 +576,7 @@ void YouTubeService::downloadVideo(const QString& videoId, const QString& cacheD
             args,
             kDownloadTimeoutMs,
             [this, videoId, cacheDir](const QByteArray& stdoutBytes) {
-                // The last non-empty stdout line is the final filepath
-                // (--print after_move:filepath). Earlier lines may include
-                // diagnostic noise from extractors; we ignore them.
+                // Last non-empty stdout line is the final filepath.
                 QString outPath;
                 const QList<QByteArray> lines = stdoutBytes.split('\n');
                 for (auto it = lines.crbegin(); it != lines.crend(); ++it) {
@@ -271,9 +586,8 @@ void YouTubeService::downloadVideo(const QString& videoId, const QString& cacheD
                         break;
                     }
                 }
-                // Fallback: scan the cache dir for any file matching the id.
-                // Covers older yt-dlp versions that don't honor `after_move:`.
                 if (outPath.isEmpty()) {
+                    // Fallback: scan the cache dir for any file with our id.
                     const QDir dir(cacheDir);
                     const QStringList existing =
                             dir.entryList({videoId + QStringLiteral(".*")},
@@ -293,52 +607,54 @@ void YouTubeService::downloadVideo(const QString& videoId, const QString& cacheD
                             tr("yt-dlp finished but no output file was found"));
                     return;
                 }
-                kLogger.info() << "Downloaded" << videoId << "→" << outPath;
-
-                // Chain: fetch SponsorBlock segments, physically cut them
-                // out of the file (so duration / BPM / waveform all reflect
-                // the music-only length), THEN tell consumers the file is
-                // ready. We deliberately do this ourselves rather than via
-                // yt-dlp's --sponsorblock-remove because the latter requires
-                // a re-encode pass through ffmpeg and can drop quality.
-                fetchSponsorSegmentsInternal(videoId,
-                        [this, videoId, outPath](
-                                const QList<SponsorSegment>& segments) {
-                            if (!segments.isEmpty()) {
-                                const bool cut =
-                                        cutAudioRanges(outPath, segments);
-                                if (!cut) {
-                                    // Cutting failed — write the sidecar so
-                                    // SponsorBlockController can fall back
-                                    // to skip-at-playback.
-                                    QFile sidecar(outPath +
-                                            QStringLiteral(".sponsor.json"));
-                                    if (sidecar.open(QIODevice::WriteOnly |
-                                                QIODevice::Truncate)) {
-                                        QJsonArray arr;
-                                        for (const auto& s : segments) {
-                                            QJsonObject o;
-                                            o.insert(QStringLiteral("start"),
-                                                    s.start);
-                                            o.insert(QStringLiteral("end"),
-                                                    s.end);
-                                            o.insert(QStringLiteral("category"),
-                                                    s.category);
-                                            arr.append(o);
-                                        }
-                                        sidecar.write(
-                                                QJsonDocument(arr).toJson(
-                                                        QJsonDocument::
-                                                                Compact));
-                                    }
-                                }
-                            }
-                            Q_EMIT downloadFinished(videoId, outPath);
-                        });
+                kLogger.info() << "Downloaded" << videoId << "→" << outPath
+                               << "via yt-dlp";
+                finalizeDownload(videoId, outPath);
             },
             [this, videoId](const QString& err) {
                 kLogger.warning() << "yt-dlp download failed:" << err;
                 Q_EMIT downloadFailed(videoId, err);
+            });
+}
+
+// =============================================================================
+// Shared post-download chain: SponsorBlock fetch → in-place cut → emit
+// =============================================================================
+
+void YouTubeService::finalizeDownload(const QString& videoId, const QString& outPath) {
+    // Fetch SponsorBlock segments, physically cut them out of the file (so
+    // duration / BPM / waveform all reflect the music-only length), THEN
+    // tell consumers the file is ready. We deliberately do this ourselves
+    // rather than via yt-dlp's --sponsorblock-remove because the latter
+    // requires a re-encode pass through ffmpeg and can drop quality.
+    fetchSponsorSegmentsInternal(videoId,
+            [this, videoId, outPath](const QList<SponsorSegment>& segments) {
+                if (!segments.isEmpty()) {
+                    const bool cut = cutAudioRanges(outPath, segments);
+                    if (!cut) {
+                        // Cutting failed (e.g. mid-file in the middle of a
+                        // packet boundary on opus). Write the sidecar so
+                        // SponsorBlockController can fall back to skip-at-
+                        // playback during deck use.
+                        QFile sidecar(outPath +
+                                QStringLiteral(".sponsor.json"));
+                        if (sidecar.open(QIODevice::WriteOnly |
+                                    QIODevice::Truncate)) {
+                            QJsonArray arr;
+                            for (const auto& s : segments) {
+                                QJsonObject o;
+                                o.insert(QStringLiteral("start"), s.start);
+                                o.insert(QStringLiteral("end"), s.end);
+                                o.insert(QStringLiteral("category"),
+                                        s.category);
+                                arr.append(o);
+                            }
+                            sidecar.write(QJsonDocument(arr).toJson(
+                                    QJsonDocument::Compact));
+                        }
+                    }
+                }
+                Q_EMIT downloadFinished(videoId, outPath);
             });
 }
 
@@ -355,25 +671,28 @@ void YouTubeService::fetchSponsorSegmentsInternal(
     // SponsorBlock public API: https://wiki.sponsor.ajay.app/w/API_Docs
     // Categories include third-party sponsorships, creator self-promo,
     // intros/outros, viewer-interaction reminders, content previews, and
-    // non-music sections within music videos.
-    // YouTube-served pre/mid/post-roll ads are never present in the audio we
-    // download, so there is nothing to block at this layer.
+    // non-music sections within music videos. We download audio-only
+    // streams from Piped/yt-dlp, so YouTube's pre/mid/post-roll ads are
+    // already absent — SponsorBlock only needs to handle the in-content
+    // creator-inserted breaks.
     const QUrl url(
             QStringLiteral("https://sponsor.ajay.app/api/skipSegments?videoID=%1"
                            "&categories=[\"sponsor\",\"selfpromo\",\"interaction\","
                            "\"intro\",\"outro\",\"preview\",\"music_offtopic\"]")
                     .arg(videoId));
     QNetworkRequest request(url);
-    request.setRawHeader("User-Agent", "DJSugar/SponsorBlock");
+    request.setRawHeader("User-Agent", "Mixxx/SponsorBlock");
     QNetworkReply* reply = m_pNam->get(request);
-    connect(reply, &QNetworkReply::finished, this, [reply, videoId, cb]() {
+    connect(reply, &QNetworkReply::finished, this, [reply, cb]() {
         reply->deleteLater();
         QList<SponsorSegment> segments;
         if (reply->error() == QNetworkReply::NoError) {
-            const QJsonArray array = QJsonDocument::fromJson(reply->readAll()).array();
-            for (const auto& value : array) {
+            const QJsonArray array =
+                    QJsonDocument::fromJson(reply->readAll()).array();
+            for (const QJsonValue& value : array) {
                 const QJsonObject obj = value.toObject();
-                const QJsonArray seg = obj.value(QStringLiteral("segment")).toArray();
+                const QJsonArray seg =
+                        obj.value(QStringLiteral("segment")).toArray();
                 if (seg.size() < 2) {
                     continue;
                 }

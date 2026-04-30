@@ -26,21 +26,33 @@ struct YouTubeVideoInfo {
     int durationSec = 0;
 };
 
-/// YouTube extractor + downloader backed by the `yt-dlp` command line tool.
+/// YouTube extractor + downloader.
 ///
-/// Why yt-dlp instead of talking to YouTube's InnerTube API directly: Google
-/// rotates the Android/iOS client signing schemes, the per-client API keys,
-/// and the "PoToken" bot-guard requirement on roughly a quarterly cadence.
-/// Anything that hand-rolls the protocol breaks within months. yt-dlp is
-/// maintained by a large community that ships fixes within days, so by
-/// shelling out to it we trade an extra runtime dependency for a backend
-/// that actually keeps working.
+/// Uses two cooperating backends so the YouTube tab works out of the box
+/// on every platform Mixxx ships on, with no external setup required:
 ///
-/// The binary is discovered via (in order): the `MIXXX_YTDLP` env variable,
-/// QStandardPaths::findExecutable("yt-dlp"), and a small list of common
-/// install locations (/usr/local/bin, /opt/homebrew/bin, …). If none is
-/// found, search/download requests fail with a clear "yt-dlp not found"
-/// message that the YouTube pane surfaces to the user.
+///   1. **Piped HTTP** (primary, all platforms incl. Android). Piped is an
+///      open-source, federated REST proxy in front of YouTube
+///      (https://github.com/TeamPiped/Piped). We round-robin a hardcoded
+///      list of known-good public instances; on per-request failure we
+///      automatically failover to the next instance. Search is `/search`,
+///      stream resolution is `/streams/<id>` which returns direct unsigned
+///      googlevideo URLs that we then pull with QNetworkAccessManager.
+///      Pure Qt over HTTPS — no native dependency, no bundled binary, no
+///      JNI bridge.
+///
+///   2. **Bundled `yt-dlp`** (defense in depth on desktop). On Linux/macOS
+///      /Windows the install layout ships the official self-contained
+///      `yt-dlp` PyInstaller binary next to the Mixxx executable (see
+///      cmake/modules/FetchYtDlp.cmake). YouTubeService prefers the bundled
+///      copy, then the user's PATH, then a list of common install dirs, then
+///      `MIXXX_YTDLP`. Used only when every Piped instance is unreachable —
+///      e.g. when an ISP / corporate network blocks the public Piped
+///      instances but the user can still hit youtube.com directly.
+///
+/// On Android the standalone yt-dlp binary doesn't exist (it's a glibc
+/// PyInstaller bundle), so we only use Piped there. That's still "out of
+/// the box" because Piped needs no client-side install at all.
 class YouTubeService : public QObject {
     Q_OBJECT
   public:
@@ -60,8 +72,10 @@ class YouTubeService : public QObject {
     /// SponsorBlock API at sponsor.ajay.app.
     void fetchSponsorSegments(const QString& videoId);
 
-    /// Absolute path to the yt-dlp binary that will be used, or empty if
-    /// none was found. Useful for surfacing setup errors to the user.
+    /// Absolute path to the yt-dlp binary that will be used as the desktop
+    /// fallback, or empty if none was found. Empty is normal on Android (and
+    /// on desktops where the user removed the bundled copy) and does NOT
+    /// indicate that the YouTube tab is broken — Piped is the primary path.
     QString ytDlpPath() const {
         return m_ytDlpPath;
     }
@@ -75,8 +89,38 @@ class YouTubeService : public QObject {
             const QString& videoId, const QList<mixxx::SponsorSegment>& segments);
 
   private:
-    /// Locate the yt-dlp binary. Cached in m_ytDlpPath at construction.
+    /// Locate the bundled (or user-installed) yt-dlp binary. Cached in
+    /// m_ytDlpPath at construction.
     static QString locateYtDlp();
+
+    // ----- Piped (primary) -----
+
+    /// Try a Piped search against `m_pipedInstances[instanceIdx]`. On
+    /// network/parse failure, recurses to the next instance. When all
+    /// instances are exhausted, calls `onAllFailed(lastError)` so the
+    /// public searchVideos() can decide whether to fall through to yt-dlp.
+    void searchViaPiped(const QString& query,
+            int cap,
+            int instanceIdx,
+            const std::function<void(const QString& lastError)>& onAllFailed);
+
+    /// Try a Piped resolve+download against `m_pipedInstances[instanceIdx]`.
+    /// Same failover semantics as searchViaPiped.
+    void downloadViaPiped(const QString& videoId,
+            const QString& cacheDir,
+            int instanceIdx,
+            const std::function<void(const QString& lastError)>& onAllFailed);
+
+    /// Pick the best audio stream from a Piped /streams response and start
+    /// streaming it to `<cacheDir>/<videoId>.<ext>`. Emits downloadFinished
+    /// (after the SponsorBlock chain) or invokes `onFailure` on error so
+    /// the caller can try the next Piped instance.
+    void downloadAudioStream(const QString& videoId,
+            const QString& cacheDir,
+            const QJsonArray& audioStreams,
+            const std::function<void(const QString&)>& onFailure);
+
+    // ----- yt-dlp (desktop fallback) -----
 
     /// Spawn yt-dlp with `args`; on completion call `onSuccess(stdout)` or
     /// `onFailure(message)`. `timeoutMs` is enforced via QTimer; processes
@@ -87,14 +131,28 @@ class YouTubeService : public QObject {
             const std::function<void(const QByteArray&)>& onSuccess,
             const std::function<void(const QString&)>& onFailure);
 
+    void searchViaYtDlp(const QString& query, int cap);
+    void downloadViaYtDlp(const QString& videoId, const QString& cacheDir);
+
+    // ----- shared -----
+
     /// Internal SponsorBlock fetch used to chain "download → fetch → cut".
     /// The callback receives segments (possibly empty on failure).
     void fetchSponsorSegmentsInternal(
             const QString& videoId,
             const std::function<void(const QList<SponsorSegment>&)>& cb);
 
+    /// After a downloaded file is on disk, run SponsorBlock fetch, optionally
+    /// cut segments in-place, then emit downloadFinished(videoId, outPath).
+    void finalizeDownload(const QString& videoId, const QString& outPath);
+
     QNetworkAccessManager* m_pNam;
     QString m_ytDlpPath;
+    /// Hardcoded fallback list of Piped API instances. Tried in order on
+    /// per-request failure. The list is intentionally small — going through
+    /// every public instance on every search would amplify load and make
+    /// failures slow to surface to the user.
+    QStringList m_pipedInstances;
 };
 
 } // namespace mixxx
