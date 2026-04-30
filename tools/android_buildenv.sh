@@ -50,7 +50,12 @@ BUILDENV_URL="https://downloads.mixxx.org/dependencies/${BUILDENV_BRANCH}/Linux/
 MIXXX_ROOT="$(realpath "$(dirname "$THIS_SCRIPT_NAME")/..")"
 ANDROID_API=35
 ANDROID_VERSION=35.0.0
-ANDROID_NDK=27.2.12479018
+# NDK r28 (stable) — ships Clang 19, defaults to 16 KB page sizes (required
+# by Pixel 8a+ and any device declaring `ro.build.16k_page=true`), and is
+# the first NDK release fully supporting Android 15 (API 35) build-time
+# features. Bumping from r27.2 (Clang 18). The `lib/clang/<N>` libomp path
+# below is now discovered dynamically so a future NDK bump just works.
+ANDROID_NDK=28.0.13004108
 
 [ -z "$BUILDENV_BASEPATH" ] && BUILDENV_BASEPATH="${MIXXX_ROOT}/buildenv"
 

@@ -6,12 +6,23 @@
     android:versionName="1.0">
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"  />
     <uses-permission android:name="android.permission.INTERNET"  />
+    <!-- API 33+ (Android 13) replaced the broad READ/WRITE_EXTERNAL_STORAGE
+         model with per-mediatype permissions; READ_MEDIA_AUDIO is what we
+         actually need to scan a music library. The legacy permissions are
+         kept with maxSdkVersion guards so devices on Android 12 and below
+         (and side-loaded builds on AOSP forks without scoped storage)
+         still work. MANAGE_EXTERNAL_STORAGE remains unguarded because
+         Mixxx genuinely needs filesystem-wide access to recursively scan
+         user-chosen folders; Google Play scrutinizes this permission, so
+         non-Play distributions are the primary target. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"  />
     <uses-permission android:name="android.permission.RECORD_AUDIO"  />
     <uses-permission android:name="android.permission.USB_PERMISSION"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"  />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
 
     <supports-screens
         android:anyDensity="true"

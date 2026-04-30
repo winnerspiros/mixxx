@@ -2449,11 +2449,59 @@ if(QT6)
       "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/bin/clang++"
     )
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fPIC")
+    # Locate the NDK's bundled libomp.so dynamically. The path used to be
+    # hardcoded to `lib/clang/18/...` which broke every time the NDK was
+    # bumped (r27 ships Clang 18, r28 ships Clang 19, r29+ will ship newer).
+    # Glob the single Clang version directory the NDK installs and pick that.
+    file(
+      GLOB _android_clang_runtime_dirs
+      LIST_DIRECTORIES true
+      "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/lib/clang/*"
+    )
+    list(LENGTH _android_clang_runtime_dirs _android_clang_runtime_count)
+    if(_android_clang_runtime_count EQUAL 0)
+      message(
+        FATAL_ERROR
+        "Could not locate Clang runtime directory under "
+        "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/lib/clang/. "
+        "Is the NDK installed correctly?"
+      )
+    endif()
+    # Pick the highest-numbered (most recent) entry; an NDK normally ships
+    # exactly one but be defensive if a side-by-side install ever happens.
+    list(SORT _android_clang_runtime_dirs)
+    list(GET _android_clang_runtime_dirs -1 _android_clang_runtime_dir)
+    set(
+      _android_libomp_path
+      "${_android_clang_runtime_dir}/lib/linux/aarch64/libomp.so"
+    )
+    if(NOT EXISTS "${_android_libomp_path}")
+      message(
+        FATAL_ERROR
+        "Expected NDK libomp.so at ${_android_libomp_path} but the file is "
+        "missing. Did the NDK layout change?"
+      )
+    endif()
     set_target_properties(
       mixxx
       PROPERTIES
         QT_ANDROID_EXTRA_LIBS
-          ${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/lib/clang/18/lib/linux/aarch64/libomp.so
+          "${_android_libomp_path}"
+    )
+    # 16 KB page-size compatibility. Pixel 8a / 9 series and any device
+    # exposing `ro.product.cpu.pagesize=16384` refuse to load .so files
+    # whose segments aren't aligned to 16 KB. NDK r28 enables this by
+    # default for new projects but Mixxx overrides linker flags above —
+    # re-apply explicitly so we benefit on the new devices and don't
+    # silently regress to 4 KB-only loads. The `android+relr` relocation
+    # packing format collapses RELATIVE relocations into a bitmap (saves
+    # roughly 5–10 % off `libmixxx-lib.so` and a comparable share of the
+    # compressed APK) and is supported by every Android version we ship to.
+    target_link_options(
+      mixxx-lib
+      PUBLIC
+      "LINKER:-z,max-page-size=16384"
+      "LINKER:--pack-dyn-relocs=android+relr"
     )
     add_custom_target(
       copy-resource-android
