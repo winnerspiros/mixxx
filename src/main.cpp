@@ -1,6 +1,7 @@
 #include <QApplication>
 #include <QDir>
 #include <QPixmapCache>
+#include <QScreen>
 #include <QString>
 #include <QStringList>
 #include <QStyle>
@@ -8,6 +9,8 @@
 #include <QThread>
 #include <QtDebug>
 #include <QtGlobal>
+#include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <memory>
 #include <stdexcept>
@@ -170,6 +173,78 @@ void adjustScaleFactor(CmdlineArgs* pArgs) {
     }
 }
 
+// LateNight (the default skin) declares <MinimumSize>1280,668</MinimumSize>.
+// On phones this overflows the screen, clipping the right deck (the FX1-4
+// row visible in the original bug report). On Samsung DeX with a 1080p
+// external display the same skin underuses the screen. We can't make the
+// fixed-pixel skin truly responsive without a rewrite, but we can size the
+// scale factor to match the available display so the skin at least fits.
+//
+// Must run AFTER QApplication construction (we need QScreen). The
+// pArgs->setScaleFactor() call takes effect this run for skin elements
+// (LegacySkinParser reads it during skin load); the value is also persisted
+// to [Config]/ScaleFactor so the next launch picks it up via the env-var
+// path in adjustScaleFactor() and Qt's own widget scaling kicks in too.
+//
+// On DeX dock/undock the user has to relaunch — Qt reads QT_SCALE_FACTOR
+// once at startup and live re-application is unreliable for QWidget UIs.
+void maybeAutoDetectScaleFactor(CmdlineArgs* pArgs) {
+    // Respect explicit user choice. If pArgs->getScaleFactor() is anything
+    // other than the default (1.0), adjustScaleFactor() above already picked
+    // up a value from env or config, and we must not stomp on it.
+    if (std::fabs(pArgs->getScaleFactor() - 1.0) > 0.001) {
+        return;
+    }
+    if (qEnvironmentVariableIsSet(kScaleFactorEnvVar)) {
+        return;
+    }
+    // Check config one more time in case adjustScaleFactor() saw an empty
+    // string but the user set "1.0" explicitly — we still want to honor that.
+    auto config = ConfigObject<ConfigValue>(
+            QDir(pArgs->getSettingsPath()).filePath(MIXXX_SETTINGS_FILE),
+            QString(),
+            QString());
+    if (!config.getValue(ConfigKey(kConfigGroup, kScaleFactorKey)).isEmpty()) {
+        return;
+    }
+
+    QScreen* pScreen = QGuiApplication::primaryScreen();
+    if (!pScreen) {
+        return;
+    }
+    const QSize screenSize = pScreen->availableSize();
+    if (screenSize.isEmpty()) {
+        return;
+    }
+    // LateNight nominal layout — see res/skins/LateNight/skin.xml MinimumSize.
+    constexpr int kSkinNominalWidth = 1280;
+    constexpr int kSkinNominalHeight = 668;
+    // Reserve a little headroom so the window chrome (title bar / Android
+    // system bars) doesn't clip the skin at exactly the minimum size.
+    constexpr double kHeadroom = 0.95;
+    const double byWidth = (screenSize.width() * kHeadroom) / kSkinNominalWidth;
+    const double byHeight = (screenSize.height() * kHeadroom) / kSkinNominalHeight;
+    double scale = std::min(byWidth, byHeight);
+    // Clamp to a sensible range. Below 0.45 the skin becomes unreadable;
+    // above 2.0 it's larger than any reasonable display benefits from.
+    scale = std::clamp(scale, 0.45, 2.0);
+    // If scaling would be a no-op (within rounding) leave it alone so we
+    // don't litter the config file on standard 1080p+ desktops.
+    if (std::fabs(scale - 1.0) < 0.05) {
+        return;
+    }
+    // Round to two decimals to keep the config human-readable and avoid
+    // regenerating a slightly different float every launch.
+    scale = std::round(scale * 100.0) / 100.0;
+    qDebug() << "Auto-detected ScaleFactor" << scale << "for screen"
+             << screenSize << "(LateNight nominal" << kSkinNominalWidth << "x"
+             << kSkinNominalHeight << ")";
+    pArgs->setScaleFactor(scale);
+    config.set(ConfigKey(kConfigGroup, kScaleFactorKey),
+            ConfigValue(QString::number(scale)));
+    config.save();
+}
+
 #ifndef Q_OS_ANDROID
 void applyStyleOverride(CmdlineArgs* pArgs) {
     if (!pArgs->getStyle().isEmpty()) {
@@ -273,6 +348,10 @@ int main(int argc, char* argv[]) {
     // large tablets. QApplication still satisfies QGuiApplication, so the
     // optional --qml UI keeps working on top of it.
     MixxxApplication app(argc, argv);
+
+    // Auto-fit the LateNight skin to the actual screen on first launch.
+    // No-op if the user already has an explicit ScaleFactor in config or env.
+    maybeAutoDetectScaleFactor(&args);
 
 #if defined(Q_OS_WIN)
     // The Mixxx style is based on Qt's WindowsVista style

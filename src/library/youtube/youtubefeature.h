@@ -30,6 +30,14 @@ class YouTubeFeature : public BaseExternalLibraryFeature {
 
     void searchAndActivate(const QString& query);
 
+    /// Like searchAndActivate, but in addition to populating the sidebar,
+    /// auto-loads the first (top) YouTube result onto the next free deck once
+    /// the search returns. Used by the Spotify→YouTube bridge so that
+    /// clicking a Spotify track gives the user audio without an extra step.
+    /// `displayLabel` is shown in logs/UI to make the cross-source mapping
+    /// transparent.
+    void searchAndAutoLoadFirst(const QString& query, const QString& displayLabel = QString());
+
     /// Absolute path to the per-user yt-dlp cache directory. Created on demand.
     QString cacheDir() const;
 
@@ -84,4 +92,9 @@ class YouTubeFeature : public BaseExternalLibraryFeature {
     // auto-loaded onto a deck once finished. Background prefetch downloads
     // are NOT in this set, so they don't yank the deck.
     QSet<QString> m_videoIdsToAutoLoad;
+    /// When set, the next batch of search results that matches `m_lastQuery`
+    /// will trigger an auto-download+load of the top result. Cleared once
+    /// consumed so subsequent user-driven searches don't accidentally autoload.
+    bool m_autoLoadNextResult = false;
+    QString m_autoLoadDisplayLabel;
 };

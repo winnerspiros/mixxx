@@ -110,6 +110,28 @@ void YouTubeFeature::activate() {
     // appear empty with no way to populate it.
     Q_EMIT enableCoverArtDisplay(false);
     rebuildHomeHtml();
+    // Prime the pane with a "what's hot" list on first open so the user has
+    // something to click before they've typed anything. We piggyback on the
+    // existing search path rather than hitting a dedicated trending endpoint
+    // (InnerTube's `browse:FEtrending` exists but would double the API
+    // surface in YouTubeService for marginal benefit).
+    if (m_lastQuery.isEmpty() && m_lastResults.isEmpty()) {
+        searchAndActivate(tr("trending music"));
+    }
+}
+
+void YouTubeFeature::bindLibraryWidget(WLibrary* pLibraryWidget,
+        KeyboardEventFilter* /*pKeyboard*/) {
+    // The YOUTUBE_HOME view backs the right-hand library pane when the user
+    // selects "YouTube" in the sidebar. Without this registration the pane
+    // would render as an empty grey rectangle (the sidebar tree still
+    // populates separately, but the user has no main-area feedback that the
+    // search ran).
+    auto pBrowser = make_parented<WLibraryTextBrowser>(pLibraryWidget);
+    pBrowser->setOpenLinks(false);
+    m_pHomeView = pBrowser.get();
+    pLibraryWidget->registerView(QStringLiteral("YOUTUBE_HOME"), pBrowser);
+    rebuildHomeHtml();
 }
 
 void YouTubeFeature::activateChild(const QModelIndex& index) {
@@ -145,7 +167,23 @@ void YouTubeFeature::searchAndActivate(const QString& query) {
     kLogger.info() << "Searching YouTube for:" << query;
     m_lastQuery = query;
     m_lastResults.clear();
+    m_autoLoadNextResult = false;
+    m_autoLoadDisplayLabel.clear();
     rebuildSidebar();
+    rebuildHomeHtml();
+    m_service.searchVideos(query, kSearchResultsMax);
+}
+
+void YouTubeFeature::searchAndAutoLoadFirst(
+        const QString& query, const QString& displayLabel) {
+    kLogger.info() << "Searching YouTube for auto-load:" << query
+                   << "(display:" << displayLabel << ")";
+    m_lastQuery = query;
+    m_lastResults.clear();
+    m_autoLoadNextResult = true;
+    m_autoLoadDisplayLabel = displayLabel.isEmpty() ? query : displayLabel;
+    rebuildSidebar();
+    rebuildHomeHtml();
     m_service.searchVideos(query, kSearchResultsMax);
 }
 
@@ -156,6 +194,16 @@ void YouTubeFeature::onSearchResultsReady(
     }
     m_lastResults = results;
     rebuildSidebar();
+    rebuildHomeHtml();
+    if (m_autoLoadNextResult && !results.isEmpty()) {
+        m_autoLoadNextResult = false;
+        const QString videoId = results.first().id;
+        kLogger.info() << "Auto-loading top YouTube hit" << videoId
+                       << "for" << m_autoLoadDisplayLabel;
+        requestDownload(videoId);
+    } else {
+        m_autoLoadNextResult = false;
+    }
 }
 
 void YouTubeFeature::onSearchFailed(const QString& query, const QString& error) {
@@ -163,6 +211,7 @@ void YouTubeFeature::onSearchFailed(const QString& query, const QString& error) 
         return;
     }
     kLogger.warning() << "YouTube search failed:" << error;
+    rebuildHomeHtml();
 }
 
 void YouTubeFeature::requestDownload(const QString& videoId) {
@@ -225,6 +274,7 @@ void YouTubeFeature::onDownloadFinished(
     }
     m_downloadedTracks.insert(videoId, label);
     rebuildSidebar();
+    rebuildHomeHtml();
 
     // Always register with the track collection so analysis runs and the DB
     // entry exists. Only emit loadTrack for downloads triggered by a user
@@ -305,6 +355,7 @@ void YouTubeFeature::maybeReleaseCachedTrack(const TrackPointer& pTrack) {
         }
         m_downloadedTracks.remove(videoId);
         rebuildSidebar();
+        rebuildHomeHtml();
     });
 }
 
@@ -406,6 +457,63 @@ void YouTubeFeature::rebuildSidebar() {
     }
 
     m_pSidebarModel->setRootItem(std::move(pRoot));
+}
+
+void YouTubeFeature::rebuildHomeHtml() {
+    if (!m_pHomeView) {
+        return;
+    }
+    QString html;
+    html += QStringLiteral("<h2>") + tr("YouTube") + QStringLiteral("</h2>");
+    html += QStringLiteral("<p>") +
+            tr("Type a song, artist or video title in the search box at the "
+               "top of the library to search YouTube. Click a result in the "
+               "sidebar to download it and load it onto the next free deck.") +
+            QStringLiteral("</p>");
+
+    if (!m_lastQuery.isEmpty()) {
+        html += QStringLiteral("<h3>") +
+                tr("Results for: %1").arg(m_lastQuery.toHtmlEscaped()) +
+                QStringLiteral("</h3>");
+        if (m_lastResults.isEmpty()) {
+            html += QStringLiteral("<p><i>") +
+                    tr("Searching…") +
+                    QStringLiteral("</i></p>");
+        } else {
+            html += QStringLiteral("<ul>");
+            for (const auto& info : std::as_const(m_lastResults)) {
+                QString line = info.title.toHtmlEscaped();
+                if (!info.uploader.isEmpty()) {
+                    line += QStringLiteral(" — ") +
+                            info.uploader.toHtmlEscaped();
+                }
+                if (info.durationSec > 0) {
+                    line += QStringLiteral(" [%1:%2]")
+                                    .arg(info.durationSec / 60)
+                                    .arg(info.durationSec % 60,
+                                            2,
+                                            10,
+                                            QLatin1Char('0'));
+                }
+                html += QStringLiteral("<li>") + line + QStringLiteral("</li>");
+            }
+            html += QStringLiteral("</ul>");
+        }
+    }
+
+    if (!m_downloadedTracks.isEmpty()) {
+        html += QStringLiteral("<h3>") + tr("Downloaded") + QStringLiteral("</h3>");
+        html += QStringLiteral("<ul>");
+        for (auto it = m_downloadedTracks.cbegin();
+                it != m_downloadedTracks.cend();
+                ++it) {
+            html += QStringLiteral("<li>") + it.value().toHtmlEscaped() +
+                    QStringLiteral("</li>");
+        }
+        html += QStringLiteral("</ul>");
+    }
+
+    m_pHomeView->setHtml(html);
 }
 
 #include "moc_youtubefeature.cpp"

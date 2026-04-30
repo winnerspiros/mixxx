@@ -168,9 +168,15 @@ Library::Library(
             &AnalysisFeature::analyzeTracks);
     addFeature(m_pAnalysisFeature);
 #ifdef NETWORKAUTH
-    m_pSpotifyFeature = make_parented<SpotifyFeature>(this, m_pConfig);
-    addFeature(m_pSpotifyFeature);
+    // Construct YouTube first because SpotifyFeature uses it to resolve
+    // Spotify tracks to playable audio (Spotify's API does not return audio;
+    // we search YouTube for the title+artist and download from there — the
+    // same approach `spotdl` and similar tools use). This keeps the existing
+    // YouTube cache-cleanup pipeline as the single owner of downloaded files.
     m_pYouTubeFeature = make_parented<YouTubeFeature>(this, m_pConfig);
+    m_pSpotifyFeature = make_parented<SpotifyFeature>(
+            this, m_pConfig, m_pYouTubeFeature.get());
+    addFeature(m_pSpotifyFeature);
     addFeature(m_pYouTubeFeature);
     // The SponsorBlock controller observes deck loads globally and skips
     // segments inside YouTube-cached tracks. It is owned by Library so it
