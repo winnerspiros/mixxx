@@ -240,10 +240,11 @@ void YouTubeService::downloadVideo(const QString& videoId, const QString& cacheD
 
 void YouTubeService::fetchTrending(const QString& region, int cap) {
     // Empty / malformed region: fall back to "US" rather than failing,
-    // because Piped requires a non-empty region= and an empty pane is the
-    // worst possible UX for a freshly-opened YouTube tab.
+    // because Piped requires a non-empty alpha-2 region= and an empty pane is
+    // the worst possible UX for a freshly-opened YouTube tab.
     QString r = region.toUpper();
-    if (r.size() != 2) {
+    const bool valid = r.size() == 2 && r.at(0).isLetter() && r.at(1).isLetter();
+    if (!valid) {
         kLogger.warning() << "fetchTrending: ignoring unsupported region"
                           << region << "— defaulting to US";
         r = QStringLiteral("US");

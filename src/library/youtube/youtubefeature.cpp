@@ -43,22 +43,18 @@ const QString kCachedPrefix = QStringLiteral("yt-cached:");
 const QString kHomePlayScheme = QStringLiteral("ytplay");
 const QString kHomeCachedScheme = QStringLiteral("ytcached");
 
-// Derive the user's ISO 3166-1 alpha-2 country code from the system locale
-// in a way that compiles on both Qt 5 and Qt 6 (Mixxx still supports both).
-// QLocale::system().name() returns e.g. "en_US.UTF-8"; the country segment
-// is between '_' and the first '.' or end. Falls back to "US" if we cannot
-// extract two upper-case letters — Piped's /trending requires a region.
+// Derive the user's ISO 3166-1 alpha-2 country code from the system locale.
+// Uses QLocale::bcp47Name() (available since Qt 4.8 — Mixxx's floor is 5.12)
+// which always returns a canonical BCP-47 tag like "en-US", "pt-BR" or
+// "zh-Hans-CN" with the region in alpha-2 uppercase. We pick the first
+// 2-letter uppercase subtag as the region. Falls back to "US" if the locale
+// has no region (e.g. plain "en") — Piped's /trending requires one.
 QString systemCountryCode() {
-    const QString name = QLocale::system().name();
-    const int us = name.indexOf(QLatin1Char('_'));
-    if (us > 0 && name.size() >= us + 3) {
-        QString code = name.mid(us + 1, 2);
-        const int dot = code.indexOf(QLatin1Char('.'));
-        if (dot >= 0) {
-            code = code.left(dot);
-        }
-        if (code.size() == 2 && code.at(0).isLetter() && code.at(1).isLetter()) {
-            return code.toUpper();
+    const QStringList parts =
+            QLocale::system().bcp47Name().split(QLatin1Char('-'));
+    for (const QString& part : parts) {
+        if (part.size() == 2 && part.at(0).isUpper() && part.at(1).isUpper()) {
+            return part;
         }
     }
     return QStringLiteral("US");
