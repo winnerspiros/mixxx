@@ -97,4 +97,9 @@ class YouTubeFeature : public BaseExternalLibraryFeature {
     /// consumed so subsequent user-driven searches don't accidentally autoload.
     bool m_autoLoadNextResult = false;
     QString m_autoLoadDisplayLabel;
+    /// Last error message reported by the underlying YouTubeService for the
+    /// current `m_lastQuery`. Cleared when a new search is started or when
+    /// results arrive successfully. When non-empty, the home pane shows the
+    /// error in place of the perpetual "Searching…" placeholder.
+    QString m_lastSearchError;
 };

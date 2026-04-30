@@ -178,38 +178,24 @@ void adjustScaleFactor(CmdlineArgs* pArgs) {
 // row visible in the original bug report). On Samsung DeX with a 1080p
 // external display the same skin underuses the screen. We can't make the
 // fixed-pixel skin truly responsive without a rewrite, but we can size the
-// scale factor to match the available display so the skin at least fits.
+// scale factor to match the available display so the skin always fits the
+// current screen exactly.
 //
-// Must run AFTER QApplication construction (we need QScreen). The
-// pArgs->setScaleFactor() call takes effect this run for skin elements
-// (LegacySkinParser reads it during skin load); the value is also persisted
-// to [Config]/ScaleFactor so the next launch picks it up via the env-var
-// path in adjustScaleFactor() and Qt's own widget scaling kicks in too.
+// Re-runs on every launch (not just the first) so that opening Mixxx on a
+// different display — phone screen vs. DeX, laptop vs. external monitor,
+// portable settings on a new machine — picks up the right factor without
+// the user having to fiddle with preferences. We persist the new value to
+// [Config]/ScaleFactor so on the *next* launch with the same display it
+// also takes effect for Qt's own widget scaling (QT_SCALE_FACTOR is read
+// at QApplication construction time, before this function gets a QScreen
+// to query, so the very first launch on a new display only scales the
+// LegacySkinParser pixmaps; restarting closes the gap).
 //
-// On DeX dock/undock the user has to relaunch — Qt reads QT_SCALE_FACTOR
-// once at startup and live re-application is unreliable for QWidget UIs.
+// Must run AFTER QApplication construction (we need QScreen).
 void maybeAutoDetectScaleFactor(CmdlineArgs* pArgs) {
-    // Respect explicit user choice. If pArgs->getScaleFactor() is anything
-    // other than the default (1.0), adjustScaleFactor() above already picked
-    // up a value from env or config, and we must not stomp on it.
-    if (std::fabs(pArgs->getScaleFactor() - 1.0) > 0.001) {
-        return;
-    }
+    // Respect explicit user choice from the command line / env. If the user
+    // passed --scale-factor or set QT_SCALE_FACTOR themselves, never override.
     if (qEnvironmentVariableIsSet(kScaleFactorEnvVar)) {
-        return;
-    }
-    // Check config one more time in case adjustScaleFactor() saw an empty
-    // string but the user set "1.0" explicitly — we still want to honor that.
-    // Re-open the config locally rather than threading the one from
-    // adjustScaleFactor() through main(): that one is a function-scoped
-    // ConfigObject which has already been destroyed. The cost is a single
-    // small INI parse on first launches without ScaleFactor set; a no-op
-    // on every subsequent launch (the early-return above fires).
-    auto config = ConfigObject<ConfigValue>(
-            QDir(pArgs->getSettingsPath()).filePath(MIXXX_SETTINGS_FILE),
-            QString(),
-            QString());
-    if (!config.getValue(ConfigKey(kConfigGroup, kScaleFactorKey)).isEmpty()) {
         return;
     }
 
@@ -235,23 +221,37 @@ void maybeAutoDetectScaleFactor(CmdlineArgs* pArgs) {
     constexpr double kMinScale = 0.45;
     constexpr double kMaxScale = 2.0;
     scale = std::clamp(scale, kMinScale, kMaxScale);
-    // If scaling would be a no-op (within rounding) leave it alone so we
-    // don't litter the config file on standard 1080p+ desktops where the
-    // skin already fits without scaling.
-    constexpr double kNoOpScaleThreshold = 0.05;
-    if (std::fabs(scale - 1.0) < kNoOpScaleThreshold) {
-        return;
-    }
     // Round to two decimals to keep the config human-readable and avoid
-    // regenerating a slightly different float every launch.
+    // regenerating a slightly different float on every launch.
     scale = std::round(scale * 100.0) / 100.0;
-    qDebug() << "Auto-detected ScaleFactor" << scale << "for screen"
-             << screenSize << "(LateNight nominal" << kSkinNominalWidth << "x"
-             << kSkinNominalHeight << ")";
+
+    auto config = ConfigObject<ConfigValue>(
+            QDir(pArgs->getSettingsPath()).filePath(MIXXX_SETTINGS_FILE),
+            QString(),
+            QString());
+
+    const QString existingStr =
+            config.getValue(ConfigKey(kConfigGroup, kScaleFactorKey));
+    bool ok = false;
+    const double existing = existingStr.toDouble(&ok);
+    const bool sameAsConfig =
+            ok && existing > 0 && std::fabs(existing - scale) < 0.005;
+
+    qDebug() << "Auto-fit ScaleFactor" << scale << "for screen" << screenSize
+             << "(LateNight nominal" << kSkinNominalWidth << "x"
+             << kSkinNominalHeight << ", previous=" << existingStr << ")";
+
+    // Apply to this run so LegacySkinParser pixmap rendering is sized
+    // correctly even on the very first launch on a new display.
     pArgs->setScaleFactor(scale);
-    config.set(ConfigKey(kConfigGroup, kScaleFactorKey),
-            ConfigValue(QString::number(scale)));
-    config.save();
+
+    // Persist only when it actually changed — avoids needless writes on the
+    // common case where the user always opens Mixxx on the same display.
+    if (!sameAsConfig) {
+        config.set(ConfigKey(kConfigGroup, kScaleFactorKey),
+                ConfigValue(QString::number(scale)));
+        config.save();
+    }
 }
 
 #ifndef Q_OS_ANDROID

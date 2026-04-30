@@ -170,6 +170,7 @@ void YouTubeFeature::searchAndActivate(const QString& query) {
     kLogger.info() << "Searching YouTube for:" << query;
     m_lastQuery = query;
     m_lastResults.clear();
+    m_lastSearchError.clear();
     m_autoLoadNextResult = false;
     m_autoLoadDisplayLabel.clear();
     rebuildSidebar();
@@ -183,6 +184,7 @@ void YouTubeFeature::searchAndAutoLoadFirst(
                    << "(display:" << displayLabel << ")";
     m_lastQuery = query;
     m_lastResults.clear();
+    m_lastSearchError.clear();
     m_autoLoadNextResult = true;
     m_autoLoadDisplayLabel = displayLabel.isEmpty() ? query : displayLabel;
     rebuildSidebar();
@@ -196,6 +198,7 @@ void YouTubeFeature::onSearchResultsReady(
         return; // a newer search has superseded this one
     }
     m_lastResults = results;
+    m_lastSearchError.clear();
     rebuildSidebar();
     rebuildHomeHtml();
     if (m_autoLoadNextResult && !results.isEmpty()) {
@@ -214,6 +217,10 @@ void YouTubeFeature::onSearchFailed(const QString& query, const QString& error) 
         return;
     }
     kLogger.warning() << "YouTube search failed:" << error;
+    m_lastSearchError = error;
+    // A failed search must not keep an auto-load pending — otherwise the next
+    // unrelated search would silently inherit the auto-load intent.
+    m_autoLoadNextResult = false;
     rebuildHomeHtml();
 }
 
@@ -473,6 +480,33 @@ void YouTubeFeature::rebuildHomeHtml() {
     }
     QString html;
     html += QStringLiteral("<h2>") + tr("YouTube") + QStringLiteral("</h2>");
+
+    // Setup gate: if yt-dlp isn't installed, the search and download paths
+    // can't possibly succeed. Tell the user up front rather than letting them
+    // type queries that silently fail.
+    if (m_service.ytDlpPath().isEmpty()) {
+        html += QStringLiteral("<p><b>") +
+                tr("YouTube backend not configured") +
+                QStringLiteral("</b></p><p>") +
+                tr("Mixxx uses the <code>yt-dlp</code> command-line tool to "
+                   "search and stream from YouTube. It does not appear to be "
+                   "installed on this system. Install it with one of:") +
+                QStringLiteral("</p><ul>"
+                               "<li><code>pip install -U yt-dlp</code></li>"
+                               "<li><code>brew install yt-dlp</code> (macOS)</li>"
+                               "<li><code>sudo apt install yt-dlp</code> (Debian/Ubuntu)</li>"
+                               "<li>Download the binary from "
+                               "<a href=\"https://github.com/yt-dlp/yt-dlp\">"
+                               "github.com/yt-dlp/yt-dlp</a></li>"
+                               "</ul><p>") +
+                tr("If you have it installed in a non-standard location, set "
+                   "the <code>MIXXX_YTDLP</code> environment variable to its "
+                   "full path and restart Mixxx.") +
+                QStringLiteral("</p>");
+        m_pHomeView->setHtml(html);
+        return;
+    }
+
     html += QStringLiteral("<p>") +
             tr("Type a song, artist or video title in the search box at the "
                "top of the library to search YouTube. Click a result in the "
@@ -483,7 +517,15 @@ void YouTubeFeature::rebuildHomeHtml() {
         html += QStringLiteral("<h3>") +
                 tr("Results for: %1").arg(m_lastQuery.toHtmlEscaped()) +
                 QStringLiteral("</h3>");
-        if (m_lastResults.isEmpty()) {
+        if (!m_lastSearchError.isEmpty()) {
+            // Surface the underlying error so the user can act on it (e.g.
+            // network failure, yt-dlp out-of-date, region-blocked content).
+            html += QStringLiteral("<p><b>") +
+                    tr("Search failed") +
+                    QStringLiteral(":</b> ") +
+                    m_lastSearchError.toHtmlEscaped() +
+                    QStringLiteral("</p>");
+        } else if (m_lastResults.isEmpty()) {
             html += QStringLiteral("<p><i>") +
                     tr("Searching…") +
                     QStringLiteral("</i></p>");
