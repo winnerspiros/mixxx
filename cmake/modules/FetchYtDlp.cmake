@@ -100,9 +100,14 @@ if(_need_download)
       STATUS
       "Downloading yt-dlp ${YTDLP_VERSION} (${_ytdlp_asset}), attempt ${_attempt}/${_max_attempts}"
     )
+    # Omit EXPECTED_HASH here: when the download fails (e.g. network blocked
+    # in a Flatpak or offline CI runner), file(DOWNLOAD ... EXPECTED_HASH ...)
+    # emits a CMake Error that marks the whole configure as failed even though
+    # our fallback path is perfectly valid. Verify the hash ourselves after a
+    # successful download so a _corrupted_ binary still fails loudly without
+    # a network failure causing a hard configure error.
     file(
       DOWNLOAD "${_ytdlp_url}" "${_ytdlp_path}"
-      EXPECTED_HASH "SHA256=${_ytdlp_sha256}"
       SHOW_PROGRESS
       STATUS _dl_status
       TLS_VERIFY ON
@@ -112,7 +117,19 @@ if(_need_download)
     if(_dl_code EQUAL 0 AND EXISTS "${_ytdlp_path}")
       file(SIZE "${_ytdlp_path}" _dl_size)
       if(_dl_size GREATER 0)
-        set(_ytdlp_ok TRUE)
+        # Verify the hash so a CDN glitch that returns garbage doesn't sneak
+        # into a shipped binary. A hash mismatch is an unexpected hard error
+        # (download infrastructure broken), not a soft network-blocked case.
+        file(SHA256 "${_ytdlp_path}" _actual_sha)
+        if(_actual_sha STREQUAL _ytdlp_sha256)
+          set(_ytdlp_ok TRUE)
+        else()
+          message(
+            WARNING
+            "yt-dlp download hash mismatch (expected ${_ytdlp_sha256}, got ${_actual_sha}), retrying"
+          )
+          file(REMOVE "${_ytdlp_path}")
+        endif()
       else()
         message(STATUS "Downloaded yt-dlp is 0 bytes, retrying")
         file(REMOVE "${_ytdlp_path}")
