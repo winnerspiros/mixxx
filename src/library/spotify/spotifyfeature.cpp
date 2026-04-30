@@ -1,5 +1,6 @@
 #include "library/spotify/spotifyfeature.h"
 
+#include <QInputDialog>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -15,8 +16,11 @@
 #include "library/library.h"
 #include "library/treeitem.h"
 #include "library/treeitemmodel.h"
+#include "library/youtube/youtubefeature.h"
 #include "preferences/configobject.h"
 #include "util/logger.h"
+#include "widget/wlibrary.h"
+#include "widget/wlibrarytextbrowser.h"
 
 namespace {
 const mixxx::Logger kLogger("SpotifyFeature");
@@ -30,16 +34,23 @@ const ConfigKey kCfgRefreshToken(
 const ConfigKey kCfgExpiresAt(
         QStringLiteral("[Spotify]"), QStringLiteral("expires_at"));
 
-const QString kSearchPrefix = QStringLiteral("spotify-search:");
 const QString kPlaylistPrefix = QStringLiteral("spotify-playlist:");
 const QString kTrackPrefix = QStringLiteral("spotify-track:");
 const QString kInfoPrefix = QStringLiteral("spotify-info:");
+// Separator used between track title and artist when constructing display
+// labels. Centralized so the YouTube-bridge parsing in activateChild stays
+// in sync with all label producers (refreshLibrary / searchAndActivate /
+// playlist-track expansion).
+const QString kLabelSep = QStringLiteral(" — ");
 } // namespace
 
-SpotifyFeature::SpotifyFeature(Library* pLibrary, UserSettingsPointer pConfig)
+SpotifyFeature::SpotifyFeature(Library* pLibrary,
+        UserSettingsPointer pConfig,
+        YouTubeFeature* pYouTubeFeature)
         : BaseExternalLibraryFeature(pLibrary, pConfig, "spotify"),
           m_pNam(new QNetworkAccessManager(this)),
-          m_pSidebarModel(make_parented<TreeItemModel>(this)) {
+          m_pSidebarModel(make_parented<TreeItemModel>(this)),
+          m_pYouTubeFeature(pYouTubeFeature) {
 #ifdef NETWORKAUTH
     // Reply handler runs a tiny HTTP server on localhost that Spotify will
     // redirect back to with the authorization code.
@@ -73,26 +84,72 @@ SpotifyFeature::SpotifyFeature(Library* pLibrary, UserSettingsPointer pConfig)
 void SpotifyFeature::activate() {
     kLogger.debug() << "Spotify feature activated";
     Q_EMIT switchToView(QStringLiteral("SPOTIFY_HOME"));
-    Q_EMIT disableSearch();
+    // Intentionally do NOT emit disableSearch(): Library forwards search box
+    // input to SpotifyFeature::searchAndActivate, so leaving the box enabled
+    // is the only way the user can drive a Spotify search.
     Q_EMIT enableCoverArtDisplay(false);
+    rebuildHomeHtml();
 
 #ifdef NETWORKAUTH
-    if (m_pConfig->getValueString(kCfgClientId).isEmpty()) {
-        QMessageBox::information(nullptr,
-                tr("Spotify setup required"),
-                tr("To use Spotify in DJ Sugar, register a free Spotify "
-                   "developer application at "
-                   "https://developer.spotify.com/dashboard, set its redirect "
-                   "URI to http://localhost (any port), and store the Client "
-                   "ID under [Spotify]/client_id in your DJ Sugar config "
-                   "file."));
-        return;
+    QString clientId = m_pConfig->getValueString(kCfgClientId);
+    if (clientId.isEmpty()) {
+        clientId = promptForClientId();
+        if (clientId.isEmpty()) {
+            // User cancelled. Leave the pane in its "set up to continue" state.
+            return;
+        }
+        m_oauth2.setClientIdentifier(clientId);
     }
     if (m_oauth2.status() != QAbstractOAuth::Status::Granted) {
+        // QOAuth2AuthorizationCodeFlow::authorizeWithBrowser opens the URL
+        // via QDesktopServices::openUrl. On Android the system handles deep
+        // links: if the official Spotify app is installed it intercepts the
+        // accounts.spotify.com/authorize URL and shows the in-app consent
+        // screen; otherwise the user falls back to the browser. Either way
+        // they end up redirected to the local reply handler.
         m_oauth2.grant();
     } else {
         refreshLibrary();
     }
+#endif
+}
+
+void SpotifyFeature::bindLibraryWidget(WLibrary* pLibraryWidget,
+        KeyboardEventFilter* /*pKeyboard*/) {
+    // Without registering a widget for SPOTIFY_HOME the right-hand library
+    // pane renders as a blank grey rectangle — the user has no idea whether
+    // they're authenticated or what to do next.
+    auto pBrowser = make_parented<WLibraryTextBrowser>(pLibraryWidget);
+    pBrowser->setOpenLinks(false);
+    m_pHomeView = pBrowser.get();
+    pLibraryWidget->registerView(QStringLiteral("SPOTIFY_HOME"), pBrowser);
+    rebuildHomeHtml();
+}
+
+QString SpotifyFeature::promptForClientId() {
+#ifdef NETWORKAUTH
+    bool ok = false;
+    const QString existing = m_pConfig->getValueString(kCfgClientId);
+    const QString entered = QInputDialog::getText(nullptr,
+            tr("Spotify setup"),
+            tr("To enable Spotify, register a free developer application "
+               "at https://developer.spotify.com/dashboard, set its redirect "
+               "URI to http://localhost (any port), copy the Client ID and "
+               "paste it below.\n\nClient ID:"),
+            QLineEdit::Normal,
+            existing,
+            &ok);
+    if (!ok) {
+        return QString();
+    }
+    const QString trimmed = entered.trimmed();
+    if (trimmed.isEmpty()) {
+        return QString();
+    }
+    m_pConfig->set(kCfgClientId, ConfigValue(trimmed));
+    return trimmed;
+#else
+    return QString();
 #endif
 }
 
@@ -110,7 +167,8 @@ void SpotifyFeature::activateChild(const QModelIndex& index) {
         apiGet(QStringLiteral("playlists/") + playlistId + QStringLiteral("/tracks?limit=100"),
                 [this, playlistId](const QJsonDocument& doc) {
                     QList<Item> tracks;
-                    for (const auto& item : doc.object().value(QStringLiteral("items")).toArray()) {
+                    const QJsonArray items = doc.object().value(QStringLiteral("items")).toArray();
+                    for (const auto& item : items) {
                         const QJsonObject t =
                                 item.toObject()
                                         .value(QStringLiteral("track"))
@@ -122,7 +180,7 @@ void SpotifyFeature::activateChild(const QModelIndex& index) {
                         it.label = t.value(QStringLiteral("name")).toString();
                         const QJsonArray artists = t.value(QStringLiteral("artists")).toArray();
                         if (!artists.isEmpty()) {
-                            it.label += QStringLiteral(" — ") +
+                            it.label += kLabelSep +
                                     artists.first()
                                             .toObject()
                                             .value(QStringLiteral("name"))
@@ -134,17 +192,33 @@ void SpotifyFeature::activateChild(const QModelIndex& index) {
                     m_searchResults = tracks;
                     m_lastQuery = tr("Playlist %1").arg(playlistId);
                     rebuildSidebar();
+                    rebuildHomeHtml();
                 });
     } else if (payload.startsWith(kTrackPrefix)) {
-        // Spotify track URIs cannot currently be played without a librespot
-        // backend. Surface this honestly rather than silently failing.
-        QMessageBox::information(nullptr,
-                tr("Spotify playback not yet available"),
-                tr("Playback of Spotify tracks requires a librespot bridge "
-                   "(Spotify Premium account required) which is not yet "
-                   "bundled with DJ Sugar.\n\n"
-                   "Track URI: %1")
-                        .arg(payload.mid(kTrackPrefix.size())));
+        // Spotify's Web API does not return audio (only 30s previews) and
+        // the official "Play with Spotify" partner program was discontinued
+        // in July 2020. The pragmatic approach used by every modern tool
+        // that "plays Spotify" (spotdl, savify, etc.) is to use Spotify
+        // strictly as a metadata source and fetch the actual audio from
+        // YouTube. We do the same here. The pane's home HTML makes this
+        // explicit so the user is not misled about where the audio comes
+        // from.
+        const QString uri = payload.mid(kTrackPrefix.size());
+        if (!m_pYouTubeFeature) {
+            QMessageBox::information(nullptr,
+                    tr("Spotify playback unavailable"),
+                    tr("YouTube backend not available, cannot resolve "
+                       "Spotify track.\n\nTrack URI: %1")
+                            .arg(uri));
+            return;
+        }
+        // The sidebar label is "Title — Artist" by construction (see
+        // refreshLibrary / searchAndActivate / activateChild for playlists).
+        // Strip the unicode em-dash for a cleaner YouTube query.
+        const QString label = pItem->getLabel();
+        QString query = label;
+        query.replace(kLabelSep, QStringLiteral(" "));
+        m_pYouTubeFeature->searchAndAutoLoadFirst(query, label);
     } else if (payload.startsWith(kInfoPrefix)) {
         // Pure info node, do nothing.
     }
@@ -183,7 +257,7 @@ void SpotifyFeature::searchAndActivate(const QString& query) {
                     it.label = t.value(QStringLiteral("name")).toString();
                     const QJsonArray artists = t.value(QStringLiteral("artists")).toArray();
                     if (!artists.isEmpty()) {
-                        it.label += QStringLiteral(" — ") +
+                        it.label += kLabelSep +
                                 artists.first().toObject().value(QStringLiteral("name")).toString();
                     }
                     it.uri = t.value(QStringLiteral("uri")).toString();
@@ -191,6 +265,7 @@ void SpotifyFeature::searchAndActivate(const QString& query) {
                 }
                 m_searchResults = results;
                 rebuildSidebar();
+                rebuildHomeHtml();
             });
 }
 
@@ -203,13 +278,14 @@ void SpotifyFeature::appendTrackIdsFromRightClickIndex(
 void SpotifyFeature::slotAuthGranted() {
     kLogger.info() << "Spotify authentication granted";
     persistTokens();
+    rebuildHomeHtml();
     refreshLibrary();
 }
 #endif
 
 void SpotifyFeature::apiGet(
         const QString& endpoint,
-        std::function<void(const QJsonDocument&)> cb) {
+        const std::function<void(const QJsonDocument&)>& cb) {
 #ifdef NETWORKAUTH
     if (m_oauth2.status() != QAbstractOAuth::Status::Granted) {
         kLogger.warning() << "Spotify API call attempted without auth:" << endpoint;
@@ -255,7 +331,8 @@ void SpotifyFeature::refreshLibrary() {
     apiGet(QStringLiteral("me/tracks?limit=50"),
             [this](const QJsonDocument& doc) {
                 QList<Item> items;
-                for (const auto& v : doc.object().value(QStringLiteral("items")).toArray()) {
+                const QJsonArray arr = doc.object().value(QStringLiteral("items")).toArray();
+                for (const auto& v : arr) {
                     const QJsonObject t = v.toObject().value(QStringLiteral("track")).toObject();
                     if (t.isEmpty()) {
                         continue;
@@ -264,7 +341,7 @@ void SpotifyFeature::refreshLibrary() {
                     it.label = t.value(QStringLiteral("name")).toString();
                     const QJsonArray artists = t.value(QStringLiteral("artists")).toArray();
                     if (!artists.isEmpty()) {
-                        it.label += QStringLiteral(" — ") +
+                        it.label += kLabelSep +
                                 artists.first().toObject().value(QStringLiteral("name")).toString();
                     }
                     it.uri = t.value(QStringLiteral("uri")).toString();
@@ -272,11 +349,13 @@ void SpotifyFeature::refreshLibrary() {
                 }
                 m_savedTracks = items;
                 rebuildSidebar();
+                rebuildHomeHtml();
             });
     apiGet(QStringLiteral("me/playlists?limit=50"),
             [this](const QJsonDocument& doc) {
                 QList<Item> items;
-                for (const auto& v : doc.object().value(QStringLiteral("items")).toArray()) {
+                const QJsonArray arr = doc.object().value(QStringLiteral("items")).toArray();
+                for (const auto& v : arr) {
                     const QJsonObject p = v.toObject();
                     Item it;
                     it.label = p.value(QStringLiteral("name")).toString();
@@ -285,6 +364,7 @@ void SpotifyFeature::refreshLibrary() {
                 }
                 m_playlists = items;
                 rebuildSidebar();
+                rebuildHomeHtml();
             });
 }
 
@@ -298,15 +378,23 @@ void SpotifyFeature::rebuildSidebar() {
 #endif
 
     if (needsAuth) {
+#ifdef NETWORKAUTH
         pRoot->appendChild(
                 tr("Sign in to Spotify (click \"Spotify\" above)"),
                 QString(kInfoPrefix + QStringLiteral("auth")));
+#else
+        pRoot->appendChild(
+                tr("Sign-in unavailable on this build (no Qt NetworkAuth)"),
+                QString(kInfoPrefix + QStringLiteral("auth")));
+#endif
     }
 
-    // Honest disclosure: nobody likes silent feature gaps.
+    // Honest disclosure: Spotify's API does not return audio, so clicking a
+    // track resolves it to YouTube and plays from there. Surface this in the
+    // sidebar so the user understands what's happening.
     pRoot->appendChild(
-            tr("⚠ Playback requires librespot (not yet bundled)"),
-            QString(kInfoPrefix + QStringLiteral("librespot")));
+            tr("ℹ Track audio is sourced from YouTube"),
+            QString(kInfoPrefix + QStringLiteral("source")));
 
     if (!m_playlists.isEmpty()) {
         TreeItem* pPlaylists = pRoot->appendChild(tr("Playlists"));
@@ -329,6 +417,89 @@ void SpotifyFeature::rebuildSidebar() {
     }
 
     m_pSidebarModel->setRootItem(std::move(pRoot));
+}
+
+void SpotifyFeature::rebuildHomeHtml() {
+    if (!m_pHomeView) {
+        return;
+    }
+    QString html;
+    html += QStringLiteral("<h2>") + tr("Spotify") + QStringLiteral("</h2>");
+
+#ifndef NETWORKAUTH
+    html += QStringLiteral("<p><b>") +
+            tr("Spotify sign-in is not available on this build (Qt was built "
+               "without the NetworkAuth module). YouTube search still works "
+               "from the sidebar — type a song or artist in the library "
+               "search box.") +
+            QStringLiteral("</b></p>");
+#else
+    const bool needsAuth = m_oauth2.status() != QAbstractOAuth::Status::Granted;
+    const QString clientId = m_pConfig->getValueString(kCfgClientId);
+    if (clientId.isEmpty()) {
+        html += QStringLiteral("<p>") +
+                tr("To enable Spotify, click the Spotify entry in the "
+                   "sidebar — you will be prompted for a Spotify Client ID. "
+                   "(Register a free app at "
+                   "https://developer.spotify.com/dashboard, set its "
+                   "redirect URI to http://localhost, and copy the Client "
+                   "ID.)") +
+                QStringLiteral("</p>");
+    } else if (needsAuth) {
+        html += QStringLiteral("<p>") +
+                tr("Click the Spotify entry in the sidebar to sign in. The "
+                   "Spotify app will open for authorization on Android, or "
+                   "your default browser on desktop.") +
+                QStringLiteral("</p>");
+    } else {
+        html += QStringLiteral("<p>") +
+                tr("Signed in. Type a song or artist in the search box at "
+                   "the top of the library to search Spotify, or browse "
+                   "your Liked Songs and playlists in the sidebar.") +
+                QStringLiteral("</p>");
+    }
+#endif
+
+    html += QStringLiteral("<p><i>") +
+            tr("Note: Spotify's API does not return audio. When you click a "
+               "Spotify track, DJ Sugar searches YouTube for the same "
+               "title+artist and downloads the audio from there. The "
+               "downloaded file is auto-cleaned when the track is ejected "
+               "from all decks and not in any playlist or crate.") +
+            QStringLiteral("</i></p>");
+
+    if (!m_searchResults.isEmpty()) {
+        html += QStringLiteral("<h3>") +
+                (m_lastQuery.isEmpty()
+                                ? tr("Results")
+                                : tr("Results: %1").arg(m_lastQuery.toHtmlEscaped())) +
+                QStringLiteral("</h3><ul>");
+        for (const auto& it : std::as_const(m_searchResults)) {
+            html += QStringLiteral("<li>") + it.label.toHtmlEscaped() +
+                    QStringLiteral("</li>");
+        }
+        html += QStringLiteral("</ul>");
+    }
+    if (!m_savedTracks.isEmpty()) {
+        html += QStringLiteral("<h3>") + tr("Liked Songs") +
+                QStringLiteral("</h3><ul>");
+        for (const auto& it : std::as_const(m_savedTracks)) {
+            html += QStringLiteral("<li>") + it.label.toHtmlEscaped() +
+                    QStringLiteral("</li>");
+        }
+        html += QStringLiteral("</ul>");
+    }
+    if (!m_playlists.isEmpty()) {
+        html += QStringLiteral("<h3>") + tr("Playlists") +
+                QStringLiteral("</h3><ul>");
+        for (const auto& it : std::as_const(m_playlists)) {
+            html += QStringLiteral("<li>") + it.label.toHtmlEscaped() +
+                    QStringLiteral("</li>");
+        }
+        html += QStringLiteral("</ul>");
+    }
+
+    m_pHomeView->setHtml(html);
 }
 
 void SpotifyFeature::persistTokens() {

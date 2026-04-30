@@ -38,11 +38,15 @@
 #endif
 #ifdef __STEM__
 #include "sources/soundsourcestem.h"
-#ifdef NETWORKAUTH
+#endif
+// YouTube/Spotify SoundSourceProviders need only FFmpeg (for the cached
+// audio file) and Qt Network — never QtNetworkAuth — so they are compiled
+// and registered unconditionally alongside the YouTubeFeature/SpotifyFeature
+// library entries. Previously these includes were misnested inside
+// __STEM__, which would have broken the build whenever NETWORKAUTH was on
+// and __STEM__ was off.
 #include "sources/spotify/soundsourcespotify.h"
 #include "sources/youtube/soundsourceyoutube.h"
-#endif
-#endif
 
 #include "library/coverartutils.h"
 #include "track/globaltrackcache.h"
@@ -248,14 +252,14 @@ bool SoundSourceProxy::registerProviders() {
     // Register the high-priority reference providers AFTER all other
     // providers to verify that their priorities are correct.
     registerReferenceSoundSourceProviders(&s_soundSourceProviders);
-#ifdef NETWORKAUTH
+    // YouTube/Spotify cached-audio providers; safe to register
+    // unconditionally (they depend on FFmpeg + Qt Network only).
     registerSoundSourceProvider(
             &s_soundSourceProviders,
             std::make_shared<mixxx::SoundSourceProviderSpotify>());
     registerSoundSourceProvider(
             &s_soundSourceProviders,
             std::make_shared<mixxx::SoundSourceProviderYouTube>());
-#endif
 
     const QStringList supportedFileTypes = getSupportedFileTypes();
     VERIFY_OR_DEBUG_ASSERT(!supportedFileTypes.isEmpty()) {

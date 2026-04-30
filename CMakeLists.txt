@@ -148,11 +148,49 @@ if(
         STATUS
         "Downloading file ${BUILDENV_URL} to ${BUILDENV_BASEPATH} ..."
       )
-      file(
-        DOWNLOAD ${BUILDENV_URL} "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip"
-        SHOW_PROGRESS
-        TLS_VERIFY ON
-      )
+      # Retry the download up to 3 times — downloads.mixxx.org occasionally
+      # serves a 0-byte response (CDN cache miss / origin hiccup) which then
+      # fails the SHA256 check below and torpedoes the whole CI matrix. The
+      # CMake `file(DOWNLOAD …)` command has no native retry, so we wrap it.
+      # Each attempt deletes the previous attempt's truncated file so we
+      # never reuse a corrupt cache.
+      set(_buildenv_download_attempts 3)
+      set(_buildenv_download_ok FALSE)
+      foreach(_attempt RANGE 1 ${_buildenv_download_attempts})
+        file(REMOVE "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip")
+        file(
+          DOWNLOAD ${BUILDENV_URL} "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip"
+          SHOW_PROGRESS
+          TLS_VERIFY ON
+          STATUS _buildenv_dl_status
+        )
+        list(GET _buildenv_dl_status 0 _buildenv_dl_code)
+        if(EXISTS "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip")
+          file(
+            SIZE
+            "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip"
+            _buildenv_dl_size
+          )
+        else()
+          set(_buildenv_dl_size 0)
+        endif()
+        if(_buildenv_dl_code EQUAL 0 AND _buildenv_dl_size GREATER 0)
+          set(_buildenv_download_ok TRUE)
+          break()
+        endif()
+        message(
+          WARNING
+          "Build-environment download attempt ${_attempt}/${_buildenv_download_attempts} failed "
+          "(status=${_buildenv_dl_status}, size=${_buildenv_dl_size} bytes) — retrying ..."
+        )
+      endforeach()
+      if(NOT _buildenv_download_ok)
+        message(
+          FATAL_ERROR
+          "Failed to download build environment from ${BUILDENV_URL} after "
+          "${_buildenv_download_attempts} attempts."
+        )
+      endif()
     else()
       # Reference to suppress intentionally unused variable warnings
       set(_dummy "${BUILDENV_URL}")
@@ -2415,11 +2453,86 @@ if(QT6)
       "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/bin/clang++"
     )
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fPIC")
+    # Locate the NDK's bundled libomp.so dynamically. The path used to be
+    # hardcoded to `lib/clang/18/...` which broke every time the NDK was
+    # bumped (r27 ships Clang 18, r28 ships Clang 19, r29+ will ship newer).
+    # Glob the single Clang version directory the NDK installs and pick that.
+    file(
+      GLOB _android_clang_runtime_dirs
+      LIST_DIRECTORIES true
+      "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/lib/clang/*"
+    )
+    list(LENGTH _android_clang_runtime_dirs _android_clang_runtime_count)
+    if(_android_clang_runtime_count EQUAL 0)
+      message(
+        FATAL_ERROR
+        "Could not locate Clang runtime directory under "
+        "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/lib/clang/. "
+        "Is the NDK installed correctly?"
+      )
+    endif()
+    # Pick the highest-numbered (most recent) entry; an NDK normally ships
+    # exactly one but be defensive if a side-by-side install ever happens.
+    list(SORT _android_clang_runtime_dirs)
+    list(GET _android_clang_runtime_dirs -1 _android_clang_runtime_dir)
+    set(
+      _android_libomp_path
+      "${_android_clang_runtime_dir}/lib/linux/aarch64/libomp.so"
+    )
+    if(NOT EXISTS "${_android_libomp_path}")
+      message(
+        FATAL_ERROR
+        "Expected NDK libomp.so at ${_android_libomp_path} but the file is "
+        "missing. Did the NDK layout change?"
+      )
+    endif()
+    # Ship a stripped copy of libomp.so. The NDK ships it unstripped
+    # (~600 KiB); `llvm-strip --strip-unneeded` brings it down to ~200 KiB
+    # without affecting OpenMP runtime behaviour. The stripped copy lives
+    # in the build dir so the NDK install is left untouched.
+    set(
+      _android_strip
+      "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/bin/llvm-strip"
+    )
+    set(
+      _android_libomp_stripped
+      "${CMAKE_CURRENT_BINARY_DIR}/android-stripped/libomp.so"
+    )
+    add_custom_command(
+      OUTPUT "${_android_libomp_stripped}"
+      COMMAND
+        ${CMAKE_COMMAND} -E make_directory
+        "${CMAKE_CURRENT_BINARY_DIR}/android-stripped"
+      COMMAND
+        ${CMAKE_COMMAND} -E copy_if_different "${_android_libomp_path}"
+        "${_android_libomp_stripped}"
+      COMMAND "${_android_strip}" --strip-unneeded "${_android_libomp_stripped}"
+      DEPENDS "${_android_libomp_path}"
+      COMMENT "Stripping libomp.so for APK packaging"
+      VERBATIM
+    )
+    add_custom_target(
+      android-strip-libomp
+      DEPENDS "${_android_libomp_stripped}"
+    )
     set_target_properties(
       mixxx
-      PROPERTIES
-        QT_ANDROID_EXTRA_LIBS
-          ${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/lib/clang/18/lib/linux/aarch64/libomp.so
+      PROPERTIES QT_ANDROID_EXTRA_LIBS "${_android_libomp_stripped}"
+    )
+    # 16 KB page-size compatibility. Pixel 8a / 9 series and any device
+    # exposing `ro.product.cpu.pagesize=16384` refuse to load .so files
+    # whose segments aren't aligned to 16 KB. NDK r28 enables this by
+    # default for new projects but Mixxx overrides linker flags above —
+    # re-apply explicitly so we benefit on the new devices and don't
+    # silently regress to 4 KB-only loads. The `android+relr` relocation
+    # packing format collapses RELATIVE relocations into a bitmap (saves
+    # roughly 5–10 % off `libmixxx-lib.so` and a comparable share of the
+    # compressed APK) and is supported by every Android version we ship to.
+    target_link_options(
+      mixxx-lib
+      PUBLIC
+        "LINKER:-z,max-page-size=16384"
+        "LINKER:--pack-dyn-relocs=android+relr"
     )
     add_custom_target(
       copy-resource-android
@@ -2485,7 +2598,7 @@ if(QT6)
       # the in-source English strings if no .qm is found).
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     )
-    add_dependencies(mixxx copy-resource-android)
+    add_dependencies(mixxx copy-resource-android android-strip-libomp)
     target_link_libraries(mixxx PUBLIC omp)
   else()
     qt_add_executable(mixxx WIN32 src/main.cpp MANUAL_FINALIZATION)
@@ -2849,19 +2962,26 @@ if(FFMPEG)
   endif()
 
   target_sources(mixxx-lib PRIVATE src/sources/soundsourceffmpeg.cpp)
-  if(NETWORKAUTH)
-    target_sources(
-      mixxx-lib
-      PRIVATE
-        src/library/spotify/spotifyfeature.cpp
-        src/library/youtube/sponsorblockcontroller.cpp
-        src/library/youtube/youtubeaudiocutter.cpp
-        src/library/youtube/youtubefeature.cpp
-        src/library/youtube/youtubeservice.cpp
-        src/sources/spotify/soundsourcespotify.cpp
-        src/sources/youtube/soundsourceyoutube.cpp
-    )
-  endif()
+  # YouTube/Spotify library features require FFmpeg (for yt-dlp's transcoded
+  # output) but do NOT require Qt NetworkAuth: YouTube uses anonymous InnerTube
+  # via QNetworkAccessManager, and SpotifyFeature wraps every QOAuth* call in
+  # `#ifdef NETWORKAUTH` so it compiles+constructs cleanly without the module.
+  # Compile them unconditionally so they appear in the library sidebar even on
+  # platforms (e.g. our Android dependency bundle) that ship Qt without the
+  # NetworkAuth submodule. The NETWORKAUTH preprocessor define is only set
+  # below when find_package(NetworkAuth) actually succeeds, so the OAuth code
+  # paths inside SpotifyFeature stay opt-in.
+  target_sources(
+    mixxx-lib
+    PRIVATE
+      src/library/spotify/spotifyfeature.cpp
+      src/library/youtube/sponsorblockcontroller.cpp
+      src/library/youtube/youtubeaudiocutter.cpp
+      src/library/youtube/youtubefeature.cpp
+      src/library/youtube/youtubeservice.cpp
+      src/sources/spotify/soundsourcespotify.cpp
+      src/sources/youtube/soundsourceyoutube.cpp
+  )
   target_compile_definitions(
     mixxx-lib
     PUBLIC

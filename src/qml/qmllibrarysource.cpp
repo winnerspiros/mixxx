@@ -9,16 +9,12 @@
 #include "library/library.h"
 #include "library/librarytablemodel.h"
 #include "library/mixxxlibraryfeature.h"
+#include "library/spotify/spotifyfeature.h"
 #include "library/trackset/crate/cratefeature.h"
 #include "library/trackset/playlistfeature.h"
-
-#ifdef NETWORKAUTH
-#include "library/spotify/spotifyfeature.h"
-#include "library/youtube/youtubefeature.h"
-#endif
-
 #include "library/treeitem.h"
 #include "library/treeitemmodel.h"
+#include "library/youtube/youtubefeature.h"
 #include "qml/qmlconfigproxy.h"
 #include "qml/qmllibraryproxy.h"
 #include "qml/qmllibrarytracklistmodel.h"
@@ -83,20 +79,12 @@ LibraryFeature* QmlLibraryBrowseSource::internal() {
 
 LibraryFeature* QmlLibrarySpotifySource::internal() {
     auto* pLibrary = QmlLibraryProxy::get();
-#ifdef NETWORKAUTH
     return pLibrary ? pLibrary->spotifyFeature() : nullptr;
-#else
-    return nullptr;
-#endif
 }
 
 LibraryFeature* QmlLibraryYouTubeSource::internal() {
     auto* pLibrary = QmlLibraryProxy::get();
-#ifdef NETWORKAUTH
     return pLibrary ? pLibrary->youtubeFeature() : nullptr;
-#else
-    return nullptr;
-#endif
 }
 
 } // namespace qml

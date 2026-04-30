@@ -1123,8 +1123,12 @@ TEST_F(SoundSourceProxyTest, taglibStringToEnumFileType) {
     const QStringList fileTypes = SoundSourceProxy::getSupportedFileTypes();
     for (const auto& fileType : fileTypes) {
         qDebug() << fileType;
-        if (fileType != "okt" &&     // Oktalyzer
-                fileType != "stm") { // "Scream Tracker";
+        if (fileType != "okt" &&         // Oktalyzer
+                fileType != "stm" &&     // "Scream Tracker"
+                fileType != "youtube" && // SoundSourceYouTube (URL stream, no
+                                         // on-disk taglib metadata)
+                fileType != "spotify") { // SoundSourceSpotify (URL stream, no
+                                         // on-disk taglib metadata)
             ASSERT_NE(mixxx::taglib::stringToEnumFileType(fileType),
                     mixxx::taglib::FileType::Unknown);
         }

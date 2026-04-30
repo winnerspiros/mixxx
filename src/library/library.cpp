@@ -32,11 +32,9 @@
 #include "library/trackset/setlogfeature.h"
 #include "library/traktor/traktorfeature.h"
 #include "mixer/playermanager.h"
-#ifdef NETWORKAUTH
 #include "library/spotify/spotifyfeature.h"
 #include "library/youtube/sponsorblockcontroller.h"
 #include "library/youtube/youtubefeature.h"
-#endif
 #include "moc_library.cpp"
 #include "util/assert.h"
 #include "util/logger.h"
@@ -167,17 +165,26 @@ Library::Library(
             m_pAnalysisFeature,
             &AnalysisFeature::analyzeTracks);
     addFeature(m_pAnalysisFeature);
-#ifdef NETWORKAUTH
-    m_pSpotifyFeature = make_parented<SpotifyFeature>(this, m_pConfig);
-    addFeature(m_pSpotifyFeature);
+    // YouTube and Spotify are full library sidebar features (siblings of
+    // Tracks/Auto DJ/Playlists/Crates/...). They are intentionally registered
+    // unconditionally — without the QtNetworkAuth Qt module Spotify cannot
+    // sign in, but YouTube still works (anonymous InnerTube) and the Spotify
+    // home pane shows a "build without NetworkAuth — Spotify sign-in
+    // unavailable" notice instead of disappearing entirely. Compile the
+    // YouTube backend before Spotify so SpotifyFeature can wire it up as the
+    // audio resolver (Spotify's Web API does not return audio; we search
+    // YouTube for the same title+artist and download from there — the same
+    // approach `spotdl` and similar tools use).
     m_pYouTubeFeature = make_parented<YouTubeFeature>(this, m_pConfig);
+    m_pSpotifyFeature = make_parented<SpotifyFeature>(
+            this, m_pConfig, m_pYouTubeFeature.get());
+    addFeature(m_pSpotifyFeature);
     addFeature(m_pYouTubeFeature);
     // The SponsorBlock controller observes deck loads globally and skips
     // segments inside YouTube-cached tracks. It is owned by Library so it
     // lives as long as the player decks do.
     m_pSponsorBlockController = make_parented<mixxx::SponsorBlockController>(
             m_pYouTubeFeature->cacheDir(), this);
-#endif
     // Suspend a batch analysis while an ad-hoc analysis of
     // loaded tracks is in progress and resume it afterwards.
     connect(pPlayerManager,
@@ -791,14 +798,16 @@ void Library::searchTracksInCollection(const QString& query) {
         return;
     }
     m_pMixxxLibraryFeature->searchAndActivate(query);
-#ifdef NETWORKAUTH
+    // YouTube/Spotify features are always registered now (see ctor); forward
+    // the search to them so the library search box drives all sources at
+    // once. SpotifyFeature::searchAndActivate is a no-op without OAuth, so
+    // it is safe to call regardless of the NETWORKAUTH build define.
     if (m_pSpotifyFeature) {
         m_pSpotifyFeature->searchAndActivate(query);
     }
     if (m_pYouTubeFeature) {
         m_pYouTubeFeature->searchAndActivate(query);
     }
-#endif
 }
 
 void Library::showAutoDJ() {

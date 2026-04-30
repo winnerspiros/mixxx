@@ -46,7 +46,7 @@ class SponsorBlockController : public QObject {
     void onTrackChanged(
             const QString& group, TrackPointer pNewTrack, TrackPointer pOldTrack);
     void onSponsorSegmentsFetched(
-            const QString& videoId, const QList<SponsorSegment>& segments);
+            const QString& videoId, const QList<mixxx::SponsorSegment>& segments);
 
   private:
     struct DeckState {

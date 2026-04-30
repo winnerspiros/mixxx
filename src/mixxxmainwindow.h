@@ -104,6 +104,12 @@ class MixxxMainWindow : public QMainWindow {
     /// Event filter to block certain events (eg. tooltips if tooltips are disabled)
     bool eventFilter(QObject *obj, QEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
+#ifdef Q_OS_ANDROID
+    /// Intercept the Android system Back key (some devices deliver it as a
+    /// key event rather than QCloseEvent) so it collapses BIG LIBRARY etc.
+    /// instead of immediately exiting the app.
+    void keyPressEvent(QKeyEvent* event) override;
+#endif
 
   private:
     void initializeWindow();
@@ -114,6 +120,12 @@ class MixxxMainWindow : public QMainWindow {
     void tryParseAndSetDefaultStyleSheet();
 
     bool confirmExit();
+#ifdef Q_OS_ANDROID
+    /// Returns true if the Back gesture was consumed (e.g. closed BIG
+    /// LIBRARY or popped a modal). False means "nothing left to close —
+    /// caller should treat this as a normal exit request".
+    bool handleAndroidBack();
+#endif
 #ifndef __APPLE__
     void alwaysHideMenuBarDlg();
 #endif

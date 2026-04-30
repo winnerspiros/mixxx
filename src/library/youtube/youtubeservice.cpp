@@ -66,8 +66,8 @@ YouTubeService::YouTubeService(QObject* parent)
 
 void YouTubeService::innerTubePost(const QString& endpoint,
         const QByteArray& body,
-        std::function<void(const QByteArray&)> cb,
-        std::function<void(const QString&)> errCb) {
+        const std::function<void(const QByteArray&)>& cb,
+        const std::function<void(const QString&)>& errCb) {
     QUrl url(kInnerTubeBase + endpoint);
     url.setQuery(QStringLiteral("key=") + QString::fromLatin1(kInnerTubeKey));
     QNetworkRequest req(url);
@@ -287,7 +287,7 @@ void YouTubeService::fetchSponsorSegments(const QString& videoId) {
 
 void YouTubeService::fetchSponsorSegmentsInternal(
         const QString& videoId,
-        std::function<void(const QList<SponsorSegment>&)> cb) {
+        const std::function<void(const QList<SponsorSegment>&)>& cb) {
     // SponsorBlock public API: https://wiki.sponsor.ajay.app/w/API_Docs
     // Categories include third-party sponsorships, creator self-promo,
     // intros/outros, viewer-interaction reminders, content previews, and
