@@ -2482,11 +2482,41 @@ if(QT6)
         "missing. Did the NDK layout change?"
       )
     endif()
+    # Ship a stripped copy of libomp.so. The NDK ships it unstripped
+    # (~600 KiB); `llvm-strip --strip-unneeded` brings it down to ~200 KiB
+    # without affecting OpenMP runtime behaviour. The stripped copy lives
+    # in the build dir so the NDK install is left untouched.
+    set(
+      _android_strip
+      "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST_SYSTEM_NAME}/bin/llvm-strip"
+    )
+    set(
+      _android_libomp_stripped
+      "${CMAKE_CURRENT_BINARY_DIR}/android-stripped/libomp.so"
+    )
+    add_custom_command(
+      OUTPUT "${_android_libomp_stripped}"
+      COMMAND
+        ${CMAKE_COMMAND} -E make_directory
+        "${CMAKE_CURRENT_BINARY_DIR}/android-stripped"
+      COMMAND
+        ${CMAKE_COMMAND} -E copy_if_different
+        "${_android_libomp_path}" "${_android_libomp_stripped}"
+      COMMAND
+        "${_android_strip}" --strip-unneeded "${_android_libomp_stripped}"
+      DEPENDS "${_android_libomp_path}"
+      COMMENT "Stripping libomp.so for APK packaging"
+      VERBATIM
+    )
+    add_custom_target(
+      android-strip-libomp
+      DEPENDS "${_android_libomp_stripped}"
+    )
     set_target_properties(
       mixxx
       PROPERTIES
         QT_ANDROID_EXTRA_LIBS
-          "${_android_libomp_path}"
+          "${_android_libomp_stripped}"
     )
     # 16 KB page-size compatibility. Pixel 8a / 9 series and any device
     # exposing `ro.product.cpu.pagesize=16384` refuse to load .so files
@@ -2567,7 +2597,7 @@ if(QT6)
       # the in-source English strings if no .qm is found).
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     )
-    add_dependencies(mixxx copy-resource-android)
+    add_dependencies(mixxx copy-resource-android android-strip-libomp)
     target_link_libraries(mixxx PUBLIC omp)
   else()
     qt_add_executable(mixxx WIN32 src/main.cpp MANUAL_FINALIZATION)
