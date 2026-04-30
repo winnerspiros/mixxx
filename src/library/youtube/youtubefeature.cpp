@@ -9,6 +9,7 @@
 
 #include "library/dao/trackschema.h"
 #include "library/library.h"
+#include "library/trackcollection.h"
 #include "library/trackcollectionmanager.h"
 #include "library/treeitem.h"
 #include "library/treeitemmodel.h"
@@ -231,7 +232,6 @@ void YouTubeFeature::onDownloadFinished(
         Q_EMIT loadTrack(pTrack);
     }
 }
-}
 
 void YouTubeFeature::onDownloadFailed(const QString& videoId, const QString& error) {
     kLogger.warning() << "YouTube download failed for" << videoId << ":" << error;
@@ -369,7 +369,7 @@ void YouTubeFeature::rebuildSidebar() {
             if (!durationText.isEmpty()) {
                 label += QStringLiteral(" [") + durationText + QStringLiteral("]");
             }
-            pSearchNode->appendChild(label, kSearchPrefix + info.id);
+            pSearchNode->appendChild(label, QString(kSearchPrefix + info.id));
         }
     }
 
@@ -393,7 +393,7 @@ void YouTubeFeature::rebuildSidebar() {
             if (localPath.isEmpty()) {
                 continue;
             }
-            pCachedNode->appendChild(it.value(), kCachedPrefix + localPath);
+            pCachedNode->appendChild(it.value(), QString(kCachedPrefix + localPath));
         }
     }
 
