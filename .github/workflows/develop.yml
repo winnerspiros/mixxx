@@ -14,6 +14,14 @@ on:
       - "![0-9].[0-9]"
   workflow_dispatch:
 
+# Cancel in-flight CI when a new commit lands on the same PR / branch.
+# Each branch (or PR) gets its own concurrency group; rapid pushes no longer
+# pile up multiple concurrent matrix runs (each ~30 minutes × 7 jobs), which
+# saves a lot of runner minutes on this fork.
+concurrency:
+  group: develop-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read #  to fetch code (actions/checkout)
   checks: write #  to create new checks (coverallsapp/github-action)

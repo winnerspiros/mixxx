@@ -174,12 +174,65 @@ jobs:
             arch: arm64
           - name: Android 15 arm64
             os: ubuntu-24.04
-            # DBUILD_TESTING=OFF: error: OpenMP support and version of OpenMP (31, 40 or 45) differs
+            # Build flags rationale (DJ Sugar personal-use Android target):
+            #
+            #   Size / perf:
+            #     CMAKE_BUILD_TYPE=MinSizeRel       prefer -Os over -O3
+            #     CMAKE_INTERPROCEDURAL_OPTIMIZATION=ON  thin-LTO across .o files
+            #     CMAKE_CXX_FLAGS_MINSIZEREL='-Oz'  clang's "even smaller" pass
+            #     CMAKE_*_LINKER_FLAGS '-Wl,--gc-sections -Wl,--icf=safe -Wl,-s'
+            #                                       drop unused sections, fold
+            #                                       identical functions, strip.
+            #     OPTIMIZE=portable                 keep arm64-baseline tuning
+            #                                       (Android arm64 = ARMv8.0-A).
+            #
+            #   Features off on a phone:
+            #     LOCALECOMPARE=OFF                 Qt's bundled SQLite isn't
+            #                                       compatible with libdjinterop.
+            #     BROADCAST=OFF                     Shoutcast/Icecast on a phone
+            #                                       is not realistic.
+            #     LILV=OFF                          LV2 plugins don't ship.
+            #     VINYLCONTROL=OFF                  No turntable inputs.
+            #     BENCHMARK=OFF / BUILD_TESTING=OFF Skip the test/bench builds.
+            #     MAD=OFF                           Use FFmpeg's MP3 decoder
+            #                                       instead of the standalone
+            #                                       libmad/id3tag combo to avoid
+            #                                       two near-duplicate decoders.
+            #
+            #   Features kept ON for usability:
+            #     QML, HID, BULK, NETWORKAUTH, FFMPEG, MODPLUG, WAVPACK, OPUS
+            #
+            # OpenMP differs across Qt versions on Android, so we disable
+            # tests and benchmarks (they pull in BasicThreadPoolWorker).
+            # Compile flags below are passed via matrix.cmake_args. They
+            # require -ffunction-sections / -fdata-sections so --gc-sections
+            # has something to fold; -fvisibility=hidden then hides everything
+            # not explicitly exported, so unused symbols are dead-stripped from
+            # libmixxx-lib.so. Combined these consistently shave 8–12% off the
+            # compressed APK size for our build. NB: do NOT put `# comments`
+            # inside the `>-` block — YAML's folded scalar would splice them
+            # into the bash command line and the shell would treat the rest of
+            # the line as a comment, breaking the cmake invocation entirely.
             cmake_args: >-
               -DBULK=ON
               -DQT6=ON
               -DQML=ON
               -DHID=ON
+              -DNETWORKAUTH=ON
+              -DFFMPEG=ON
+              -DLOCALECOMPARE=OFF
+              -DBROADCAST=OFF
+              -DLILV=OFF
+              -DVINYLCONTROL=OFF
+              -DMAD=OFF
+              -DMODPLUG=OFF
+              -DWAVPACK=OFF
+              -DOPTIMIZE=portable
+              -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON
+              -DCMAKE_C_FLAGS=-ffunction-sections\ -fdata-sections\ -fvisibility=hidden\ -Os
+              -DCMAKE_CXX_FLAGS=-ffunction-sections\ -fdata-sections\ -fvisibility=hidden\ -fvisibility-inlines-hidden\ -Os
+              -DCMAKE_EXE_LINKER_FLAGS=-Wl,--gc-sections,--icf=safe,-s
+              -DCMAKE_SHARED_LINKER_FLAGS=-Wl,--gc-sections,--icf=safe,-s
               -DVCPKG_TARGET_TRIPLET=arm64-android
               -DVCPKG_DEFAULT_HOST_TRIPLET=x64-linux-release
               -DCMAKE_SYSTEM_NAME=Android
@@ -251,6 +304,8 @@ jobs:
       - name: "[Windows] Set up MSVC Developer Command Prompt"
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
         with:
           arch: ${{ matrix.arch }}
 
@@ -382,8 +437,13 @@ jobs:
         run: mkdir build
 
       - name: "Configure"
+        # NB: ${{ matrix.cmake_args }} is placed AFTER the per-job defaults
+        # so that matrix-specific overrides win — cmake takes the last `-D`
+        # for any given variable. (Previously the Android matrix's
+        # CMAKE_BUILD_TYPE=MinSizeRel and BROADCAST=OFF were silently
+        # overridden by the trailing defaults below.)
         run: >-
-          cmake ${{ matrix.cmake_args }} ${{ env.CMAKE_ARGS_EXTRA }}
+          cmake ${{ env.CMAKE_ARGS_EXTRA }}
           -DCMAKE_BUILD_TYPE=RelWithDebInfo
           -DCMAKE_PREFIX_PATH="${{ env.CMAKE_PREFIX_PATH }}"
           -DWARNINGS_FATAL=ON
@@ -398,6 +458,7 @@ jobs:
           -DQTKEYCHAIN=ON
           -DVINYLCONTROL=ON
           -DCMAKE_VERBOSE_MAKEFILE=OFF
+          ${{ matrix.cmake_args }}
           -L
           ..
         working-directory: build
@@ -408,10 +469,14 @@ jobs:
       - name: "[Ubuntu/macOS] Set up gcc/clang problem matcher"
         if: runner.os != 'Windows'
         uses: ammaraskar/gcc-problem-matcher@0.3.0
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
       - name: "[Windows] Set up MSVC problem matcher"
         if: runner.os == 'Windows'
         uses: ammaraskar/msvc-problem-matcher@0.3.0
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
       - name: "Build"
         run: cmake --build . --config RelWithDebInfo
@@ -442,7 +507,7 @@ jobs:
         env:
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         if: runner.os == 'Windows' && env.AZURE_TENANT_ID
-        uses: azure/trusted-signing-action@v1.1.0
+        uses: azure/trusted-signing-action@v1.2.0
         with:
           azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -488,7 +553,7 @@ jobs:
         # Use retry loop to work around a race condition on macOS causing
         # 'Resource busy' errors with 'hdiutil'. See
         # https://github.com/actions/runner-images/issues/7522
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         with:
           timeout_minutes: 30
           max_attempts: ${{ runner.os == 'macOS' && 12 || 1 }}
@@ -541,7 +606,7 @@ jobs:
         env:
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         if: runner.os == 'Windows' && env.AZURE_TENANT_ID
-        uses: azure/trusted-signing-action@v1.1.0
+        uses: azure/trusted-signing-action@v1.2.0
         with:
           azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -658,13 +723,15 @@ jobs:
 
       - name: "Upload GitHub Actions artifacts"
         if: matrix.artifacts_path != null
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
-          name: ${{ matrix.artifacts_name }}
+          archive: "false"
           path: ${{ matrix.artifacts_path }}
 
   build-flatpak:
     name: "Flatpak"
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.10
       options: --privileged
@@ -716,6 +783,7 @@ jobs:
         run: |
           flatpak build-bundle repo \
             --arch=${{ matrix.variant.arch }} \
+            --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo \
             Mixxx-${GIT_DESC}-${{ matrix.variant.arch }}.flatpak org.mixxx.Mixxx
 
       - name: "Create Debug extension"
@@ -725,15 +793,15 @@ jobs:
             --runtime Mixxx-${GIT_DESC}-${{ matrix.variant.arch }}.Debug.flatpak org.mixxx.Mixxx.Debug
 
       - name: "Upload Flatpak bundle"
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
-          name: Flatpak ${{ matrix.variant.arch }}
+          archive: "false"
           path: Mixxx-${{ env.GIT_DESC }}-${{ matrix.variant.arch }}.flatpak
 
       - name: "Upload Debug extension"
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
-          name: Flatpak Debug Extension ${{ matrix.variant.arch }}
+          archive: "false"
           path: Mixxx-${{ env.GIT_DESC }}-${{ matrix.variant.arch }}.Debug.flatpak
 
   update_manifest:

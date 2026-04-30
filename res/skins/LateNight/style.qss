@@ -1054,7 +1054,7 @@ WLibrarySidebar {
 }
 
 #Spacer0f {
-  background-color: #0f0f0f;
+  background-color: #000000;
 }
 
 #Spacer1e {

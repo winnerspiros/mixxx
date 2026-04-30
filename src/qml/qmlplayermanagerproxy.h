@@ -36,6 +36,12 @@ class QmlPlayerManagerProxy : public QObject {
         s_pPlayerManager = std::move(pPlayerManager);
     }
 
+    /// Non-QML accessor used by C++ helpers (e.g. QmlSuggestionsModel) that
+    /// need to load tracks without going through a QQmlEngine instance.
+    static PlayerManager* get() {
+        return s_pPlayerManager.get();
+    }
+
   private:
     static inline std::shared_ptr<PlayerManager> s_pPlayerManager;
 

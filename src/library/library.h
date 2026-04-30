@@ -19,6 +19,9 @@ class AnalysisFeature;
 #ifdef NETWORKAUTH
 class SpotifyFeature;
 class YouTubeFeature;
+namespace mixxx {
+class SponsorBlockController;
+} // namespace mixxx
 #endif
 class AutoDJFeature;
 class BrowseFeature;
@@ -199,6 +202,8 @@ class Library : public QObject {
     void setTrackTableRowHeight(int rowHeight);
     void setSelectedClick(bool enable);
 
+    void setSidebarHoverExpandDelay(int delay);
+
     void onTrackAnalyzerProgress(TrackId trackId, AnalyzerProgress analyzerProgress);
 
   private slots:
@@ -228,6 +233,7 @@ class Library : public QObject {
 #ifdef NETWORKAUTH
     parented_ptr<SpotifyFeature> m_pSpotifyFeature;
     parented_ptr<YouTubeFeature> m_pYouTubeFeature;
+    parented_ptr<mixxx::SponsorBlockController> m_pSponsorBlockController;
 #endif
     QFont m_trackTableFont;
     int m_iTrackTableRowHeight;

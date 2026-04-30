@@ -17,6 +17,7 @@ class GuiTick;
 class LaunchImage;
 class VisualsManager;
 class WMainMenuBar;
+class WSuggestionsBar;
 struct LibraryScanResultSummary;
 
 namespace mixxx {
@@ -128,6 +129,9 @@ class MixxxMainWindow : public QMainWindow {
 
     QWidget* m_pCentralWidget;
     LaunchImage* m_pLaunchImage;
+    // "Up Next" status-bar suggestion strip; created lazily after the skin
+    // is first loaded. Owned by the QStatusBar (parented_ptr is overkill).
+    WSuggestionsBar* m_pSuggestionsBar = nullptr;
 #ifndef __APPLE__
     Qt::WindowStates m_prevState;
 #endif
