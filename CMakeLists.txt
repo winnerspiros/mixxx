@@ -2698,6 +2698,18 @@ if(NOT ANDROID)
     BUNDLE DESTINATION .
   )
 
+  # Bundled yt-dlp standalone binary, when CMake managed to fetch one (see
+  # cmake/modules/FetchYtDlp.cmake). YouTubeService::locateYtDlp() probes
+  # QCoreApplication::applicationDirPath() first, so this drops it exactly
+  # where the runtime expects it. Defense-in-depth fallback only — Piped is
+  # the primary YouTube backend and works on every platform without it.
+  if(YTDLP_BINARY_PATH AND EXISTS "${YTDLP_BINARY_PATH}")
+    install(
+      PROGRAMS "${YTDLP_BINARY_PATH}"
+      DESTINATION "${MIXXX_INSTALL_BINDIR}"
+    )
+  endif()
+
   # Skins
   install(
     DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/res/skins"
@@ -2993,6 +3005,12 @@ if(FFMPEG)
   )
   target_link_libraries(mixxx-lib PRIVATE "${FFMPEG_LIBRARIES}")
   target_include_directories(mixxx-lib PUBLIC "${FFMPEG_INCLUDE_DIRS}")
+
+  # Bundle the official yt-dlp standalone binary so the YouTube tab works
+  # out of the box with no external setup. Runs at configure time and is a
+  # no-op on Android (no compatible PyInstaller binary). See cmake module
+  # for retry / SHA-256 verification details.
+  include(FetchYtDlp)
 endif()
 
 # STEM file support
