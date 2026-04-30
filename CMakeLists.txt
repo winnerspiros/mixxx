@@ -2849,19 +2849,26 @@ if(FFMPEG)
   endif()
 
   target_sources(mixxx-lib PRIVATE src/sources/soundsourceffmpeg.cpp)
-  if(NETWORKAUTH)
-    target_sources(
-      mixxx-lib
-      PRIVATE
-        src/library/spotify/spotifyfeature.cpp
-        src/library/youtube/sponsorblockcontroller.cpp
-        src/library/youtube/youtubeaudiocutter.cpp
-        src/library/youtube/youtubefeature.cpp
-        src/library/youtube/youtubeservice.cpp
-        src/sources/spotify/soundsourcespotify.cpp
-        src/sources/youtube/soundsourceyoutube.cpp
-    )
-  endif()
+  # YouTube/Spotify library features require FFmpeg (for yt-dlp's transcoded
+  # output) but do NOT require Qt NetworkAuth: YouTube uses anonymous InnerTube
+  # via QNetworkAccessManager, and SpotifyFeature wraps every QOAuth* call in
+  # `#ifdef NETWORKAUTH` so it compiles+constructs cleanly without the module.
+  # Compile them unconditionally so they appear in the library sidebar even on
+  # platforms (e.g. our Android dependency bundle) that ship Qt without the
+  # NetworkAuth submodule. The NETWORKAUTH preprocessor define is only set
+  # below when find_package(NetworkAuth) actually succeeds, so the OAuth code
+  # paths inside SpotifyFeature stay opt-in.
+  target_sources(
+    mixxx-lib
+    PRIVATE
+      src/library/spotify/spotifyfeature.cpp
+      src/library/youtube/sponsorblockcontroller.cpp
+      src/library/youtube/youtubeaudiocutter.cpp
+      src/library/youtube/youtubefeature.cpp
+      src/library/youtube/youtubeservice.cpp
+      src/sources/spotify/soundsourcespotify.cpp
+      src/sources/youtube/soundsourceyoutube.cpp
+  )
   target_compile_definitions(
     mixxx-lib
     PUBLIC

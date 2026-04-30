@@ -415,16 +415,19 @@ void SpotifyFeature::rebuildHomeHtml() {
     if (!m_pHomeView) {
         return;
     }
-#ifdef NETWORKAUTH
-    const bool needsAuth = m_oauth2.status() != QAbstractOAuth::Status::Granted;
-#else
-    constexpr bool needsAuth = true;
-#endif
-    const QString clientId = m_pConfig->getValueString(kCfgClientId);
-
     QString html;
     html += QStringLiteral("<h2>") + tr("Spotify") + QStringLiteral("</h2>");
 
+#ifndef NETWORKAUTH
+    html += QStringLiteral("<p><b>") +
+            tr("Spotify sign-in is not available on this build (Qt was built "
+               "without the NetworkAuth module). YouTube search still works "
+               "from the sidebar — type a song or artist in the library "
+               "search box.") +
+            QStringLiteral("</b></p>");
+#else
+    const bool needsAuth = m_oauth2.status() != QAbstractOAuth::Status::Granted;
+    const QString clientId = m_pConfig->getValueString(kCfgClientId);
     if (clientId.isEmpty()) {
         html += QStringLiteral("<p>") +
                 tr("To enable Spotify, click the Spotify entry in the "
@@ -447,6 +450,7 @@ void SpotifyFeature::rebuildHomeHtml() {
                    "your Liked Songs and playlists in the sidebar.") +
                 QStringLiteral("</p>");
     }
+#endif
 
     html += QStringLiteral("<p><i>") +
             tr("Note: Spotify's API does not return audio. When you click a "
