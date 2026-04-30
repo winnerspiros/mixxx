@@ -199,14 +199,14 @@ void YouTubeFeature::onSearchResultsReady(
     rebuildSidebar();
     rebuildHomeHtml();
     if (m_autoLoadNextResult && !results.isEmpty()) {
-        m_autoLoadNextResult = false;
         const QString videoId = results.first().id;
         kLogger.info() << "Auto-loading top YouTube hit" << videoId
                        << "for" << m_autoLoadDisplayLabel;
         requestDownload(videoId);
-    } else {
-        m_autoLoadNextResult = false;
     }
+    // Always clear the auto-load flag once we've handled this batch — empty
+    // results, mismatched-query results, and a successful auto-load alike.
+    m_autoLoadNextResult = false;
 }
 
 void YouTubeFeature::onSearchFailed(const QString& query, const QString& error) {
@@ -446,7 +446,12 @@ void YouTubeFeature::rebuildSidebar() {
                             QDir::Files | QDir::NoDotAndDotDot);
             QString localPath;
             for (const QString& f : files) {
-                if (f.endsWith(QStringLiteral(".info.json"))) {
+                // Skip both yt-dlp's metadata sidecar (.info.json) and our
+                // SponsorBlock sidecar (.sponsor.json) — only the audio file
+                // is loadable. Without this guard, depending on filesystem
+                // sort order we could wire the sidebar entry to a JSON file.
+                if (f.endsWith(QStringLiteral(".info.json")) ||
+                        f.endsWith(QStringLiteral(".sponsor.json"))) {
                     continue;
                 }
                 localPath = dir.filePath(f);

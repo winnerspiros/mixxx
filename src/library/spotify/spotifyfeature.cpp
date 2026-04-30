@@ -34,7 +34,6 @@ const ConfigKey kCfgRefreshToken(
 const ConfigKey kCfgExpiresAt(
         QStringLiteral("[Spotify]"), QStringLiteral("expires_at"));
 
-const QString kSearchPrefix = QStringLiteral("spotify-search:");
 const QString kPlaylistPrefix = QStringLiteral("spotify-playlist:");
 const QString kTrackPrefix = QStringLiteral("spotify-track:");
 const QString kInfoPrefix = QStringLiteral("spotify-info:");
@@ -376,9 +375,15 @@ void SpotifyFeature::rebuildSidebar() {
 #endif
 
     if (needsAuth) {
+#ifdef NETWORKAUTH
         pRoot->appendChild(
                 tr("Sign in to Spotify (click \"Spotify\" above)"),
                 QString(kInfoPrefix + QStringLiteral("auth")));
+#else
+        pRoot->appendChild(
+                tr("Sign-in unavailable on this build (no Qt NetworkAuth)"),
+                QString(kInfoPrefix + QStringLiteral("auth")));
+#endif
     }
 
     // Honest disclosure: Spotify's API does not return audio, so clicking a
