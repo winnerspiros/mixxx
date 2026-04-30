@@ -2991,6 +2991,7 @@ if(FFMPEG)
       src/library/youtube/youtubeaudiocutter.cpp
       src/library/youtube/youtubefeature.cpp
       src/library/youtube/youtubeservice.cpp
+      src/library/youtube/youtubetrackmodel.cpp
       src/sources/spotify/soundsourcespotify.cpp
       src/sources/youtube/soundsourceyoutube.cpp
   )

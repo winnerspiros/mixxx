@@ -10,17 +10,22 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QSqlError>
+#include <QSqlQuery>
 #include <QStandardPaths>
 #include <QTextBrowser>
 #include <QTimer>
 #include <QUrl>
 
+#include "library/basetrackcache.h"
 #include "library/dao/trackschema.h"
 #include "library/library.h"
+#include "library/queryutil.h"
 #include "library/trackcollection.h"
 #include "library/trackcollectionmanager.h"
 #include "library/treeitem.h"
 #include "library/treeitemmodel.h"
+#include "library/youtube/youtubetrackmodel.h"
 #include "mixer/playerinfo.h"
 #include "mixer/playermanager.h"
 #include "preferences/configobject.h"
@@ -126,6 +131,61 @@ YouTubeFeature::YouTubeFeature(Library* pLibrary, UserSettingsPointer pConfig)
           m_pSidebarModel(make_parented<TreeItemModel>(this)),
           m_service(this),
           m_pNam(new QNetworkAccessManager(this)) {
+    // Build the persistent track model that backs the right-hand pane.
+    // Mirrors ITunesFeature ctor exactly — same column set, same cache
+    // wiring — so the standard WTrackTableView UI works out of the box
+    // (sortable columns, drag-to-deck, right-click → Add to Auto DJ, …).
+    QStringList columns = {
+            QStringLiteral("id"),
+            QStringLiteral("artist"),
+            QStringLiteral("title"),
+            QStringLiteral("album"),
+            QStringLiteral("year"),
+            QStringLiteral("genre"),
+            QStringLiteral("tracknumber"),
+            QStringLiteral("location"),
+            QStringLiteral("comment"),
+            QStringLiteral("duration"),
+            QStringLiteral("bitrate"),
+            QStringLiteral("bpm"),
+            QStringLiteral("rating"),
+    };
+    QStringList searchColumns = {
+            QStringLiteral("artist"),
+            QStringLiteral("title"),
+            QStringLiteral("album"),
+            QStringLiteral("comment"),
+    };
+    m_pTrackCache = QSharedPointer<BaseTrackCache>::create(
+            m_pLibrary->trackCollectionManager()->internalCollection(),
+            QStringLiteral("youtube_library"),
+            QStringLiteral("id"),
+            columns,
+            searchColumns,
+            false);
+    m_pTrackModel = new YouTubeTrackModel(this,
+            m_pLibrary->trackCollectionManager(),
+            m_pTrackCache);
+    // setSearch("") primes the model so it actually issues its first
+    // SELECT — without this the first activate() shows an empty pane even
+    // when youtube_library has rows from a previous session.
+    m_pTrackModel->setSearch(QString());
+
+    // Placeholder activation: the user double-clicked a "youtube://VIDEOID"
+    // row that hasn't been downloaded yet. Re-use the existing
+    // requestDownload() path which sets up auto-load on completion.
+    connect(m_pTrackModel,
+            &YouTubeTrackModel::requestDownloadAndLoad,
+            this,
+            &YouTubeFeature::requestDownload);
+    // Per-view search box: typing in the search bar while the YouTube
+    // pane is active fires YouTubeTrackModel::searchRequested → here →
+    // a fresh YouTubeService search via the existing pipeline.
+    connect(m_pTrackModel,
+            &YouTubeTrackModel::searchRequested,
+            this,
+            &YouTubeFeature::searchAndActivate);
+
     connect(&m_service,
             &mixxx::YouTubeService::searchResultsReady,
             this,
@@ -281,12 +341,12 @@ void YouTubeFeature::detectRegionAsync() {
 
 void YouTubeFeature::activate() {
     kLogger.debug() << "YouTube feature activated";
-    Q_EMIT switchToView(QStringLiteral("YOUTUBE_HOME"));
-    // Intentionally do NOT emit disableSearch(): the main library search box
-    // is the only way the user can drive a YouTube search (Library forwards
-    // queries to YouTubeFeature::searchAndActivate). Greying it out — which
-    // is what BaseExternalLibraryFeature siblings do — would make the pane
-    // appear empty with no way to populate it.
+    // Show the real WTrackTableView backed by our YouTubeTrackModel — this
+    // is the "songs show like the rest of the songs would" fix. The HTML
+    // browser pane (YOUTUBE_HOME) is no longer the primary surface; we
+    // still keep the registration in bindLibraryWidget() as a fallback for
+    // skin/back-compat reasons but never switch to it from here.
+    Q_EMIT showTrackModel(m_pTrackModel);
     Q_EMIT enableCoverArtDisplay(false);
     rebuildHomeHtml();
     // Prime the pane with a real "what's hot in your country" feed on first
@@ -312,7 +372,6 @@ void YouTubeFeature::activate() {
     // refresh the trending feed once the network call returns. Cheap (one
     // HTTPS GET, ~100 bytes) and only runs when the user opens the tab.
     detectRegionAsync();
-}
 }
 
 void YouTubeFeature::bindLibraryWidget(WLibrary* pLibraryWidget,
@@ -416,6 +475,10 @@ void YouTubeFeature::onSearchResultsReady(
     m_lastSearchError.clear();
     rebuildSidebar();
     rebuildHomeHtml();
+    // Real fix: replace the rows in youtube_library so the user sees a
+    // proper Title/Artist/Duration table, sortable, draggable, double-
+    // clickable — not an HTML link list.
+    replaceTrackTable(results);
     if (m_autoLoadNextResult && !results.isEmpty()) {
         const QString videoId = results.first().id;
         kLogger.info() << "Auto-loading top YouTube hit" << videoId
@@ -500,6 +563,23 @@ void YouTubeFeature::onDownloadFinished(
     m_downloadedTracks.insert(videoId, label);
     rebuildSidebar();
     rebuildHomeHtml();
+    // Update the corresponding youtube_library row (or insert a new one if
+    // this download wasn't part of the current search) so the track table
+    // reflects the new on-disk path. Without this the row's location would
+    // remain "youtube://VIDEOID" and a second double-click would re-trigger
+    // the download instead of loading from cache.
+    int durationSec = 0;
+    QString uploader;
+    QString title = label;
+    for (const auto& info : std::as_const(m_lastResults)) {
+        if (info.id == videoId) {
+            durationSec = info.durationSec;
+            uploader = info.uploader;
+            title = info.title.isEmpty() ? videoId : info.title;
+            break;
+        }
+    }
+    upsertDownloadedRow(videoId, localPath, title, uploader, durationSec);
 
     // Always register with the track collection so analysis runs and the DB
     // entry exists. Only emit loadTrack for downloads triggered by a user
@@ -793,6 +873,139 @@ void YouTubeFeature::rebuildHomeHtml() {
     }
 
     m_pHomeView->setHtml(html);
+}
+
+void YouTubeFeature::replaceTrackTable(
+        const QList<mixxx::YouTubeVideoInfo>& videos) {
+    if (!m_pTrackModel || !m_pTrackCache) {
+        return;
+    }
+    QSqlDatabase db = m_pTrackCollection->database();
+    ScopedTransaction transaction(db);
+
+    // Wipe the current results — we always show one batch (latest search
+    // OR latest trending) at a time, mirroring how the previous HTML pane
+    // worked. Tracks the user has actually played stay registered with the
+    // main `library` table independently, so this DELETE doesn't lose
+    // analysis data — it just clears the YouTube *search* feed.
+    QSqlQuery del(db);
+    del.prepare(QStringLiteral("DELETE FROM youtube_library"));
+    if (!del.exec()) {
+        kLogger.warning() << "youtube_library DELETE failed:"
+                          << del.lastError().text();
+        return;
+    }
+
+    QSqlQuery ins(db);
+    ins.prepare(QStringLiteral(
+            "INSERT INTO youtube_library "
+            "(artist, title, album, location, comment, duration) "
+            "VALUES (:artist, :title, :album, :location, :comment, :duration)"));
+
+    const QDir dir(cacheDir());
+    for (const mixxx::YouTubeVideoInfo& info : videos) {
+        if (info.id.isEmpty()) {
+            continue;
+        }
+        // Determine whether we already have a downloaded file for this id
+        // — if so, point `location` at the real path so double-click loads
+        // immediately via BaseExternalTrackModel::getTrack(). Otherwise
+        // store the placeholder URI; YouTubeTrackModel::getTrack()
+        // intercepts placeholders to kick off the download.
+        QString location;
+        const QStringList existing =
+                dir.entryList({info.id + QStringLiteral(".*")},
+                        QDir::Files | QDir::NoDotAndDotDot);
+        for (const QString& f : existing) {
+            if (f.endsWith(QStringLiteral(".info.json")) ||
+                    f.endsWith(QStringLiteral(".sponsor.json"))) {
+                continue;
+            }
+            location = dir.filePath(f);
+            break;
+        }
+        if (location.isEmpty()) {
+            location = YouTubeTrackModel::kPlaceholderScheme + info.id;
+        }
+        ins.bindValue(QStringLiteral(":artist"), info.uploader);
+        ins.bindValue(QStringLiteral(":title"),
+                info.title.isEmpty() ? info.id : info.title);
+        ins.bindValue(QStringLiteral(":album"), QStringLiteral("YouTube"));
+        ins.bindValue(QStringLiteral(":location"), location);
+        ins.bindValue(QStringLiteral(":comment"), info.id);
+        ins.bindValue(QStringLiteral(":duration"), info.durationSec);
+        if (!ins.exec()) {
+            // Likely a UNIQUE conflict (two trending entries collapse onto
+            // the same cached file). Non-fatal — the existing row keeps
+            // working — but log so duplicates are visible.
+            kLogger.debug() << "youtube_library INSERT skipped:"
+                            << ins.lastError().text();
+        }
+    }
+    transaction.commit();
+
+    m_pTrackCache->buildIndex();
+    // select() re-runs the SELECT against the underlying SQL view so the
+    // WTrackTableView picks up the fresh row set.
+    m_pTrackModel->select();
+}
+
+void YouTubeFeature::upsertDownloadedRow(const QString& videoId,
+        const QString& localPath,
+        const QString& title,
+        const QString& uploader,
+        int durationSec) {
+    if (!m_pTrackModel || !m_pTrackCache || videoId.isEmpty()) {
+        return;
+    }
+    QSqlDatabase db = m_pTrackCollection->database();
+    QSqlQuery upd(db);
+    // Use comment (videoId) to find the row even if its location changed
+    // from the placeholder to a real path. Coalesce the optional metadata
+    // fields so a download triggered for an unknown id (e.g. a Spotify
+    // bridge call where we never saw a search result) still produces a
+    // reasonable Title/Artist row.
+    upd.prepare(QStringLiteral(
+            "UPDATE youtube_library SET "
+            "location = :location, "
+            "title = COALESCE(NULLIF(title, ''), :title), "
+            "artist = COALESCE(NULLIF(artist, ''), :artist), "
+            "duration = COALESCE(NULLIF(duration, 0), :duration) "
+            "WHERE comment = :comment"));
+    upd.bindValue(QStringLiteral(":location"), localPath);
+    upd.bindValue(QStringLiteral(":title"), title.isEmpty() ? videoId : title);
+    upd.bindValue(QStringLiteral(":artist"), uploader);
+    upd.bindValue(QStringLiteral(":duration"), durationSec);
+    upd.bindValue(QStringLiteral(":comment"), videoId);
+    if (!upd.exec()) {
+        kLogger.warning() << "youtube_library UPDATE failed:"
+                          << upd.lastError().text();
+        return;
+    }
+    if (upd.numRowsAffected() == 0) {
+        // No matching row — happens when the download was triggered from
+        // outside the current search (e.g. AutoDJ pre-fetch, Spotify
+        // bridge). Insert a fresh row so the user still sees it in the
+        // table when they switch back to the YouTube tab.
+        QSqlQuery ins(db);
+        ins.prepare(QStringLiteral(
+                "INSERT OR IGNORE INTO youtube_library "
+                "(artist, title, album, location, comment, duration) VALUES "
+                "(:artist, :title, :album, :location, :comment, :duration)"));
+        ins.bindValue(QStringLiteral(":artist"), uploader);
+        ins.bindValue(QStringLiteral(":title"),
+                title.isEmpty() ? videoId : title);
+        ins.bindValue(QStringLiteral(":album"), QStringLiteral("YouTube"));
+        ins.bindValue(QStringLiteral(":location"), localPath);
+        ins.bindValue(QStringLiteral(":comment"), videoId);
+        ins.bindValue(QStringLiteral(":duration"), durationSec);
+        if (!ins.exec()) {
+            kLogger.debug() << "youtube_library INSERT (downloaded) skipped:"
+                            << ins.lastError().text();
+        }
+    }
+    m_pTrackCache->buildIndex();
+    m_pTrackModel->select();
 }
 
 #include "moc_youtubefeature.cpp"

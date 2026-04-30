@@ -3,16 +3,20 @@
 #include <QHash>
 #include <QPointer>
 #include <QSet>
+#include <QSharedPointer>
 
 #include "library/baseexternallibraryfeature.h"
 #include "library/youtube/youtubeservice.h"
 #include "util/parented_ptr.h"
 
+class BaseTrackCache;
 class KeyboardEventFilter;
 class QNetworkAccessManager;
+class QSqlDatabase;
 class TreeItem;
 class WLibrary;
 class WLibraryTextBrowser;
+class YouTubeTrackModel;
 
 class YouTubeFeature : public BaseExternalLibraryFeature {
     Q_OBJECT
@@ -112,6 +116,25 @@ class YouTubeFeature : public BaseExternalLibraryFeature {
     void detectRegionAsync();
 
     QNetworkAccessManager* m_pNam = nullptr;
+
+    /// Persistent track table backing the right-hand pane. See
+    /// YouTubeTrackModel for the placeholder/downloaded row model.
+    QSharedPointer<BaseTrackCache> m_pTrackCache;
+    YouTubeTrackModel* m_pTrackModel = nullptr;
+    /// Replace all rows in `youtube_library` with the supplied YouTube
+    /// videos, then refresh the model so the view picks up the new rows.
+    /// `videos` may include both downloaded (file present in cacheDir())
+    /// and not-yet-downloaded entries; we resolve which is which row by
+    /// row when building the INSERT.
+    void replaceTrackTable(const QList<mixxx::YouTubeVideoInfo>& videos);
+    /// Append a single downloaded entry (or update its row to point at the
+    /// real file path) so the "Downloaded" column reflects the new file
+    /// without a full table rebuild.
+    void upsertDownloadedRow(const QString& videoId,
+            const QString& localPath,
+            const QString& title,
+            const QString& uploader,
+            int durationSec);
 
     parented_ptr<TreeItemModel> m_pSidebarModel;
     QPointer<WLibraryTextBrowser> m_pHomeView;
