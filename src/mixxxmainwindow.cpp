@@ -4,6 +4,7 @@
 #include <QCloseEvent>
 #include <QDebug>
 #include <QFileDialog>
+#include <QKeyEvent>
 #include <QOpenGLContext>
 #include <QStatusBar>
 #include <QUrl>
@@ -1556,12 +1557,65 @@ void MixxxMainWindow::closeEvent(QCloseEvent* event) {
     // WARNING: We can receive a CloseEvent while only partially
     // initialized. This is because we call QApplication::processEvents to
     // render LaunchImage progress in the constructor.
+#ifdef Q_OS_ANDROID
+    // On Android, the system Back gesture / Back button is delivered to the
+    // top-level window as a QCloseEvent (Qt 6 behaviour). Treat it as
+    // "close current view" rather than "exit the app": if BIG LIBRARY is
+    // maximized, just collapse it back to the deck view; only fall through
+    // to the real exit-confirm flow when there's nothing left to close.
+    // This matches user expectations from every other Android app and means
+    // a stray edge swipe does not abruptly tear down audio.
+    if (handleAndroidBack()) {
+        event->ignore();
+        return;
+    }
+#endif
     if (!confirmExit()) {
         event->ignore();
         return;
     }
     QMainWindow::closeEvent(event);
 }
+
+#ifdef Q_OS_ANDROID
+void MixxxMainWindow::keyPressEvent(QKeyEvent* event) {
+    // Some Android device manufacturers still ship a hardware Back key (or
+    // map a gesture to one) that delivers Qt::Key_Back as a key event rather
+    // than as a close event. Treat it identically — collapse the current
+    // expanded view if any, otherwise let the default propagation kick in
+    // (which on Android ends up calling closeEvent → confirmExit()).
+    if (event->key() == Qt::Key_Back) {
+        if (handleAndroidBack()) {
+            event->accept();
+            return;
+        }
+    }
+    QMainWindow::keyPressEvent(event);
+}
+
+bool MixxxMainWindow::handleAndroidBack() {
+    // Pop dialogs / menus first — Qt already sends them the Back event before
+    // it reaches the main window, but defensively re-check here in case any
+    // were opened with Qt::WA_ShowWithoutActivating or similar.
+    QWidget* active = QApplication::activeModalWidget();
+    if (active && active != this) {
+        active->close();
+        return true;
+    }
+    // BIG LIBRARY (`[Master],maximize_library` is the legacy name; aliased
+    // to `[Skin],show_maximized_library`). Collapse it back to deck view
+    // when on, so the user can return to the decks without exiting.
+    const ConfigKey kMaximizeLibrary(
+            QStringLiteral("[Master]"), QStringLiteral("maximize_library"));
+    if (ControlObject::toBool(kMaximizeLibrary)) {
+        ControlObject::set(kMaximizeLibrary, 0.0);
+        return true;
+    }
+    // Nothing to close — let the caller fall through to the real exit
+    // confirmation.
+    return false;
+}
+#endif
 
 void MixxxMainWindow::checkDirectRendering() {
     // IF

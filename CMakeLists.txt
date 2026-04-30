@@ -148,11 +148,45 @@ if(
         STATUS
         "Downloading file ${BUILDENV_URL} to ${BUILDENV_BASEPATH} ..."
       )
-      file(
-        DOWNLOAD ${BUILDENV_URL} "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip"
-        SHOW_PROGRESS
-        TLS_VERIFY ON
-      )
+      # Retry the download up to 3 times — downloads.mixxx.org occasionally
+      # serves a 0-byte response (CDN cache miss / origin hiccup) which then
+      # fails the SHA256 check below and torpedoes the whole CI matrix. The
+      # CMake `file(DOWNLOAD …)` command has no native retry, so we wrap it.
+      # Each attempt deletes the previous attempt's truncated file so we
+      # never re-use a corrupt cache.
+      set(_buildenv_download_attempts 3)
+      set(_buildenv_download_ok FALSE)
+      foreach(_attempt RANGE 1 ${_buildenv_download_attempts})
+        file(REMOVE "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip")
+        file(
+          DOWNLOAD ${BUILDENV_URL} "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip"
+          SHOW_PROGRESS
+          TLS_VERIFY ON
+          STATUS _buildenv_dl_status
+        )
+        list(GET _buildenv_dl_status 0 _buildenv_dl_code)
+        if(EXISTS "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip")
+          file(SIZE "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip" _buildenv_dl_size)
+        else()
+          set(_buildenv_dl_size 0)
+        endif()
+        if(_buildenv_dl_code EQUAL 0 AND _buildenv_dl_size GREATER 0)
+          set(_buildenv_download_ok TRUE)
+          break()
+        endif()
+        message(
+          WARNING
+          "Build-environment download attempt ${_attempt}/${_buildenv_download_attempts} failed "
+          "(status=${_buildenv_dl_status}, size=${_buildenv_dl_size} bytes) — retrying ..."
+        )
+      endforeach()
+      if(NOT _buildenv_download_ok)
+        message(
+          FATAL_ERROR
+          "Failed to download build environment from ${BUILDENV_URL} after "
+          "${_buildenv_download_attempts} attempts."
+        )
+      endif()
     else()
       # Reference to suppress intentionally unused variable warnings
       set(_dummy "${BUILDENV_URL}")

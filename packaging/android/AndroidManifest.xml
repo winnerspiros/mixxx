@@ -34,7 +34,7 @@
             android:name="org.mixxx.MainActivity"
             android:configChanges="orientation|uiMode|screenLayout|screenSize|smallestScreenSize|layoutDirection|locale|fontScale|keyboard|keyboardHidden|navigation|mcc|mnc|density"
             android:launchMode="singleTop"
-            android:screenOrientation="sensor"
+            android:screenOrientation="sensorLandscape"
             android:resizeableActivity="true"
             android:exported="true">
             <intent-filter>
