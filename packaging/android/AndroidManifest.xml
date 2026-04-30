@@ -55,7 +55,7 @@
                 android:value="@drawable/ic_launcher_foreground" />
 
           <!-- Run the standard widget UI (MixxxApplication + LateNight skin)
-               on Android. Do NOT add `--new-ui` / `--qml` here: the QML UI
+               on Android. Do NOT add the new-ui or qml flags here: the QML UI
                is experimental and renders a broken, overlapping layout on
                phones (controls on top of each other, empty library, UI lost
                on rotation). The legacy skin engine works on Android with
