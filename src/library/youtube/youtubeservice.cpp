@@ -135,7 +135,8 @@ QString YouTubeService::locateYtDlp() {
                           << "but that path is not executable; ignoring";
     }
     // 2. Bundled-next-to-binary + common install dirs.
-    for (const QString& candidate : ytDlpFallbackBins()) {
+    const QStringList fallbackBins = ytDlpFallbackBins();
+    for (const QString& candidate : std::as_const(fallbackBins)) {
         if (QFileInfo(candidate).isExecutable()) {
             return candidate;
         }
