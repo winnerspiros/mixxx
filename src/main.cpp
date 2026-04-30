@@ -200,6 +200,11 @@ void maybeAutoDetectScaleFactor(CmdlineArgs* pArgs) {
     }
     // Check config one more time in case adjustScaleFactor() saw an empty
     // string but the user set "1.0" explicitly — we still want to honor that.
+    // Re-open the config locally rather than threading the one from
+    // adjustScaleFactor() through main(): that one is a function-scoped
+    // ConfigObject which has already been destroyed. The cost is a single
+    // small INI parse on first launches without ScaleFactor set; a no-op
+    // on every subsequent launch (the early-return above fires).
     auto config = ConfigObject<ConfigValue>(
             QDir(pArgs->getSettingsPath()).filePath(MIXXX_SETTINGS_FILE),
             QString(),
@@ -227,10 +232,14 @@ void maybeAutoDetectScaleFactor(CmdlineArgs* pArgs) {
     double scale = std::min(byWidth, byHeight);
     // Clamp to a sensible range. Below 0.45 the skin becomes unreadable;
     // above 2.0 it's larger than any reasonable display benefits from.
-    scale = std::clamp(scale, 0.45, 2.0);
+    constexpr double kMinScale = 0.45;
+    constexpr double kMaxScale = 2.0;
+    scale = std::clamp(scale, kMinScale, kMaxScale);
     // If scaling would be a no-op (within rounding) leave it alone so we
-    // don't litter the config file on standard 1080p+ desktops.
-    if (std::fabs(scale - 1.0) < 0.05) {
+    // don't litter the config file on standard 1080p+ desktops where the
+    // skin already fits without scaling.
+    constexpr double kNoOpScaleThreshold = 0.05;
+    if (std::fabs(scale - 1.0) < kNoOpScaleThreshold) {
         return;
     }
     // Round to two decimals to keep the config human-readable and avoid

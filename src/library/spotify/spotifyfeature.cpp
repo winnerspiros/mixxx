@@ -38,6 +38,11 @@ const QString kSearchPrefix = QStringLiteral("spotify-search:");
 const QString kPlaylistPrefix = QStringLiteral("spotify-playlist:");
 const QString kTrackPrefix = QStringLiteral("spotify-track:");
 const QString kInfoPrefix = QStringLiteral("spotify-info:");
+// Separator used between track title and artist when constructing display
+// labels. Centralized so the YouTube-bridge parsing in activateChild stays
+// in sync with all label producers (refreshLibrary / searchAndActivate /
+// playlist-track expansion).
+const QString kLabelSep = QStringLiteral(" — ");
 } // namespace
 
 SpotifyFeature::SpotifyFeature(Library* pLibrary,
@@ -175,7 +180,7 @@ void SpotifyFeature::activateChild(const QModelIndex& index) {
                         it.label = t.value(QStringLiteral("name")).toString();
                         const QJsonArray artists = t.value(QStringLiteral("artists")).toArray();
                         if (!artists.isEmpty()) {
-                            it.label += QStringLiteral(" — ") +
+                            it.label += kLabelSep +
                                     artists.first()
                                             .toObject()
                                             .value(QStringLiteral("name"))
@@ -212,7 +217,7 @@ void SpotifyFeature::activateChild(const QModelIndex& index) {
         // Strip the unicode em-dash for a cleaner YouTube query.
         const QString label = pItem->getLabel();
         QString query = label;
-        query.replace(QStringLiteral(" — "), QStringLiteral(" "));
+        query.replace(kLabelSep, QStringLiteral(" "));
         m_pYouTubeFeature->searchAndAutoLoadFirst(query, label);
     } else if (payload.startsWith(kInfoPrefix)) {
         // Pure info node, do nothing.
@@ -252,7 +257,7 @@ void SpotifyFeature::searchAndActivate(const QString& query) {
                     it.label = t.value(QStringLiteral("name")).toString();
                     const QJsonArray artists = t.value(QStringLiteral("artists")).toArray();
                     if (!artists.isEmpty()) {
-                        it.label += QStringLiteral(" — ") +
+                        it.label += kLabelSep +
                                 artists.first().toObject().value(QStringLiteral("name")).toString();
                     }
                     it.uri = t.value(QStringLiteral("uri")).toString();
@@ -335,7 +340,7 @@ void SpotifyFeature::refreshLibrary() {
                     it.label = t.value(QStringLiteral("name")).toString();
                     const QJsonArray artists = t.value(QStringLiteral("artists")).toArray();
                     if (!artists.isEmpty()) {
-                        it.label += QStringLiteral(" — ") +
+                        it.label += kLabelSep +
                                 artists.first().toObject().value(QStringLiteral("name")).toString();
                     }
                     it.uri = t.value(QStringLiteral("uri")).toString();

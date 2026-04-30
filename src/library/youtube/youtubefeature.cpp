@@ -116,7 +116,10 @@ void YouTubeFeature::activate() {
     // (InnerTube's `browse:FEtrending` exists but would double the API
     // surface in YouTubeService for marginal benefit).
     if (m_lastQuery.isEmpty() && m_lastResults.isEmpty()) {
-        searchAndActivate(tr("trending music"));
+        // Use an untranslated literal as the API query — translating
+        // "trending music" would send a localized phrase to YouTube and
+        // produce inconsistent (or empty) results for non-English users.
+        searchAndActivate(QStringLiteral("trending music"));
     }
 }
 
