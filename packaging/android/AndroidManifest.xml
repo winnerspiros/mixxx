@@ -54,9 +54,16 @@
                 android:name="android.app.splash_screen_drawable"
                 android:value="@drawable/ic_launcher_foreground" />
 
+          <!-- Run the standard widget UI (MixxxApplication + LateNight skin)
+               on Android. Do NOT add `--new-ui` / `--qml` here: the QML UI
+               is experimental and renders a broken, overlapping layout on
+               phones (controls on top of each other, empty library, UI lost
+               on rotation). The legacy skin engine works on Android with
+               Qt 6 and is the supported path for this fork. Keep log level
+               in sync with QT_ANDROID_APPLICATION_ARGUMENTS in CMakeLists.txt. -->
           <meta-data
                 android:name="android.app.arguments"
-                android:value="--new-ui --log-level debug --developer" />
+                android:value="--log-level warning" />
         </activity>
 
         <provider
