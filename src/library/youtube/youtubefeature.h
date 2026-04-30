@@ -9,6 +9,7 @@
 #include "util/parented_ptr.h"
 
 class KeyboardEventFilter;
+class QNetworkAccessManager;
 class TreeItem;
 class WLibrary;
 class WLibraryTextBrowser;
@@ -40,6 +41,24 @@ class YouTubeFeature : public BaseExternalLibraryFeature {
 
     /// Absolute path to the per-user yt-dlp cache directory. Created on demand.
     QString cacheDir() const;
+
+    /// Resolve the ISO 3166-1 alpha-2 region used for the YouTube "trending"
+    /// feed. Resolution order:
+    ///   1. `[YouTube]/trending_region` user override (if non-empty)
+    ///   2. `[YouTube]/detected_region` previously auto-detected via geo-IP
+    ///   3. `QLocale::system().territory()` / `country()` (Qt 6 / Qt 5)
+    ///   4. The literal "GR" (Greece) — explicit project default when nothing
+    ///      else is known. This used to be "US", which surprised users (see
+    ///      "Trending in United States" bug report).
+    /// Always returns a non-empty 2-letter uppercase code.
+    QString resolvedTrendingRegion() const;
+
+  signals:
+    /// Emitted whenever a fresh geo-IP lookup updates the cached region.
+    /// `YouTubeFeature::activate()` listens to this so the trending feed
+    /// auto-refreshes once the user's actual country is known, even if the
+    /// pane was opened before the network call finished.
+    void detectedRegionChanged(const QString& region);
 
   protected:
     void appendTrackIdsFromRightClickIndex(
@@ -84,6 +103,15 @@ class YouTubeFeature : public BaseExternalLibraryFeature {
     /// Walk the AutoDJ queue at startup and ensure every YouTube-cache track
     /// in it is present on disk — re-downloading any that have been swept.
     void prefetchAutoDjQueue();
+    /// Kick off an async geo-IP lookup against api.country.is (no API key,
+    /// no client setup). On success, persist the ISO 3166-1 alpha-2 country
+    /// code under `[YouTube]/detected_region` and emit
+    /// `detectedRegionChanged`. On any failure (offline, blocked, parse
+    /// error) the call is a silent no-op — `resolvedTrendingRegion()` will
+    /// keep returning whatever it had before (locale → "GR").
+    void detectRegionAsync();
+
+    QNetworkAccessManager* m_pNam = nullptr;
 
     parented_ptr<TreeItemModel> m_pSidebarModel;
     QPointer<WLibraryTextBrowser> m_pHomeView;

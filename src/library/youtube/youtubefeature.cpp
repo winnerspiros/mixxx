@@ -3,8 +3,13 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QLocale>
 #include <QMessageBox>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
 #include <QStandardPaths>
 #include <QTextBrowser>
 #include <QTimer>
@@ -18,6 +23,7 @@
 #include "library/treeitemmodel.h"
 #include "mixer/playerinfo.h"
 #include "mixer/playermanager.h"
+#include "preferences/configobject.h"
 #include "track/track.h"
 #include "track/trackref.h"
 #include "util/file.h"
@@ -44,20 +50,45 @@ const QString kHomePlayScheme = QStringLiteral("ytplay");
 const QString kHomeCachedScheme = QStringLiteral("ytcached");
 
 // Derive the user's ISO 3166-1 alpha-2 country code from the system locale.
-// Uses QLocale::bcp47Name() (available since Qt 4.8 — Mixxx's floor is 5.12)
-// which always returns a canonical BCP-47 tag like "en-US", "pt-BR" or
-// "zh-Hans-CN" with the region in alpha-2 uppercase. We pick the first
-// 2-letter uppercase subtag as the region. Falls back to "US" if the locale
-// has no region (e.g. plain "en") — Piped's /trending requires one.
-QString systemCountryCode() {
+// Used as a *fallback* when no override is set and no geo-IP detection has
+// landed yet. Tries QLocale::system().territory()/country() (the OS's region
+// setting, which is what users intuitively expect) before parsing
+// bcp47Name(). Returns an empty string when nothing usable is available so
+// the caller can fall through to the project default ("GR") rather than
+// silently hardcoding "US" — that "US" default was the source of the
+// "Trending in United States" bug.
+QString localeCountryCode() {
+    const QLocale sys = QLocale::system();
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    // Qt5: QLocale::name() returns "language_TERRITORY" (e.g. "el_GR").
+    // QLocale::countryToString gives a localized *display name*, not the ISO
+    // code, so we extract the code from name() instead.
+    const QString name = sys.name(); // e.g. "el_GR", "en_US", "C"
+    const QStringList nameParts = name.split(QLatin1Char('_'));
+    if (nameParts.size() >= 2 && nameParts.at(1).size() == 2) {
+        return nameParts.at(1).toUpper();
+    }
+#else
+    const QLocale::Territory territory = sys.territory();
+    if (territory != QLocale::AnyTerritory) {
+        // territoryToCode returns QLatin1StringView (Qt 6.2+) — convert
+        // explicitly via QString() rather than relying on .toString(), which
+        // isn't available on every Qt 6.x point release.
+        const QString code = QString(QLocale::territoryToCode(territory));
+        if (code.size() == 2) {
+            return code.toUpper();
+        }
+    }
+#endif
+    // Last-ditch BCP-47 parse — handles oddballs like "zh-Hans-CN".
     const QStringList parts =
-            QLocale::system().bcp47Name().split(QLatin1Char('-'));
+            sys.bcp47Name().split(QLatin1Char('-'));
     for (const QString& part : parts) {
         if (part.size() == 2 && part.at(0).isUpper() && part.at(1).isUpper()) {
             return part;
         }
     }
-    return QStringLiteral("US");
+    return QString();
 }
 
 // Human-readable country name for display in the "Trending in <Country>"
@@ -75,12 +106,26 @@ QString countryDisplayName(const QString& code) {
 #endif
     return name.isEmpty() ? code : name;
 }
+// Config keys for the trending region. `trending_region` is the user-set
+// override (Preferences UI / future config dialog); `detected_region` is
+// the cached result of the geo-IP lookup so we don't re-hit the network on
+// every launch. Both use the [YouTube] section so they show up together.
+const ConfigKey kCfgTrendingOverride(
+        QStringLiteral("[YouTube]"), QStringLiteral("trending_region"));
+const ConfigKey kCfgTrendingDetected(
+        QStringLiteral("[YouTube]"), QStringLiteral("detected_region"));
+
+// Project default region. Used only when (a) no user override, (b) no cached
+// geo-IP result, and (c) the system locale has no usable region. Per
+// project requirement: "if it is just go greek".
+const QString kDefaultRegion = QStringLiteral("GR");
 } // namespace
 
 YouTubeFeature::YouTubeFeature(Library* pLibrary, UserSettingsPointer pConfig)
         : BaseExternalLibraryFeature(pLibrary, pConfig, "youtube"),
           m_pSidebarModel(make_parented<TreeItemModel>(this)),
-          m_service(this) {
+          m_service(this),
+          m_pNam(new QNetworkAccessManager(this)) {
     connect(&m_service,
             &mixxx::YouTubeService::searchResultsReady,
             this,
@@ -130,6 +175,34 @@ YouTubeFeature::YouTubeFeature(Library* pLibrary, UserSettingsPointer pConfig)
         prefetchAutoDjQueue();
     });
 
+    // When the geo-IP detection completes (or changes after the user
+    // travelled), refresh the trending feed in-place if we're still on the
+    // initial trending pane. We deliberately do NOT clobber an active
+    // user-driven search.
+    connect(this,
+            &YouTubeFeature::detectedRegionChanged,
+            this,
+            [this](const QString& region) {
+                const QString sentinel =
+                        mixxx::YouTubeService::kTrendingQueryPrefix + region;
+                const bool onTrending = m_lastQuery.startsWith(
+                        mixxx::YouTubeService::kTrendingQueryPrefix);
+                if (!onTrending) {
+                    return;
+                }
+                if (m_lastQuery == sentinel) {
+                    return; // Already showing this region's trending.
+                }
+                kLogger.info() << "Refreshing trending for newly-detected"
+                               << "region:" << region;
+                m_lastQuery = sentinel;
+                m_lastResults.clear();
+                m_lastSearchError.clear();
+                rebuildSidebar();
+                rebuildHomeHtml();
+                m_service.fetchTrending(region, kSearchResultsMax);
+            });
+
     rebuildSidebar();
 }
 
@@ -141,6 +214,69 @@ QString YouTubeFeature::cacheDir() const {
     const QString dir = QDir(base).filePath(QStringLiteral("youtube_cache"));
     QDir().mkpath(dir);
     return dir;
+}
+
+QString YouTubeFeature::resolvedTrendingRegion() const {
+    // 1. Explicit user override (e.g. set from Preferences). Wins over
+    //    everything so a user that prefers a different country's trending
+    //    feed doesn't get re-overridden by geo-IP on every launch.
+    const QString override = m_pConfig->getValueString(kCfgTrendingOverride)
+                                     .trimmed()
+                                     .toUpper();
+    if (override.size() == 2) {
+        return override;
+    }
+    // 2. Cached geo-IP detection.
+    const QString detected = m_pConfig->getValueString(kCfgTrendingDetected)
+                                     .trimmed()
+                                     .toUpper();
+    if (detected.size() == 2) {
+        return detected;
+    }
+    // 3. System locale (fast, offline).
+    const QString locale = localeCountryCode();
+    if (locale.size() == 2) {
+        return locale;
+    }
+    // 4. Project default — see kDefaultRegion comment.
+    return kDefaultRegion;
+}
+
+void YouTubeFeature::detectRegionAsync() {
+    // Free, no-key, JSON-only geo-IP endpoint (https://api.country.is/).
+    // Returns `{"ip":"...","country":"GR"}`. We do this even when a cached
+    // detection already exists, so the user's actual location stays
+    // accurate after they travel — `activate()` calls us once per launch.
+    QNetworkRequest req((QUrl(QStringLiteral("https://api.country.is/"))));
+    req.setRawHeader("User-Agent", "Mixxx/youtube-region");
+    QNetworkReply* pReply = m_pNam->get(req);
+    connect(pReply, &QNetworkReply::finished, this, [this, pReply]() {
+        pReply->deleteLater();
+        if (pReply->error() != QNetworkReply::NoError) {
+            kLogger.info() << "Geo-IP region lookup failed (using fallback):"
+                           << pReply->errorString();
+            return;
+        }
+        const QJsonDocument doc = QJsonDocument::fromJson(pReply->readAll());
+        const QString country = doc.object()
+                                        .value(QStringLiteral("country"))
+                                        .toString()
+                                        .trimmed()
+                                        .toUpper();
+        if (country.size() != 2) {
+            kLogger.info()
+                    << "Geo-IP response missing country field, ignoring";
+            return;
+        }
+        const QString prev = m_pConfig->getValueString(kCfgTrendingDetected);
+        if (prev == country) {
+            return; // No change — don't churn the trending feed.
+        }
+        kLogger.info() << "Geo-IP detected region:" << country
+                       << "(was:" << prev << ")";
+        m_pConfig->set(kCfgTrendingDetected, ConfigValue(country));
+        Q_EMIT detectedRegionChanged(country);
+    });
 }
 
 void YouTubeFeature::activate() {
@@ -160,7 +296,7 @@ void YouTubeFeature::activate() {
     // proper Piped `/trending?region=XX` endpoint returns the actual YouTube
     // trending feed for the user's country.
     if (m_lastQuery.isEmpty() && m_lastResults.isEmpty()) {
-        const QString country = systemCountryCode();
+        const QString country = resolvedTrendingRegion();
         m_lastQuery = mixxx::YouTubeService::kTrendingQueryPrefix + country;
         m_lastResults.clear();
         m_lastSearchError.clear();
@@ -171,6 +307,12 @@ void YouTubeFeature::activate() {
         kLogger.info() << "Fetching YouTube trending for region" << country;
         m_service.fetchTrending(country, kSearchResultsMax);
     }
+    // Always (re-)kick the geo-IP lookup on activate. If the user's actual
+    // region differs from what we used above, `detectedRegionChanged` will
+    // refresh the trending feed once the network call returns. Cheap (one
+    // HTTPS GET, ~100 bytes) and only runs when the user opens the tab.
+    detectRegionAsync();
+}
 }
 
 void YouTubeFeature::bindLibraryWidget(WLibrary* pLibraryWidget,
