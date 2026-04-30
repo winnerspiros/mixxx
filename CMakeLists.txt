@@ -153,7 +153,7 @@ if(
       # fails the SHA256 check below and torpedoes the whole CI matrix. The
       # CMake `file(DOWNLOAD …)` command has no native retry, so we wrap it.
       # Each attempt deletes the previous attempt's truncated file so we
-      # never re-use a corrupt cache.
+      # never reuse a corrupt cache.
       set(_buildenv_download_attempts 3)
       set(_buildenv_download_ok FALSE)
       foreach(_attempt RANGE 1 ${_buildenv_download_attempts})
@@ -166,7 +166,11 @@ if(
         )
         list(GET _buildenv_dl_status 0 _buildenv_dl_code)
         if(EXISTS "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip")
-          file(SIZE "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip" _buildenv_dl_size)
+          file(
+            SIZE
+            "${BUILDENV_BASEPATH}/${BUILDENV_NAME}.zip"
+            _buildenv_dl_size
+          )
         else()
           set(_buildenv_dl_size 0)
         endif()
@@ -2500,10 +2504,9 @@ if(QT6)
         ${CMAKE_COMMAND} -E make_directory
         "${CMAKE_CURRENT_BINARY_DIR}/android-stripped"
       COMMAND
-        ${CMAKE_COMMAND} -E copy_if_different
-        "${_android_libomp_path}" "${_android_libomp_stripped}"
-      COMMAND
-        "${_android_strip}" --strip-unneeded "${_android_libomp_stripped}"
+        ${CMAKE_COMMAND} -E copy_if_different "${_android_libomp_path}"
+        "${_android_libomp_stripped}"
+      COMMAND "${_android_strip}" --strip-unneeded "${_android_libomp_stripped}"
       DEPENDS "${_android_libomp_path}"
       COMMENT "Stripping libomp.so for APK packaging"
       VERBATIM
@@ -2514,9 +2517,7 @@ if(QT6)
     )
     set_target_properties(
       mixxx
-      PROPERTIES
-        QT_ANDROID_EXTRA_LIBS
-          "${_android_libomp_stripped}"
+      PROPERTIES QT_ANDROID_EXTRA_LIBS "${_android_libomp_stripped}"
     )
     # 16 KB page-size compatibility. Pixel 8a / 9 series and any device
     # exposing `ro.product.cpu.pagesize=16384` refuse to load .so files
@@ -2530,8 +2531,8 @@ if(QT6)
     target_link_options(
       mixxx-lib
       PUBLIC
-      "LINKER:-z,max-page-size=16384"
-      "LINKER:--pack-dyn-relocs=android+relr"
+        "LINKER:-z,max-page-size=16384"
+        "LINKER:--pack-dyn-relocs=android+relr"
     )
     add_custom_target(
       copy-resource-android
