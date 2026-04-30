@@ -51,26 +51,26 @@ class YouTubeService : public QObject {
     void fetchSponsorSegments(const QString& videoId);
 
   signals:
-    void searchResultsReady(const QString& query, const QList<YouTubeVideoInfo>& results);
+    void searchResultsReady(const QString& query, const QList<mixxx::YouTubeVideoInfo>& results);
     void searchFailed(const QString& query, const QString& error);
     void downloadFinished(const QString& videoId, const QString& localPath);
     void downloadFailed(const QString& videoId, const QString& error);
     void sponsorSegmentsFetched(
-            const QString& videoId, const QList<SponsorSegment>& segments);
+            const QString& videoId, const QList<mixxx::SponsorSegment>& segments);
 
   private:
     /// POST a JSON body to InnerTube `endpoint` (e.g. "search", "player").
     /// Calls `cb` with the parsed JSON on success, or `errCb` with the error.
     void innerTubePost(const QString& endpoint,
             const QByteArray& body,
-            std::function<void(const QByteArray&)> cb,
-            std::function<void(const QString&)> errCb);
+            const std::function<void(const QByteArray&)>& cb,
+            const std::function<void(const QString&)>& errCb);
 
     /// Internal SponsorBlock fetch used to chain "download → fetch → cut".
     /// The callback receives segments (possibly empty on failure).
     void fetchSponsorSegmentsInternal(
             const QString& videoId,
-            std::function<void(const QList<SponsorSegment>&)> cb);
+            const std::function<void(const QList<SponsorSegment>&)>& cb);
 
     QNetworkAccessManager* m_pNam;
 };

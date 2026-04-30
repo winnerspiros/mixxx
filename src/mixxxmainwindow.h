@@ -108,7 +108,7 @@ class MixxxMainWindow : public QMainWindow {
     /// Intercept the Android system Back key (some devices deliver it as a
     /// key event rather than QCloseEvent) so it collapses BIG LIBRARY etc.
     /// instead of immediately exiting the app.
-    void keyPressEvent(QKeyEvent *event) override;
+    void keyPressEvent(QKeyEvent* event) override;
 #endif
 
   private:

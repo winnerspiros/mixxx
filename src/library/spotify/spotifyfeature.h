@@ -53,7 +53,7 @@ class SpotifyFeature : public BaseExternalLibraryFeature {
     /// Send a `GET https://api.spotify.com/v1/<endpoint>` with the bearer token,
     /// invoke `cb` with the parsed JSON document on success.
     void apiGet(const QString& endpoint,
-            std::function<void(const QJsonDocument&)> cb);
+            const std::function<void(const QJsonDocument&)>& cb);
     /// Refresh the user's saved tracks + playlists into the sidebar.
     void refreshLibrary();
     void rebuildSidebar();

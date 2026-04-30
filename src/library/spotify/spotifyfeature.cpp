@@ -167,7 +167,8 @@ void SpotifyFeature::activateChild(const QModelIndex& index) {
         apiGet(QStringLiteral("playlists/") + playlistId + QStringLiteral("/tracks?limit=100"),
                 [this, playlistId](const QJsonDocument& doc) {
                     QList<Item> tracks;
-                    for (const auto& item : doc.object().value(QStringLiteral("items")).toArray()) {
+                    const QJsonArray items = doc.object().value(QStringLiteral("items")).toArray();
+                    for (const auto& item : items) {
                         const QJsonObject t =
                                 item.toObject()
                                         .value(QStringLiteral("track"))
@@ -284,7 +285,7 @@ void SpotifyFeature::slotAuthGranted() {
 
 void SpotifyFeature::apiGet(
         const QString& endpoint,
-        std::function<void(const QJsonDocument&)> cb) {
+        const std::function<void(const QJsonDocument&)>& cb) {
 #ifdef NETWORKAUTH
     if (m_oauth2.status() != QAbstractOAuth::Status::Granted) {
         kLogger.warning() << "Spotify API call attempted without auth:" << endpoint;
@@ -330,7 +331,8 @@ void SpotifyFeature::refreshLibrary() {
     apiGet(QStringLiteral("me/tracks?limit=50"),
             [this](const QJsonDocument& doc) {
                 QList<Item> items;
-                for (const auto& v : doc.object().value(QStringLiteral("items")).toArray()) {
+                const QJsonArray arr = doc.object().value(QStringLiteral("items")).toArray();
+                for (const auto& v : arr) {
                     const QJsonObject t = v.toObject().value(QStringLiteral("track")).toObject();
                     if (t.isEmpty()) {
                         continue;
@@ -352,7 +354,8 @@ void SpotifyFeature::refreshLibrary() {
     apiGet(QStringLiteral("me/playlists?limit=50"),
             [this](const QJsonDocument& doc) {
                 QList<Item> items;
-                for (const auto& v : doc.object().value(QStringLiteral("items")).toArray()) {
+                const QJsonArray arr = doc.object().value(QStringLiteral("items")).toArray();
+                for (const auto& v : arr) {
                     const QJsonObject p = v.toObject();
                     Item it;
                     it.label = p.value(QStringLiteral("name")).toString();

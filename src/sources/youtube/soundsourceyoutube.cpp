@@ -37,13 +37,19 @@ SoundSource::OpenResult SoundSourceYouTube::tryOpen(
     Q_UNUSED(params);
     kLogger.info() << "Opening YouTube stream:" << getUrl().toString();
 
-    // Fetch SponsorBlock segments
+    // Fetch SponsorBlock segments. The service is parented to `this` so it
+    // shares our lifetime; passing the SoundSource as the connect context
+    // is what clazy wants here (and is what we logically need).
     QString videoId = getUrl().toString().split("v=").last();
     YouTubeService* service = new YouTubeService();
-    QObject::connect(service, &YouTubeService::sponsorSegmentsFetched, [this, service](const QString& videoId, const QList<::mixxx::SponsorSegment>& segments) {
-        this->onSponsorSegmentsFetched(videoId, segments);
-        service->deleteLater();
-    });
+    QObject::connect(service,
+            &YouTubeService::sponsorSegmentsFetched,
+            service,
+            [this, service](const QString& videoId,
+                    const QList<::mixxx::SponsorSegment>& segments) {
+                this->onSponsorSegmentsFetched(videoId, segments);
+                service->deleteLater();
+            });
     service->fetchSponsorSegments(videoId);
 
     return OpenResult::Succeeded;
