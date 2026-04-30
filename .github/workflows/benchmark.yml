@@ -142,6 +142,8 @@ jobs:
       - name: "[Windows] Set up MSVC Developer Command Prompt"
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
         with:
           arch: ${{ matrix.arch }}
 

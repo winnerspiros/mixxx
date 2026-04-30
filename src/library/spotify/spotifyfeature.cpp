@@ -30,11 +30,6 @@ const ConfigKey kCfgRefreshToken(
 const ConfigKey kCfgExpiresAt(
         QStringLiteral("[Spotify]"), QStringLiteral("expires_at"));
 
-// Spotify's OAuth Authorization Code with PKCE flow runs the redirect against
-// a localhost loopback. Port 0 lets the OS pick a free port; we tell the user
-// which port is in use via the auth URL Spotify opens in the browser.
-constexpr quint16 kRedirectPort = 0;
-
 const QString kSearchPrefix = QStringLiteral("spotify-search:");
 const QString kPlaylistPrefix = QStringLiteral("spotify-playlist:");
 const QString kTrackPrefix = QStringLiteral("spotify-track:");
@@ -48,6 +43,9 @@ SpotifyFeature::SpotifyFeature(Library* pLibrary, UserSettingsPointer pConfig)
 #ifdef NETWORKAUTH
     // Reply handler runs a tiny HTTP server on localhost that Spotify will
     // redirect back to with the authorization code.
+    // Port 0 lets the OS pick a free port; we tell the user which port is in
+    // use via the auth URL Spotify opens in the browser.
+    constexpr quint16 kRedirectPort = 0;
     m_pReplyHandler = new QOAuthHttpServerReplyHandler(kRedirectPort, this);
 
     m_oauth2.setAuthorizationUrl(QUrl(QStringLiteral("https://accounts.spotify.com/authorize")));

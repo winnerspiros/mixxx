@@ -304,6 +304,8 @@ jobs:
       - name: "[Windows] Set up MSVC Developer Command Prompt"
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
         with:
           arch: ${{ matrix.arch }}
 
@@ -728,6 +730,8 @@ jobs:
 
   build-flatpak:
     name: "Flatpak"
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.10
       options: --privileged
