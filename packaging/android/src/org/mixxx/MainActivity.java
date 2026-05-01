@@ -16,6 +16,9 @@ import org.qtproject.qt.android.QtActivityBase;
 
 public class MainActivity extends QtActivityBase {
     private static final int MEDIA_PERMISSION_REQUEST = 1001;
+    private static final int API_LEVEL_MARSHMALLOW = 23;
+    private static final int API_LEVEL_R = 30;
+    private static final int API_LEVEL_TIRAMISU = 33;
     private boolean mRequestedAllFilesAccess;
     private boolean mWaitingForMediaPermission;
 
@@ -39,7 +42,7 @@ public class MainActivity extends QtActivityBase {
     }
 
     private void requestMusicLibraryPermissions() {
-        if (Build.VERSION.SDK_INT >= 33) {
+        if (Build.VERSION.SDK_INT >= API_LEVEL_TIRAMISU) {
             if (checkSelfPermission(Manifest.permission.READ_MEDIA_AUDIO)
                 != PackageManager.PERMISSION_GRANTED) {
                 mWaitingForMediaPermission = true;
@@ -48,7 +51,7 @@ public class MainActivity extends QtActivityBase {
                     MEDIA_PERMISSION_REQUEST);
                 return;
             }
-        } else if (Build.VERSION.SDK_INT >= 23) {
+        } else if (Build.VERSION.SDK_INT >= API_LEVEL_MARSHMALLOW) {
             if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
                 != PackageManager.PERMISSION_GRANTED) {
                 mWaitingForMediaPermission = true;
@@ -81,7 +84,7 @@ public class MainActivity extends QtActivityBase {
     private void requestAllFilesAccessIfNeeded() {
         if (mWaitingForMediaPermission
             || mRequestedAllFilesAccess
-            || Build.VERSION.SDK_INT < 30
+            || Build.VERSION.SDK_INT < API_LEVEL_R
             || Environment.isExternalStorageManager()) {
             return;
         }

@@ -158,8 +158,11 @@ void adjustScaleFactor(CmdlineArgs* pArgs) {
     // Qt must know the scale factor before QApplication is constructed or
     // widget metrics, dialogs, menus, and fonts remain far too large for the
     // display. We cannot inspect QScreen before QApplication exists, so use the
-    // minimum supported skin scale as a safe default that fits phones; users can
-    // still override this with QT_SCALE_FACTOR in their environment.
+    // minimum supported skin scale as a safe default that fits phones. 0.45 is
+    // the same lower bound used by maybeAutoDetectScaleFactor() below; it
+    // renders LateNight's 1280x668 nominal layout as ~576x301 logical pixels,
+    // which fits modern landscape phones without oversized Qt dialogs. Users
+    // can still override this with QT_SCALE_FACTOR in their environment.
     constexpr double kAndroidDefaultScaleFactor = 0.45;
     const QByteArray scaleFactor =
             QByteArray::number(kAndroidDefaultScaleFactor, 'f', 2);

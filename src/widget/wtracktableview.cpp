@@ -1655,19 +1655,19 @@ void WTrackTableView::addToAutoDJ(PlaylistDAO::AutoDJSendLoc loc) {
         return;
     }
 
-    bool queuedYoutube = false;
+    bool queuedYouTubePlaceholder = false;
     bool allSelectedRowsAreYoutubePlaceholders = true;
     const QModelIndexList indices = getSelectedRows();
     for (const QModelIndex& index : indices) {
         const QUrl url = pTrackModel->getTrackUrl(index);
         if (url.scheme() == QStringLiteral("youtube")) {
             m_pLibrary->slotAddLocationToAutoDJ(url.toString(), loc);
-            queuedYoutube = true;
+            queuedYouTubePlaceholder = true;
         } else {
             allSelectedRowsAreYoutubePlaceholders = false;
         }
     }
-    if (queuedYoutube && allSelectedRowsAreYoutubePlaceholders) {
+    if (queuedYouTubePlaceholder && allSelectedRowsAreYoutubePlaceholders) {
         return;
     }
 
