@@ -134,9 +134,9 @@ class YouTubeService : public QObject {
             int pageCount,
             const std::function<void(const QString& lastError)>& onAllFailed);
 
-    /// Try a country-specific Piped music search against
-    /// `m_pipedInstances[instanceIdx]`. On per-instance failure, recurses to the
-    /// next one. Emits searchResultsReady(kTrendingQueryPrefix + region,
+    /// Try YouTube Music's Songs category for the selected country against
+    /// `m_pipedInstances[instanceIdx]`. On per-instance failure, recurses to
+    /// the next one. Emits searchResultsReady(kTrendingQueryPrefix + region,
     /// results) on success; emits searchFailed(...) once every instance is
     /// exhausted.
     void fetchTrendingViaPiped(const QString& region, int cap, int instanceIdx);

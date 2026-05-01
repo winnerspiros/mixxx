@@ -41,6 +41,7 @@ constexpr int kDownloadTimeoutMs = 10 * 60 * 1000; // 10 min
 // upstream, but we still want to move on within ~15 s.
 constexpr int kPipedHttpTimeoutMs = 15 * 1000;
 constexpr int kMaxPipedSearchPages = 5;
+const QString kDefaultRegion = QStringLiteral("GR");
 
 // Hardcoded list of Piped API instances tried in order on per-request
 // failure. Picked from the official Piped instance list
@@ -145,7 +146,14 @@ QString countryDisplayName(const QString& code) {
     return name.isEmpty() ? code : name;
 }
 
-QString musicTrendingSearchQuery(const QString& region) {
+QString countryTopSongsCategoryQuery(const QString& region) {
+    // Piped exposes YouTube Music's Songs category via `filter=music_songs`,
+    // but the endpoint still expects a short category seed. Use the local music
+    // adjective where it matters for this fork's default region so the feed is
+    // Greek songs, not English-language videos about Greece.
+    if (region.compare(QStringLiteral("GR"), Qt::CaseInsensitive) == 0) {
+        return QObject::tr("Greek top songs");
+    }
     return QObject::tr("%1 top songs").arg(countryDisplayName(region));
 }
 
@@ -312,7 +320,7 @@ void YouTubeService::fetchTrending(const QString& region, int cap) {
     if (!valid) {
         kLogger.warning() << "fetchTrending: ignoring unsupported region"
                           << region << "— defaulting to GR";
-        r = QStringLiteral("GR");
+        r = kDefaultRegion;
     }
     fetchTrendingViaPiped(r, cap, /*instanceIdx=*/0);
 }
@@ -499,7 +507,7 @@ void YouTubeService::fetchNextPipedSearchPage(const QString& emittedQuery,
 void YouTubeService::fetchTrendingViaPiped(
         const QString& region, int cap, int instanceIdx) {
     const QString sentinelQuery = kTrendingQueryPrefix + region;
-    const QString requestQuery = musicTrendingSearchQuery(region);
+    const QString requestQuery = countryTopSongsCategoryQuery(region);
     searchViaPipedWithFilter(sentinelQuery,
             requestQuery,
             QStringLiteral("music_songs"),
