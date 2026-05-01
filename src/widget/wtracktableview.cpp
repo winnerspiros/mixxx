@@ -1679,8 +1679,6 @@ void WTrackTableView::addToAutoDJ(PlaylistDAO::AutoDJSendLoc loc) {
         if (queuedYoutube) {
             return;
         }
-    }
-    if (trackIds.isEmpty()) {
         qWarning() << "No tracks selected for AutoDJ";
         return;
     }

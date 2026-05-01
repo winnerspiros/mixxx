@@ -42,8 +42,8 @@ constexpr int kDownloadTimeoutMs = 10 * 60 * 1000; // 10 min
 // upstream, but we still want to move on within ~15 s.
 constexpr int kPipedHttpTimeoutMs = 15 * 1000;
 constexpr int kMaxPipedSearchPages = 5;
-// Project default for this fork when neither a user override, cached geo-IP
-// detection, nor system locale can provide a country.
+// Project default for this fork: the requested first-open YouTube feed is Greek
+// top songs, not generic global/United States YouTube trends.
 const QString kDefaultRegion = QStringLiteral("GR");
 
 // Hardcoded list of Piped API instances tried in order on per-request
