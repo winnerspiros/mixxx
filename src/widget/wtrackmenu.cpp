@@ -146,6 +146,20 @@ int WTrackMenu::getTrackCount() const {
     }
 }
 
+int WTrackMenu::getYouTubePlaceholderTrackCount() const {
+    if (!m_pTrackModel) {
+        return 0;
+    }
+    int count = 0;
+    for (const auto& index : std::as_const(m_trackIndexList)) {
+        if (m_pTrackModel->getTrackUrl(index).scheme() ==
+                QStringLiteral("youtube")) {
+            ++count;
+        }
+    }
+    return count;
+}
+
 const QString WTrackMenu::getDeckGroup() const {
     return m_deckGroup;
 }
@@ -555,6 +569,13 @@ void WTrackMenu::createActions() {
     }
 
     if (featureIsEnabled(Feature::Analyze)) {
+        m_pDownloadAndAnalyzeAction =
+                make_parented<QAction>(tr("Download and Analyze"), this);
+        connect(m_pDownloadAndAnalyzeAction,
+                &QAction::triggered,
+                this,
+                &WTrackMenu::slotDownloadAndAnalyze);
+
         m_pAnalyzeAction = make_parented<QAction>(tr("Analyze"), this);
         connect(m_pAnalyzeAction, &QAction::triggered, this, &WTrackMenu::slotAnalyze);
 
@@ -743,6 +764,8 @@ void WTrackMenu::setupActions() {
     }
 
     if (featureIsEnabled(Feature::Analyze)) {
+        m_pAnalyzeMenu->addAction(m_pDownloadAndAnalyzeAction);
+        m_pAnalyzeMenu->addSeparator();
         m_pAnalyzeMenu->addAction(m_pAnalyzeAction);
         m_pAnalyzeMenu->addAction(m_pReanalyzeAction);
         m_pAnalyzeMenu->addAction(m_pReanalyzeConstBpmAction);
@@ -1121,6 +1144,9 @@ void WTrackMenu::updateMenus() {
     }
 
     if (featureIsEnabled(Feature::Analyze)) {
+        const int youTubePlaceholderTrackCount = getYouTubePlaceholderTrackCount();
+        m_pDownloadAndAnalyzeAction->setVisible(youTubePlaceholderTrackCount > 0);
+        m_pDownloadAndAnalyzeAction->setEnabled(youTubePlaceholderTrackCount > 0);
         bool useFixedTempo = m_pConfig->getValue<bool>(
                 ConfigKey("[BPM]", "BeatDetectionFixedTempoAssumption"));
         // Since we already have a 'Reanalyze' action that uses the configured
@@ -1804,6 +1830,10 @@ void WTrackMenu::addToAnalysis(AnalyzerTrack::Options options) {
     }
 
     emit m_pLibrary->analyzeTracks(tracks);
+}
+
+void WTrackMenu::slotDownloadAndAnalyze() {
+    addToAnalysis();
 }
 
 void WTrackMenu::slotAnalyze() {

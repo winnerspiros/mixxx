@@ -120,7 +120,7 @@ bool isPipedLiveStream(const QJsonObject& obj) {
         return true;
     }
     const QJsonValue duration = obj.value(QStringLiteral("duration"));
-    return !duration.isUndefined() && duration.isDouble() && duration.toInt() <= 0;
+    return !duration.isUndefined() && duration.isDouble() && duration.toDouble() <= 0;
 }
 
 bool isValidYouTubeVideoId(const QString& videoId) {
@@ -140,7 +140,7 @@ bool isYtDlpLiveStream(const QJsonObject& obj) {
         return true;
     }
     const QJsonValue duration = obj.value(QStringLiteral("duration"));
-    return !duration.isUndefined() && duration.isDouble() && duration.toInt() <= 0;
+    return !duration.isUndefined() && duration.isDouble() && duration.toDouble() <= 0;
 }
 
 QString countryDisplayName(const QString& code) {
@@ -193,7 +193,7 @@ void appendUniqueVideos(
 // Factored out so the trending and search response paths share one parser.
 QList<YouTubeVideoInfo> parsePipedItems(const QJsonArray& items, int cap) {
     QList<YouTubeVideoInfo> results;
-    results.reserve(items.size());
+    results.reserve(qMin(items.size(), cap));
     for (const QJsonValue& v : items) {
         if (results.size() >= cap) {
             break;

@@ -35,7 +35,11 @@
 namespace {
 const mixxx::Logger kLogger("YouTubeFeature");
 
+#if defined(Q_OS_ANDROID)
+constexpr int kSearchResultsMax = 50;
+#else
 constexpr int kSearchResultsMax = 100;
+#endif
 
 // We tag the TreeItem `data` payload so activateChild() can tell apart
 // "search result the user wants to load" from "already-downloaded track".
