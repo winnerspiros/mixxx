@@ -41,6 +41,8 @@ constexpr int kDownloadTimeoutMs = 10 * 60 * 1000; // 10 min
 // upstream, but we still want to move on within ~15 s.
 constexpr int kPipedHttpTimeoutMs = 15 * 1000;
 constexpr int kMaxPipedSearchPages = 5;
+// Project default for this fork when neither a user override, cached geo-IP
+// detection, nor system locale can provide a country.
 const QString kDefaultRegion = QStringLiteral("GR");
 
 // Hardcoded list of Piped API instances tried in order on per-request
@@ -117,7 +119,7 @@ bool isPipedLiveStream(const QJsonObject& obj) {
         return true;
     }
     const QJsonValue duration = obj.value(QStringLiteral("duration"));
-    return duration.isDouble() && duration.toInt() <= 0;
+    return !duration.isUndefined() && duration.isDouble() && duration.toInt() <= 0;
 }
 
 bool isYtDlpLiveStream(const QJsonObject& obj) {
@@ -131,7 +133,7 @@ bool isYtDlpLiveStream(const QJsonObject& obj) {
         return true;
     }
     const QJsonValue duration = obj.value(QStringLiteral("duration"));
-    return duration.isDouble() && duration.toInt() <= 0;
+    return !duration.isUndefined() && duration.isDouble() && duration.toInt() <= 0;
 }
 
 QString countryDisplayName(const QString& code) {

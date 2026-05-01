@@ -42,6 +42,8 @@ namespace {
 const mixxx::Logger kLogger("YouTubeFeature");
 
 constexpr int kSearchResultsMax = 100;
+// Keep background traffic bounded: enough songs are cached for immediate deck
+// use near the top of the list without downloading every visible result.
 constexpr int kAutoPrefetchResultsMax = 10;
 
 // We tag the TreeItem `data` payload so activateChild() can tell apart
@@ -706,7 +708,7 @@ void YouTubeFeature::onTrackAnalysisProgress(
 }
 
 void YouTubeFeature::syncAnalyzedTrackMetadata(const TrackPointer& pTrack) {
-    if (!pTrack || !m_pTrackModel || !m_pTrackCache) {
+    if (!pTrack || !m_pTrackModel || !m_pTrackCache || !m_pTrackCollection) {
         return;
     }
     const QFileInfo fileInfo(pTrack->getLocation());
