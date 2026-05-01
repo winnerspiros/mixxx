@@ -40,6 +40,8 @@ jobs:
       - name: Configure (clazy)
         if: matrix.name == 'clazy'
         # Disable optimizations as workaround for Clang 9 bug: https://bugs.llvm.org/show_bug.cgi?id=45034
+        # QML/Qt Quick scenegraph is disabled here to avoid a clazy/libstdc++ 14
+        # <format> false positive in Qt Quick headers on Ubuntu 24.04 runners.
         run: |
           clazy --version
           cmake \

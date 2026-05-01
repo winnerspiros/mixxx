@@ -16,6 +16,10 @@
 const QString YouTubeTrackModel::kPlaceholderScheme =
         QStringLiteral("youtube://");
 
+namespace {
+const QColor kPlaceholderForegroundColor(128, 128, 128);
+} // namespace
+
 YouTubeTrackModel::YouTubeTrackModel(QObject* parent,
         TrackCollectionManager* pTrackCollectionManager,
         QSharedPointer<BaseTrackCache> trackSource)
@@ -70,7 +74,7 @@ QVariant YouTubeTrackModel::data(const QModelIndex& index, int role) const {
         const QString rawLocation = getFieldString(
                 index, ColumnCache::COLUMN_TRACKLOCATIONSTABLE_LOCATION);
         if (rawLocation.startsWith(kPlaceholderScheme)) {
-            return QBrush(QColor(128, 128, 128));
+            return QBrush(kPlaceholderForegroundColor);
         }
     }
     return BaseExternalTrackModel::data(index, role);
