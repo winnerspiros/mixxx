@@ -63,7 +63,7 @@ class YouTubeService : public QObject {
     /// `cap` is the max number of results returned to the caller.
     void searchVideos(const QString& query, int cap = 25);
 
-    /// Fetch the YouTube "trending" feed for the given ISO 3166-1 alpha-2
+    /// Fetch country-specific trending music for the given ISO 3166-1 alpha-2
     /// country code (e.g. "US", "DE", "BR"). Results are surfaced via the
     /// existing searchResultsReady signal with `query` set to the sentinel
     /// kTrendingQueryPrefix + region — YouTubeFeature recognizes that
@@ -118,10 +118,27 @@ class YouTubeService : public QObject {
             int instanceIdx,
             const std::function<void(const QString& lastError)>& onAllFailed);
 
-    /// Try Piped's `/trending?region=XX` against `m_pipedInstances[instanceIdx]`.
-    /// On per-instance failure, recurses to the next one. Emits
-    /// searchResultsReady(kTrendingQueryPrefix + region, results) on success;
-    /// emits searchFailed(...) once every instance is exhausted.
+    void searchViaPipedWithFilter(const QString& emittedQuery,
+            const QString& requestQuery,
+            const QString& filter,
+            int cap,
+            int instanceIdx,
+            const std::function<void(const QString& lastError)>& onAllFailed);
+    void fetchNextPipedSearchPage(const QString& emittedQuery,
+            const QString& requestQuery,
+            const QString& filter,
+            int cap,
+            int instanceIdx,
+            const QString& nextPage,
+            QList<mixxx::YouTubeVideoInfo> accumulated,
+            int pageCount,
+            const std::function<void(const QString& lastError)>& onAllFailed);
+
+    /// Try a country-specific Piped music search against
+    /// `m_pipedInstances[instanceIdx]`. On per-instance failure, recurses to the
+    /// next one. Emits searchResultsReady(kTrendingQueryPrefix + region,
+    /// results) on success; emits searchFailed(...) once every instance is
+    /// exhausted.
     void fetchTrendingViaPiped(const QString& region, int cap, int instanceIdx);
 
     /// Try a Piped resolve+download against `m_pipedInstances[instanceIdx]`.

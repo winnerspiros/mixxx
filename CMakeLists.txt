@@ -5322,7 +5322,13 @@ if(NETWORKAUTH)
     list(APPEND QT_EXTRA_COMPONENTS "NetworkAuth")
   else()
     message(WARNING "QtNetworkAuth not found, disabling NETWORKAUTH")
-    set(NETWORKAUTH OFF CACHE BOOL "Enable Qt NetworkAuth-dependent features" FORCE)
+    set(
+      NETWORKAUTH
+      OFF
+      CACHE BOOL
+      "Enable Qt NetworkAuth-dependent features"
+      FORCE
+    )
   endif()
 endif()
 

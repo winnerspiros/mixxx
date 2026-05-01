@@ -8,10 +8,12 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QLocale>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QProcess>
+#include <QSet>
 #include <QStandardPaths>
 #include <QStringList>
 #include <QTimer>
@@ -38,6 +40,7 @@ constexpr int kDownloadTimeoutMs = 10 * 60 * 1000; // 10 min
 // per dead instance. /streams is included because it can wait on YouTube
 // upstream, but we still want to move on within ~15 s.
 constexpr int kPipedHttpTimeoutMs = 15 * 1000;
+constexpr int kMaxPipedSearchPages = 5;
 
 // Hardcoded list of Piped API instances tried in order on per-request
 // failure. Picked from the official Piped instance list
@@ -128,6 +131,42 @@ bool isYtDlpLiveStream(const QJsonObject& obj) {
     }
     const QJsonValue duration = obj.value(QStringLiteral("duration"));
     return duration.isDouble() && duration.toInt() <= 0;
+}
+
+QString countryDisplayName(const QString& code) {
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    const QLocale forCountry(QStringLiteral("en_") + code);
+    const QString name = QLocale::countryToString(forCountry.country());
+#else
+    const QLocale forCountry(QLocale::AnyLanguage,
+            QLocale::codeToTerritory(code));
+    const QString name = QLocale::territoryToString(forCountry.territory());
+#endif
+    return name.isEmpty() ? code : name;
+}
+
+QString musicTrendingSearchQuery(const QString& region) {
+    return QObject::tr("%1 top songs").arg(countryDisplayName(region));
+}
+
+void appendUniqueVideos(
+        QList<YouTubeVideoInfo>* accumulated,
+        const QList<YouTubeVideoInfo>& pageResults,
+        int cap) {
+    QSet<QString> seen;
+    for (const auto& info : std::as_const(*accumulated)) {
+        seen.insert(info.id);
+    }
+    for (const auto& info : pageResults) {
+        if (accumulated->size() >= cap) {
+            return;
+        }
+        if (seen.contains(info.id)) {
+            continue;
+        }
+        accumulated->append(info);
+        seen.insert(info.id);
+    }
 }
 
 // Parse a Piped JSON array of stream items (the same `items[]` shape returned
@@ -265,15 +304,15 @@ void YouTubeService::downloadVideo(const QString& videoId, const QString& cacheD
 }
 
 void YouTubeService::fetchTrending(const QString& region, int cap) {
-    // Empty / malformed region: fall back to "US" rather than failing,
-    // because Piped requires a non-empty alpha-2 region= and an empty pane is
-    // the worst possible UX for a freshly-opened YouTube tab.
+    // Empty / malformed region: fall back to the project default ("GR") rather
+    // than failing, because an empty pane is the worst possible UX for a
+    // freshly-opened YouTube tab.
     QString r = region.toUpper();
     const bool valid = r.size() == 2 && r.at(0).isLetter() && r.at(1).isLetter();
     if (!valid) {
         kLogger.warning() << "fetchTrending: ignoring unsupported region"
-                          << region << "— defaulting to US";
-        r = QStringLiteral("US");
+                          << region << "— defaulting to GR";
+        r = QStringLiteral("GR");
     }
     fetchTrendingViaPiped(r, cap, /*instanceIdx=*/0);
 }
@@ -286,6 +325,20 @@ void YouTubeService::searchViaPiped(const QString& query,
         int cap,
         int instanceIdx,
         const std::function<void(const QString&)>& onAllFailed) {
+    searchViaPipedWithFilter(query,
+            query,
+            QStringLiteral("music_songs"),
+            cap,
+            instanceIdx,
+            onAllFailed);
+}
+
+void YouTubeService::searchViaPipedWithFilter(const QString& emittedQuery,
+        const QString& requestQuery,
+        const QString& filter,
+        int cap,
+        int instanceIdx,
+        const std::function<void(const QString&)>& onAllFailed) {
     if (instanceIdx >= m_pipedInstances.size()) {
         onAllFailed(tr("All Piped instances failed (network or upstream YouTube error)"));
         return;
@@ -293,8 +346,8 @@ void YouTubeService::searchViaPiped(const QString& query,
     const QString instance = m_pipedInstances.at(instanceIdx);
     QUrl url(instance + QStringLiteral("/search"));
     QUrlQuery q;
-    q.addQueryItem(QStringLiteral("q"), query);
-    q.addQueryItem(QStringLiteral("filter"), QStringLiteral("videos"));
+    q.addQueryItem(QStringLiteral("q"), requestQuery);
+    q.addQueryItem(QStringLiteral("filter"), filter);
     url.setQuery(q);
 
     QNetworkRequest req(url);
@@ -306,48 +359,94 @@ void YouTubeService::searchViaPiped(const QString& query,
     connect(reply,
             &QNetworkReply::finished,
             this,
-            [this, reply, query, cap, instanceIdx, instance, onAllFailed]() {
+            [this,
+                    reply,
+                    emittedQuery,
+                    requestQuery,
+                    filter,
+                    cap,
+                    instanceIdx,
+                    instance,
+                    onAllFailed]() {
                 reply->deleteLater();
                 if (reply->error() != QNetworkReply::NoError) {
                     kLogger.info() << "Piped search via" << instance << "failed:"
                                    << reply->errorString() << "— trying next";
-                    searchViaPiped(query, cap, instanceIdx + 1, onAllFailed);
+                    searchViaPipedWithFilter(emittedQuery,
+                            requestQuery,
+                            filter,
+                            cap,
+                            instanceIdx + 1,
+                            onAllFailed);
                     return;
                 }
                 const QJsonDocument doc =
                         QJsonDocument::fromJson(reply->readAll());
-                const QJsonArray items =
-                        doc.object().value(QStringLiteral("items")).toArray();
+                const QJsonObject root = doc.object();
+                const QJsonArray items = root.value(QStringLiteral("items")).toArray();
                 QList<YouTubeVideoInfo> results = parsePipedItems(items, cap);
                 if (results.isEmpty()) {
                     // Empty result set is a legitimate "no matches" answer
                     // for a unique query, but for popular queries it almost
                     // always means the instance is degraded. Try the next.
                     kLogger.info() << "Piped instance" << instance
-                                   << "returned 0 results for" << query
+                                   << "returned 0 results for" << requestQuery
                                    << "— trying next";
-                    searchViaPiped(query, cap, instanceIdx + 1, onAllFailed);
+                    searchViaPipedWithFilter(emittedQuery,
+                            requestQuery,
+                            filter,
+                            cap,
+                            instanceIdx + 1,
+                            onAllFailed);
                     return;
                 }
-                kLogger.info() << "Piped (" << instance << ") returned"
-                               << results.size() << "results for" << query;
-                Q_EMIT searchResultsReady(query, results);
+                const QString nextPage =
+                        root.value(QStringLiteral("nextpage")).toString();
+                fetchNextPipedSearchPage(emittedQuery,
+                        requestQuery,
+                        filter,
+                        cap,
+                        instanceIdx,
+                        nextPage,
+                        results,
+                        1,
+                        onAllFailed);
             });
 }
 
-void YouTubeService::fetchTrendingViaPiped(
-        const QString& region, int cap, int instanceIdx) {
-    const QString sentinelQuery = kTrendingQueryPrefix + region;
-    if (instanceIdx >= m_pipedInstances.size()) {
-        Q_EMIT searchFailed(sentinelQuery,
-                tr("All Piped instances failed to return trending for %1")
-                        .arg(region));
+void YouTubeService::fetchNextPipedSearchPage(const QString& emittedQuery,
+        const QString& requestQuery,
+        const QString& filter,
+        int cap,
+        int instanceIdx,
+        const QString& nextPage,
+        QList<mixxx::YouTubeVideoInfo> accumulated,
+        int pageCount,
+        const std::function<void(const QString&)>& onAllFailed) {
+    if (accumulated.size() >= cap || nextPage.isEmpty() ||
+            pageCount >= kMaxPipedSearchPages) {
+        kLogger.info() << "Piped returned" << accumulated.size()
+                       << "results for" << requestQuery << "after"
+                       << pageCount << "page(s)";
+        Q_EMIT searchResultsReady(emittedQuery, accumulated);
         return;
     }
+
+    if (instanceIdx >= m_pipedInstances.size()) {
+        if (!accumulated.isEmpty()) {
+            Q_EMIT searchResultsReady(emittedQuery, accumulated);
+        } else {
+            onAllFailed(tr("All Piped instances failed (network or upstream YouTube error)"));
+        }
+        return;
+    }
+
     const QString instance = m_pipedInstances.at(instanceIdx);
-    QUrl url(instance + QStringLiteral("/trending"));
+    QUrl url(instance + QStringLiteral("/nextpage/search"));
     QUrlQuery q;
-    q.addQueryItem(QStringLiteral("region"), region);
+    q.addQueryItem(QStringLiteral("q"), requestQuery);
+    q.addQueryItem(QStringLiteral("filter"), filter);
+    q.addQueryItem(QStringLiteral("nextpage"), nextPage);
     url.setQuery(q);
 
     QNetworkRequest req(url);
@@ -359,31 +458,57 @@ void YouTubeService::fetchTrendingViaPiped(
     connect(reply,
             &QNetworkReply::finished,
             this,
-            [this, reply, region, cap, instanceIdx, instance, sentinelQuery]() {
+            [this,
+                    reply,
+                    emittedQuery,
+                    requestQuery,
+                    filter,
+                    cap,
+                    instanceIdx,
+                    accumulated,
+                    pageCount,
+                    onAllFailed]() mutable {
                 reply->deleteLater();
                 if (reply->error() != QNetworkReply::NoError) {
-                    kLogger.info() << "Piped /trending via" << instance
-                                   << "failed:" << reply->errorString()
-                                   << "— trying next";
-                    fetchTrendingViaPiped(region, cap, instanceIdx + 1);
+                    kLogger.info()
+                            << "Piped next search page failed for" << requestQuery
+                            << ":" << reply->errorString()
+                            << "— using accumulated results";
+                    Q_EMIT searchResultsReady(emittedQuery, accumulated);
                     return;
                 }
-                // /trending returns a top-level JSON array of stream objects
-                // (unlike /search which wraps them in {items:[…]}).
-                const QJsonArray items =
-                        QJsonDocument::fromJson(reply->readAll()).array();
-                QList<YouTubeVideoInfo> results = parsePipedItems(items, cap);
-                if (results.isEmpty()) {
-                    kLogger.info() << "Piped instance" << instance
-                                   << "returned 0 trending items for region"
-                                   << region << "— trying next";
-                    fetchTrendingViaPiped(region, cap, instanceIdx + 1);
-                    return;
-                }
-                kLogger.info() << "Piped (" << instance << ") returned"
-                               << results.size() << "trending items for region"
-                               << region;
-                Q_EMIT searchResultsReady(sentinelQuery, results);
+                const QJsonObject root =
+                        QJsonDocument::fromJson(reply->readAll()).object();
+                appendUniqueVideos(&accumulated,
+                        parsePipedItems(
+                                root.value(QStringLiteral("items")).toArray(),
+                                cap),
+                        cap);
+                fetchNextPipedSearchPage(emittedQuery,
+                        requestQuery,
+                        filter,
+                        cap,
+                        instanceIdx,
+                        root.value(QStringLiteral("nextpage")).toString(),
+                        accumulated,
+                        pageCount + 1,
+                        onAllFailed);
+            });
+}
+
+void YouTubeService::fetchTrendingViaPiped(
+        const QString& region, int cap, int instanceIdx) {
+    const QString sentinelQuery = kTrendingQueryPrefix + region;
+    const QString requestQuery = musicTrendingSearchQuery(region);
+    searchViaPipedWithFilter(sentinelQuery,
+            requestQuery,
+            QStringLiteral("music_songs"),
+            cap,
+            instanceIdx,
+            [this, sentinelQuery, region](const QString& lastError) {
+                Q_EMIT searchFailed(sentinelQuery,
+                        tr("Could not load trending music for %1: %2")
+                                .arg(countryDisplayName(region), lastError));
             });
 }
 

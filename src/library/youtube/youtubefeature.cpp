@@ -41,7 +41,7 @@
 namespace {
 const mixxx::Logger kLogger("YouTubeFeature");
 
-constexpr int kSearchResultsMax = 50;
+constexpr int kSearchResultsMax = 100;
 constexpr int kAutoPrefetchResultsMax = 10;
 
 // We tag the TreeItem `data` payload so activateChild() can tell apart
@@ -942,7 +942,7 @@ void YouTubeFeature::rebuildHomeHtml() {
             const QString region = m_lastQuery.mid(
                     mixxx::YouTubeService::kTrendingQueryPrefix.size());
             html += QStringLiteral("<h3>") +
-                    tr("Trending in %1").arg(countryDisplayName(region)) +
+                    tr("Trending music in %1").arg(countryDisplayName(region)) +
                     QStringLiteral("</h3>");
         } else {
             html += QStringLiteral("<h3>") +
