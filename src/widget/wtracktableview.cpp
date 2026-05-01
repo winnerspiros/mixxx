@@ -723,7 +723,7 @@ void WTrackTableView::mouseMoveEvent(QMouseEvent* pEvent) {
     if (DragAndDropHelper::mouseMoveInitiatesDrag(pEvent)) {
         // Iterate over selected rows and append each item's URL to a list.
         // Use getTrackUrl() instead of getTrackLocation() so external/library
-        // rows that are not plain local files (notably youtube:VIDEOID
+        // rows that are not plain local files (notably youtube://VIDEOID
         // placeholders) can still be dragged to decks and playlists.
         QList<QUrl> urls;
         const QModelIndexList indices = getSelectedRows();
