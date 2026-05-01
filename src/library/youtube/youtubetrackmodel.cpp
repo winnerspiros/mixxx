@@ -2,6 +2,7 @@
 
 #include <QSharedPointer>
 #include <QString>
+#include <QUrl>
 
 #include "library/baseexternaltrackmodel.h"
 #include "library/basetrackcache.h"
@@ -49,6 +50,18 @@ TrackPointer YouTubeTrackModel::getTrack(const QModelIndex& index) const {
         return TrackPointer();
     }
     return BaseExternalTrackModel::getTrack(index);
+}
+
+QUrl YouTubeTrackModel::getTrackUrl(const QModelIndex& index) const {
+    const QString rawLocation = getFieldString(
+            index, ColumnCache::COLUMN_TRACKLOCATIONSTABLE_LOCATION);
+    if (rawLocation.startsWith(kPlaceholderScheme)) {
+        QUrl url;
+        url.setScheme(QStringLiteral("youtube"));
+        url.setPath(rawLocation.mid(kPlaceholderScheme.size()));
+        return url;
+    }
+    return BaseExternalTrackModel::getTrackUrl(index);
 }
 
 void YouTubeTrackModel::search(const QString& searchText) {

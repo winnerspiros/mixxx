@@ -504,6 +504,22 @@ void YouTubeFeature::onSearchFailed(const QString& query, const QString& error) 
 
 void YouTubeFeature::requestDownload(const QString& videoId) {
     m_videoIdsToAutoLoad.insert(videoId);
+    requestDownloadFile(videoId);
+}
+
+void YouTubeFeature::requestDownloadToPlayer(
+        const QString& videoId, const QString& group, bool play) {
+    if (videoId.isEmpty() || group.isEmpty()) {
+        return;
+    }
+    PendingPlayerLoad pendingLoad;
+    pendingLoad.group = group;
+    pendingLoad.play = play;
+    m_pendingPlayerLoads[videoId].append(pendingLoad);
+    requestDownloadFile(videoId);
+}
+
+void YouTubeFeature::requestDownloadFile(const QString& videoId) {
     // If we already have a cached file for this id, skip the download and load
     // it straight away.
     const QDir dir(cacheDir());
@@ -518,6 +534,10 @@ void YouTubeFeature::requestDownload(const QString& videoId) {
         onDownloadFinished(videoId, dir.filePath(f));
         return;
     }
+    if (m_videoIdsDownloading.contains(videoId)) {
+        return;
+    }
+    m_videoIdsDownloading.insert(videoId);
     kLogger.info() << "Downloading YouTube video" << videoId;
     m_service.downloadVideo(videoId, cacheDir());
 }
@@ -541,6 +561,7 @@ void YouTubeFeature::requestPrefetch(const QString& videoId) {
 
 void YouTubeFeature::onDownloadFinished(
         const QString& videoId, const QString& localPath) {
+    m_videoIdsDownloading.remove(videoId);
     if (!QFileInfo::exists(localPath)) {
         kLogger.warning() << "Downloaded file disappeared:" << localPath;
         return;
@@ -594,9 +615,23 @@ void YouTubeFeature::onDownloadFinished(
     if (m_videoIdsToAutoLoad.remove(videoId)) {
         Q_EMIT loadTrack(pTrack);
     }
+    const QList<PendingPlayerLoad> pendingLoads = m_pendingPlayerLoads.take(videoId);
+    for (const auto& pendingLoad : pendingLoads) {
+#ifdef __STEM__
+        Q_EMIT loadTrackToPlayer(pTrack,
+                pendingLoad.group,
+                mixxx::StemChannelSelection(),
+                pendingLoad.play);
+#else
+        Q_EMIT loadTrackToPlayer(pTrack, pendingLoad.group, pendingLoad.play);
+#endif
+    }
 }
 
 void YouTubeFeature::onDownloadFailed(const QString& videoId, const QString& error) {
+    m_videoIdsDownloading.remove(videoId);
+    m_pendingPlayerLoads.remove(videoId);
+    m_videoIdsToAutoLoad.remove(videoId);
     kLogger.warning() << "YouTube download failed for" << videoId << ":" << error;
 }
 

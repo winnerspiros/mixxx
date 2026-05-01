@@ -1,6 +1,7 @@
 #include "util/dnd.h"
 
 #include <QDirIterator>
+#include <QUrl>
 
 #include "control/controlobject.h"
 #include "library/parser.h"
@@ -46,6 +47,18 @@ bool addFileToList(
 
     fileInfos->append(std::move(fileInfo));
     return true;
+}
+
+QUrl firstYouTubeUrl(const QMimeData& mimeData) {
+    if (!mimeData.hasUrls()) {
+        return {};
+    }
+    for (const QUrl& url : mimeData.urls()) {
+        if (url.scheme() == QStringLiteral("youtube")) {
+            return url;
+        }
+    }
+    return {};
 }
 
 QList<mixxx::FileInfo> dropEventFiles(
@@ -145,7 +158,7 @@ bool DragAndDropHelper::urlsContainSupportedTrackFiles(
     return !supportedTracksFromUrls(urls, true, acceptPlaylists).isEmpty();
 }
 
-//static
+// static
 QList<mixxx::FileInfo> DragAndDropHelper::supportedTracksFromUrls(
         const QList<QUrl>& urls,
         bool stopOnFirstMatch,
@@ -209,7 +222,7 @@ QList<mixxx::FileInfo> DragAndDropHelper::supportedTracksFromUrls(
     return fileInfos;
 }
 
-//static
+// static
 bool DragAndDropHelper::allowDeckCloneAttempt(
         const QDropEvent& event,
         const QString& group) {
@@ -249,7 +262,7 @@ bool DragAndDropHelper::mouseMoveInitiatesDrag(QMouseEvent* pEvent) {
     return mouseMoveInitiatesDragHelper(pEvent, false);
 }
 
-//static
+// static
 bool DragAndDropHelper::dragEnterAccept(
         const QMimeData& mimeData,
         const QString& sourceIdentifier,
@@ -262,7 +275,7 @@ bool DragAndDropHelper::dragEnterAccept(
     return !files.isEmpty();
 }
 
-//static
+// static
 QDrag* DragAndDropHelper::dragTrack(
         TrackPointer pTrack,
         QWidget* pDragSource,
@@ -272,7 +285,7 @@ QDrag* DragAndDropHelper::dragTrack(
     return dragUrls(trackUrls, pDragSource, sourceIdentifier);
 }
 
-//static
+// static
 QDrag* DragAndDropHelper::dragTrackLocations(
         const QList<QString>& locations,
         QWidget* pDragSource,
@@ -284,13 +297,14 @@ QDrag* DragAndDropHelper::dragTrackLocations(
     return dragUrls(trackUrls, pDragSource, sourceIdentifier);
 }
 
-//static
+// static
 void DragAndDropHelper::handleTrackDragEnterEvent(
         QDragEnterEvent* pEvent,
         const QString& group,
         UserSettingsPointer pConfig) {
     if (allowLoadToPlayer(group, pConfig) &&
-            dragEnterAccept(*pEvent->mimeData(), group, true, false)) {
+            (!firstYouTubeUrl(*pEvent->mimeData()).isEmpty() ||
+                    dragEnterAccept(*pEvent->mimeData(), group, true, false))) {
         pEvent->acceptProposedAction();
     } else {
         qDebug() << "Ignoring drag enter event, loading not allowed";
@@ -298,7 +312,7 @@ void DragAndDropHelper::handleTrackDragEnterEvent(
     }
 }
 
-//static
+// static
 void DragAndDropHelper::handleTrackDropEvent(
         QDropEvent* pEvent,
         TrackDropTarget& target,
@@ -310,6 +324,12 @@ void DragAndDropHelper::handleTrackDropEvent(
             target.emitCloneDeck(pEvent->mimeData()->text(), group);
             return;
         } else {
+            const QUrl youtubeUrl = firstYouTubeUrl(*pEvent->mimeData());
+            if (!youtubeUrl.isEmpty()) {
+                pEvent->accept();
+                target.emitTrackDropped(youtubeUrl.toString(), group);
+                return;
+            }
             const QList<mixxx::FileInfo> files = dropEventFiles(
                     *pEvent->mimeData(), group, true, false);
             if (!files.isEmpty()) {

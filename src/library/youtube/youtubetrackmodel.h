@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QSharedPointer>
 #include <QString>
+#include <QUrl>
 
 #include "library/baseexternaltrackmodel.h"
 #include "library/basetrackcache.h"
@@ -47,6 +48,7 @@ class YouTubeTrackModel : public BaseExternalTrackModel {
             QSharedPointer<BaseTrackCache> trackSource);
 
     TrackPointer getTrack(const QModelIndex& index) const override;
+    QUrl getTrackUrl(const QModelIndex& index) const override;
     /// Override of BaseSqlTableModel::search — in addition to filtering the
     /// existing rows (parent behaviour), dispatches a fresh
     /// `YouTubeService::searchVideos(searchText)` request via the feature

@@ -3,6 +3,7 @@
 #include <QApplication>
 #include <QDir>
 #include <QMessageBox>
+#include <QUrl>
 
 #include "control/controlobject.h"
 #include "controllers/keyboard/keyboardeventfilter.h"
@@ -24,6 +25,7 @@
 #include "library/rhythmbox/rhythmboxfeature.h"
 #include "library/serato/seratofeature.h"
 #include "library/sidebarmodel.h"
+#include "library/spotify/spotifyfeature.h"
 #include "library/trackcollection.h"
 #include "library/trackcollectionmanager.h"
 #include "library/trackmodel.h"
@@ -31,10 +33,9 @@
 #include "library/trackset/playlistfeature.h"
 #include "library/trackset/setlogfeature.h"
 #include "library/traktor/traktorfeature.h"
-#include "mixer/playermanager.h"
-#include "library/spotify/spotifyfeature.h"
 #include "library/youtube/sponsorblockcontroller.h"
 #include "library/youtube/youtubefeature.h"
+#include "mixer/playermanager.h"
 #include "moc_library.cpp"
 #include "util/assert.h"
 #include "util/logger.h"
@@ -596,6 +597,17 @@ void Library::slotLoadTrack(TrackPointer pTrack) {
 }
 
 void Library::slotLoadLocationToPlayer(const QString& location, const QString& group, bool play) {
+    const QUrl url(location);
+    if (url.scheme() == QStringLiteral("youtube")) {
+        const QString path = url.path();
+        const QString videoId = !path.isEmpty()
+                ? path.mid(path.startsWith(QLatin1Char('/')) ? 1 : 0)
+                : url.host();
+        if (m_pYouTubeFeature && !videoId.isEmpty()) {
+            m_pYouTubeFeature->requestDownloadToPlayer(videoId, group, play);
+        }
+        return;
+    }
     auto trackRef = TrackRef::fromFilePath(location);
     TrackPointer pTrack = m_pTrackCollectionManager->getOrAddTrack(trackRef);
     if (pTrack) {

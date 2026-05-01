@@ -42,6 +42,8 @@ class YouTubeFeature : public BaseExternalLibraryFeature {
     /// `displayLabel` is shown in logs/UI to make the cross-source mapping
     /// transparent.
     void searchAndAutoLoadFirst(const QString& query, const QString& displayLabel = QString());
+    void requestDownloadToPlayer(
+            const QString& videoId, const QString& group, bool play);
 
     /// Absolute path to the per-user yt-dlp cache directory. Created on demand.
     QString cacheDir() const;
@@ -91,6 +93,7 @@ class YouTubeFeature : public BaseExternalLibraryFeature {
     /// Trigger a download (or short-circuit if already cached) for `videoId`.
     /// The downloaded track will be auto-loaded onto the next free deck.
     void requestDownload(const QString& videoId);
+    void requestDownloadFile(const QString& videoId);
     /// Like requestDownload but does NOT load onto a deck — used for
     /// background pre-fetch / repair of missing AutoDJ-queued tracks.
     void requestPrefetch(const QString& videoId);
@@ -147,6 +150,12 @@ class YouTubeFeature : public BaseExternalLibraryFeature {
     // auto-loaded onto a deck once finished. Background prefetch downloads
     // are NOT in this set, so they don't yank the deck.
     QSet<QString> m_videoIdsToAutoLoad;
+    struct PendingPlayerLoad {
+        QString group;
+        bool play = false;
+    };
+    QHash<QString, QList<PendingPlayerLoad>> m_pendingPlayerLoads;
+    QSet<QString> m_videoIdsDownloading;
     /// When set, the next batch of search results that matches `m_lastQuery`
     /// will trigger an auto-download+load of the top result. Cleared once
     /// consumed so subsequent user-driven searches don't accidentally autoload.
