@@ -285,7 +285,7 @@ void WTrackTableView::loadTrackModel(QAbstractItemModel* pNewModel, bool restore
 
         // Show or hide the column based on whether it should be shown or not.
         if (pNewTrackModel->isColumnInternal(i)) {
-            //qDebug() << "Hiding column" << i;
+            // qDebug() << "Hiding column" << i;
             horizontalHeader()->hideSection(i);
         }
         // If Mixxx starts the first time or the header states have been cleared
@@ -294,7 +294,7 @@ void WTrackTableView::loadTrackModel(QAbstractItemModel* pNewModel, bool restore
         // key column by default unless the user brings it to front
         if (pNewTrackModel->isColumnHiddenByDefault(i) &&
                 !pHeader->hasPersistedHeaderState()) {
-            //qDebug() << "Hiding column" << i;
+            // qDebug() << "Hiding column" << i;
             horizontalHeader()->hideSection(i);
         }
     }
@@ -358,7 +358,7 @@ void WTrackTableView::loadTrackModel(QAbstractItemModel* pNewModel, bool restore
     if (pNewTrackModel->hasCapabilities(TrackModel::Capability::ReceiveDrops)) {
         setDragDropMode(QAbstractItemView::DragDrop);
         setDropIndicatorShown(true);
-        //viewport()->setAcceptDrops(true);
+        // viewport()->setAcceptDrops(true);
     } else {
         setDragDropMode(QAbstractItemView::DragOnly);
     }
@@ -693,31 +693,37 @@ void WTrackTableView::mouseMoveEvent(QMouseEvent* pEvent) {
     if (!pTrackModel) {
         return;
     }
-    //qDebug() << "MouseMoveEvent";
+    // qDebug() << "MouseMoveEvent";
 
     if (DragAndDropHelper::mouseMoveInitiatesDrag(pEvent)) {
-        // Iterate over selected rows and append each item's location url to a list.
-        QList<QString> locations;
+        // Iterate over selected rows and append each item's URL to a list.
+        // Use getTrackUrl() instead of getTrackLocation() so external/library
+        // rows that are not plain local files (notably youtube:VIDEOID
+        // placeholders) can still be dragged to decks and playlists.
+        QList<QUrl> urls;
         const QModelIndexList indices = getSelectedRows();
 
         for (const QModelIndex& index : indices) {
             if (!index.isValid()) {
                 continue;
             }
-            locations.append(pTrackModel->getTrackLocation(index));
+            const QUrl url = pTrackModel->getTrackUrl(index);
+            if (url.isValid()) {
+                urls.append(url);
+            }
         }
-        DragAndDropHelper::dragTrackLocations(locations, this, "library");
+        DragAndDropHelper::dragTrackUrls(urls, this, "library");
     }
 }
 
 // Drag enter event, happens when a dragged item hovers over the track table view
-void WTrackTableView::dragEnterEvent(QDragEnterEvent * event) {
+void WTrackTableView::dragEnterEvent(QDragEnterEvent* event) {
     auto* pTrackModel = getTrackModel();
     if (!pTrackModel || pTrackModel->isLocked() || !event->mimeData()->hasUrls()) {
         event->ignore();
         return;
     }
-    //qDebug() << "dragEnterEvent" << event->mimeData()->formats();
+    // qDebug() << "dragEnterEvent" << event->mimeData()->formats();
     if (event->source() == this) {
         if (pTrackModel->hasCapabilities(TrackModel::Capability::Reorder)) {
             event->acceptProposedAction();
@@ -739,7 +745,7 @@ void WTrackTableView::dragLeaveEvent(QDragLeaveEvent* /*event*/) {
 // Drag move event, happens when a dragged item hovers over the track table view...
 // It changes the drop handle to a "+" when the drag content is acceptable.
 // Without it, the following drop is ignored.
-void WTrackTableView::dragMoveEvent(QDragMoveEvent * event) {
+void WTrackTableView::dragMoveEvent(QDragMoveEvent* event) {
     auto* pTrackModel = getTrackModel();
     if (!pTrackModel || pTrackModel->isLocked() || !event->mimeData()->hasUrls()) {
         event->ignore();
@@ -750,7 +756,7 @@ void WTrackTableView::dragMoveEvent(QDragMoveEvent * event) {
 
     int newDropRow = -1;
 
-    //qDebug() << "dragMoveEvent" << event->mimeData()->formats();
+    // qDebug() << "dragMoveEvent" << event->mimeData()->formats();
     if (event->source() == this) {
         if (pTrackModel->hasCapabilities(TrackModel::Capability::Reorder)) {
             event->acceptProposedAction();
@@ -783,7 +789,7 @@ void WTrackTableView::dragMoveEvent(QDragMoveEvent * event) {
 }
 
 // Drag-and-drop "drop" event. Occurs when something is dropped onto the track table view
-void WTrackTableView::dropEvent(QDropEvent * event) {
+void WTrackTableView::dropEvent(QDropEvent* event) {
     TrackModel* pTrackModel = getTrackModel();
     // We only do things to the TrackModel in this method so if we don't have
     // one we should just bail.
@@ -805,7 +811,6 @@ void WTrackTableView::dropEvent(QDropEvent * event) {
     // up to the top, which is confusing when you're dragging and dropping. :)
     int vScrollBarPos = verticalScrollBar()->value();
 
-
     // Calculate the model index where the track or tracks are destined to go.
     // (the "drop" position in a drag-and-drop)
     // The user usually drops on the seam between two rows.
@@ -820,7 +825,7 @@ void WTrackTableView::dropEvent(QDropEvent * event) {
     QPoint pointOfRowBelowSeam(position.x(), position.y() + height / 2);
     QModelIndex destIndex = indexAt(pointOfRowBelowSeam);
 
-    //qDebug() << "destIndex.row() is" << destIndex.row();
+    // qDebug() << "destIndex.row() is" << destIndex.row();
 
     // Drag and drop within this widget (track reordering)
     if (event->source() == this &&
@@ -859,8 +864,8 @@ void WTrackTableView::dropEvent(QDropEvent * event) {
         } else if ((destIndex.row() == -1) && (model()->rowCount() > 0)) {
             // If the track was dropped beyond the end of a playlist, then
             // we need to fudge the destination a bit...
-            //qDebug() << "Beyond end of playlist";
-            //qDebug() << "rowcount is:" << model()->rowCount();
+            // qDebug() << "Beyond end of playlist";
+            // qDebug() << "rowcount is:" << model()->rowCount();
             selectionStartRow = model()->rowCount();
         }
 
@@ -1505,6 +1510,11 @@ void WTrackTableView::loadSelectedTrackToGroup(const QString& group,
 #else
         emit loadTrackToPlayer(pTrack, group, play);
 #endif
+    } else if (pTrackModel) {
+        const QUrl url = pTrackModel->getTrackUrl(index);
+        if (url.scheme() == QStringLiteral("youtube")) {
+            emit loadTrackLocationToPlayer(url.toString(), group, play);
+        }
     }
 }
 
@@ -1518,7 +1528,7 @@ QList<TrackId> WTrackTableView::getSelectedTrackIds() const {
     const QModelIndexList rows = getSelectedRows();
     QList<TrackId> trackIds;
     trackIds.reserve(rows.size());
-    for (const QModelIndex& row: rows) {
+    for (const QModelIndex& row : rows) {
         const TrackId trackId = pTrackModel->getTrackId(row);
         if (trackId.isValid()) {
             trackIds.append(trackId);
@@ -1556,14 +1566,14 @@ bool WTrackTableView::isTrackInCurrentView(const TrackId& trackId) {
     VERIFY_OR_DEBUG_ASSERT(trackId.isValid()) {
         return false;
     }
-    //qDebug() << "WTrackTableView::isTrackInCurrentView" << trackId;
+    // qDebug() << "WTrackTableView::isTrackInCurrentView" << trackId;
     TrackModel* pTrackModel = getTrackModel();
     VERIFY_OR_DEBUG_ASSERT(pTrackModel != nullptr) {
         qWarning() << "No track model";
         return false;
     }
     const QVector<int> trackRows = pTrackModel->getTrackRows(trackId);
-    //qDebug() << "   track found?" << !trackRows.empty();
+    // qDebug() << "   track found?" << !trackRows.empty();
     return !trackRows.empty();
 }
 

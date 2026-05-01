@@ -44,6 +44,10 @@ class DragAndDropHelper final {
             const QList<QString>& locations,
             QWidget* pDragSource,
             const QString& sourceIdentifier);
+    static QDrag* dragTrackUrls(
+            const QList<QUrl>& urls,
+            QWidget* pDragSource,
+            const QString& sourceIdentifier);
 
     static void handleTrackDragEnterEvent(
             QDragEnterEvent* pEvent,

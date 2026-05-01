@@ -449,6 +449,10 @@ void Library::bindLibraryWidget(
             &WTrackTableView::loadTrackToPlayer,
             this,
             &Library::slotLoadTrackToPlayer);
+    connect(pTrackTableView,
+            &WTrackTableView::loadTrackLocationToPlayer,
+            this,
+            &Library::slotLoadLocationToPlayer);
     m_pLibraryWidget->registerView(m_sTrackViewName, pTrackTableView);
 
     connect(m_pLibraryWidget,

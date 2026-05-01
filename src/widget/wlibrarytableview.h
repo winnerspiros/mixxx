@@ -65,6 +65,10 @@ class WLibraryTableView : public QTableView, public virtual LibraryView {
             mixxx::StemChannelSelection stemMask,
 #endif
             bool play = false);
+    void loadTrackLocationToPlayer(
+            const QString& location,
+            const QString& group,
+            bool play = false);
     void trackSelected(TrackPointer pTrack);
     void onlyCachedCoversAndOverviews(bool);
     void scrollValueChanged(int);

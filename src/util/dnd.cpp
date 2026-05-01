@@ -298,6 +298,14 @@ QDrag* DragAndDropHelper::dragTrackLocations(
 }
 
 // static
+QDrag* DragAndDropHelper::dragTrackUrls(
+        const QList<QUrl>& urls,
+        QWidget* pDragSource,
+        const QString& sourceIdentifier) {
+    return dragUrls(urls, pDragSource, sourceIdentifier);
+}
+
+// static
 void DragAndDropHelper::handleTrackDragEnterEvent(
         QDragEnterEvent* pEvent,
         const QString& group,
