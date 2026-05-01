@@ -221,7 +221,13 @@ void maybeAutoDetectScaleFactor(CmdlineArgs* pArgs) {
     if (!pScreen) {
         return;
     }
-    const QSize screenSize = pScreen->availableSize();
+    QSize screenSize = pScreen->availableSize();
+#ifdef Q_OS_ANDROID
+    const qreal devicePixelRatio = pScreen->devicePixelRatio();
+    if (devicePixelRatio > 1.0) {
+        screenSize = (QSizeF(screenSize) / devicePixelRatio).toSize();
+    }
+#endif
     if (screenSize.isEmpty()) {
         return;
     }

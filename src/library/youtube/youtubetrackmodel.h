@@ -49,6 +49,7 @@ class YouTubeTrackModel : public BaseExternalTrackModel {
 
     TrackPointer getTrack(const QModelIndex& index) const override;
     QUrl getTrackUrl(const QModelIndex& index) const override;
+    TrackId getTrackId(const QModelIndex& index) const override;
     /// Override of BaseSqlTableModel::search — in addition to filtering the
     /// existing rows (parent behaviour), dispatches a fresh
     /// `YouTubeService::searchVideos(searchText)` request via the feature

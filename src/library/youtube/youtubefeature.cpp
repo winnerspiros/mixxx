@@ -3,13 +3,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
-#include <QJsonDocument>
-#include <QJsonObject>
 #include <QLocale>
-#include <QMessageBox>
-#include <QNetworkAccessManager>
-#include <QNetworkReply>
-#include <QNetworkRequest>
 #include <QRegularExpression>
 #include <QSqlError>
 #include <QSqlQuery>
@@ -66,12 +60,12 @@ struct TrackDisplayMetadata {
 
 QString cleanYouTubeSongTitle(const QString& input) {
     QString title = input.simplified();
-    const QRegularExpression kBracketedNoise(
+    static const QRegularExpression kBracketedNoise(
             QStringLiteral(
                     R"(\s*[\[(](official\s*(music\s*)?video|official\s*audio|audio|lyrics?|lyric\s*video|visuali[sz]er|music\s*video|hd|hq|4k)[\])]\s*)"),
             QRegularExpression::CaseInsensitiveOption);
     title.remove(kBracketedNoise);
-    const QRegularExpression kTrailingNoise(
+    static const QRegularExpression kTrailingNoise(
             QStringLiteral(
                     R"(\s*[-–—|]\s*(official\s*(music\s*)?video|official\s*audio|audio|lyrics?|lyric\s*video|visuali[sz]er|music\s*video|hd|hq|4k)\s*$)"),
             QRegularExpression::CaseInsensitiveOption);
@@ -81,7 +75,7 @@ QString cleanYouTubeSongTitle(const QString& input) {
 
 QString cleanYouTubeArtist(const QString& input) {
     QString artist = input.simplified();
-    const QRegularExpression kTopicSuffix(
+    static const QRegularExpression kTopicSuffix(
             QStringLiteral(R"(\s*-\s*Topic\s*$)"),
             QRegularExpression::CaseInsensitiveOption);
     artist.remove(kTopicSuffix);
@@ -193,24 +187,18 @@ QString countryDisplayName(const QString& code) {
 #endif
     return name.isEmpty() ? code : name;
 }
-// Config keys for the trending region. `trending_region` is the user-set
-// override (Preferences UI / future config dialog); `detected_region` is
-// the cached result of the geo-IP lookup so we don't re-hit the network on
-// every launch. Both use the [YouTube] section so they show up together.
+// Config key for an optional user-set trending-region override (Preferences UI
+// / future config dialog).
 const ConfigKey kCfgTrendingOverride(
         QStringLiteral("[YouTube]"), QStringLiteral("trending_region"));
-const ConfigKey kCfgTrendingDetected(
-        QStringLiteral("[YouTube]"), QStringLiteral("detected_region"));
 
-// Project default region. Used only when (a) no user override, (b) no cached
-// geo-IP result, and (c) the system locale has no usable region. Per
-// project requirement: "if it is just go greek".
+// Project default region. Per project requirement: open on Greek top songs
+// unless the user explicitly overrides it.
 const QString kDefaultRegion = QStringLiteral("GR");
 } // namespace
 
 YouTubeFeature::YouTubeFeature(Library* pLibrary, UserSettingsPointer pConfig)
         : BaseExternalLibraryFeature(pLibrary, pConfig, "youtube"),
-          m_pNam(new QNetworkAccessManager(this)),
           m_pSidebarModel(make_parented<TreeItemModel>(this)),
           m_service(this) {
     // Build the persistent track model that backs the right-hand pane.
@@ -321,34 +309,6 @@ YouTubeFeature::YouTubeFeature(Library* pLibrary, UserSettingsPointer pConfig)
         prefetchAutoDjQueue();
     });
 
-    // When the geo-IP detection completes (or changes after the user
-    // travelled), refresh the trending feed in-place if we're still on the
-    // initial trending pane. We deliberately do NOT clobber an active
-    // user-driven search.
-    connect(this,
-            &YouTubeFeature::detectedRegionChanged,
-            this,
-            [this](const QString& region) {
-                const QString sentinel =
-                        mixxx::YouTubeService::kTrendingQueryPrefix + region;
-                const bool onTrending = m_lastQuery.startsWith(
-                        mixxx::YouTubeService::kTrendingQueryPrefix);
-                if (!onTrending) {
-                    return;
-                }
-                if (m_lastQuery == sentinel) {
-                    return; // Already showing this region's trending.
-                }
-                kLogger.info() << "Refreshing trending for newly-detected"
-                               << "region:" << region;
-                m_lastQuery = sentinel;
-                m_lastResults.clear();
-                m_lastSearchError.clear();
-                rebuildSidebar();
-                rebuildHomeHtml();
-                m_service.fetchTrending(region, kSearchResultsMax);
-            });
-
     rebuildSidebar();
 }
 
@@ -364,65 +324,17 @@ QString YouTubeFeature::cacheDir() const {
 
 QString YouTubeFeature::resolvedTrendingRegion() const {
     // 1. Explicit user override (e.g. set from Preferences). Wins over
-    //    everything so a user that prefers a different country's trending
-    //    feed doesn't get re-overridden by geo-IP on every launch.
+    //    everything so a user can opt into a different country's feed.
     const QString override = m_pConfig->getValueString(kCfgTrendingOverride)
                                      .trimmed()
                                      .toUpper();
     if (override.size() == 2) {
         return override;
     }
-    // 2. Cached geo-IP detection.
-    const QString detected = m_pConfig->getValueString(kCfgTrendingDetected)
-                                     .trimmed()
-                                     .toUpper();
-    if (detected.size() == 2) {
-        return detected;
-    }
-    // 3. System locale (fast, offline).
-    const QString locale = localeCountryCode();
-    if (locale.size() == 2) {
-        return locale;
-    }
-    // 4. Project default — see kDefaultRegion comment.
+    // 2. Project default. Do not use stale geo-IP cache or en_US system
+    // locales for this fork: the YouTube home feed should open on Greek top
+    // songs unless the user explicitly overrides it.
     return kDefaultRegion;
-}
-
-void YouTubeFeature::detectRegionAsync() {
-    // Free, no-key, JSON-only geo-IP endpoint (https://api.country.is/).
-    // Returns `{"ip":"...","country":"GR"}`. We do this even when a cached
-    // detection already exists, so the user's actual location stays
-    // accurate after they travel — `activate()` calls us once per launch.
-    QNetworkRequest req((QUrl(QStringLiteral("https://api.country.is/"))));
-    req.setRawHeader("User-Agent", "Mixxx/youtube-region");
-    QNetworkReply* pReply = m_pNam->get(req);
-    connect(pReply, &QNetworkReply::finished, this, [this, pReply]() {
-        pReply->deleteLater();
-        if (pReply->error() != QNetworkReply::NoError) {
-            kLogger.info() << "Geo-IP region lookup failed (using fallback):"
-                           << pReply->errorString();
-            return;
-        }
-        const QJsonDocument doc = QJsonDocument::fromJson(pReply->readAll());
-        const QString country = doc.object()
-                                        .value(QStringLiteral("country"))
-                                        .toString()
-                                        .trimmed()
-                                        .toUpper();
-        if (country.size() != 2) {
-            kLogger.info()
-                    << "Geo-IP response missing country field, ignoring";
-            return;
-        }
-        const QString prev = m_pConfig->getValueString(kCfgTrendingDetected);
-        if (prev == country) {
-            return; // No change — don't churn the trending feed.
-        }
-        kLogger.info() << "Geo-IP detected region:" << country
-                       << "(was:" << prev << ")";
-        m_pConfig->set(kCfgTrendingDetected, ConfigValue(country));
-        Q_EMIT detectedRegionChanged(country);
-    });
 }
 
 void YouTubeFeature::activate() {
@@ -435,12 +347,9 @@ void YouTubeFeature::activate() {
     Q_EMIT showTrackModel(m_pTrackModel);
     Q_EMIT enableCoverArtDisplay(false);
     rebuildHomeHtml();
-    // Prime the pane with a real "what's hot in your country" feed on first
-    // open so the user has something to click before they've typed anything.
-    // Previously this issued a literal `searchAndActivate("trending music")`
-    // — which is just a keyword search and produced unrelated junk. The
-    // proper Piped `/trending?region=XX` endpoint returns the actual YouTube
-    // trending feed for the user's country.
+    // Prime the pane with Greek top songs from YouTube Music's songs category
+    // on first open so a DJ sees music, not YouTube's generic live/gaming/news
+    // trending page.
     if (m_lastQuery.isEmpty() && m_lastResults.isEmpty()) {
         const QString country = resolvedTrendingRegion();
         m_lastQuery = mixxx::YouTubeService::kTrendingQueryPrefix + country;
@@ -448,14 +357,10 @@ void YouTubeFeature::activate() {
         m_lastSearchError.clear();
         rebuildSidebar();
         rebuildHomeHtml();
+        replaceTrackTable(QList<mixxx::YouTubeVideoInfo>());
         kLogger.info() << "Fetching YouTube trending for region" << country;
         m_service.fetchTrending(country, kSearchResultsMax);
     }
-    // Always (re-)kick the geo-IP lookup on activate. If the user's actual
-    // region differs from what we used above, `detectedRegionChanged` will
-    // refresh the trending feed once the network call returns. Cheap (one
-    // HTTPS GET, ~100 bytes) and only runs when the user opens the tab.
-    detectRegionAsync();
 }
 
 void YouTubeFeature::bindLibraryWidget(WLibrary* pLibraryWidget,
@@ -531,6 +436,7 @@ void YouTubeFeature::searchAndActivate(const QString& query) {
     m_lastSearchError.clear();
     rebuildSidebar();
     rebuildHomeHtml();
+    replaceTrackTable(QList<mixxx::YouTubeVideoInfo>());
     m_service.searchVideos(query, kSearchResultsMax);
 }
 
@@ -591,6 +497,16 @@ void YouTubeFeature::requestDownloadToPlayer(
     requestDownloadFile(videoId);
 }
 
+void YouTubeFeature::requestDownloadToAutoDJ(
+        const QString& videoId, PlaylistDAO::AutoDJSendLoc loc) {
+    if (!isValidYouTubeVideoId(videoId)) {
+        kLogger.warning() << "Ignoring invalid YouTube Auto DJ request:" << videoId;
+        return;
+    }
+    m_pendingAutoDjLoads[videoId].append(loc);
+    requestDownloadFile(videoId);
+}
+
 void YouTubeFeature::requestDownloadFile(const QString& videoId) {
     if (!isValidYouTubeVideoId(videoId)) {
         kLogger.warning() << "Ignoring invalid YouTube video id:" << videoId;
@@ -621,7 +537,9 @@ void YouTubeFeature::requestDownloadFile(const QString& videoId) {
 void YouTubeFeature::requestPrefetch(const QString& videoId) {
     // Background re-download — do NOT register for auto-load. Only kicks off
     // if the file isn't already there.
-    requestDownloadFile(videoId);
+    if (isValidYouTubeVideoId(videoId)) {
+        requestDownloadFile(videoId);
+    }
 }
 
 void YouTubeFeature::onDownloadFinished(
@@ -705,11 +623,23 @@ void YouTubeFeature::onDownloadFinished(
         Q_EMIT loadTrackToPlayer(pTrack, pendingLoad.group, pendingLoad.play);
 #endif
     }
+    const QList<PlaylistDAO::AutoDJSendLoc> pendingAutoDjLoads =
+            m_pendingAutoDjLoads.take(videoId);
+    if (!pendingAutoDjLoads.isEmpty() && pTrack->getId().isValid()) {
+        PlaylistDAO& playlistDao = m_pLibrary->trackCollectionManager()
+                                           ->internalCollection()
+                                           ->getPlaylistDAO();
+        m_pLibrary->trackCollectionManager()->unhideTracks({pTrack->getId()});
+        for (const auto loc : pendingAutoDjLoads) {
+            playlistDao.addTracksToAutoDJQueue({pTrack->getId()}, loc);
+        }
+    }
 }
 
 void YouTubeFeature::onDownloadFailed(const QString& videoId, const QString& error) {
     m_videoIdsDownloading.remove(videoId);
     m_pendingPlayerLoads.remove(videoId);
+    m_pendingAutoDjLoads.remove(videoId);
     m_videoIdsToAutoLoad.remove(videoId);
     kLogger.warning() << "YouTube download failed for" << videoId << ":" << error;
 }

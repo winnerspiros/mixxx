@@ -64,6 +64,16 @@ QUrl YouTubeTrackModel::getTrackUrl(const QModelIndex& index) const {
     return BaseExternalTrackModel::getTrackUrl(index);
 }
 
+TrackId YouTubeTrackModel::getTrackId(const QModelIndex& index) const {
+    const QString rawLocation = getFieldString(
+            index, ColumnCache::COLUMN_TRACKLOCATIONSTABLE_LOCATION);
+    if (rawLocation.startsWith(kPlaceholderScheme)) {
+        return TrackId();
+    }
+    TrackPointer pTrack = BaseExternalTrackModel::getTrack(index);
+    return pTrack ? pTrack->getId() : TrackId();
+}
+
 void YouTubeTrackModel::search(const QString& searchText) {
     // Forward filter to the SQL backing — narrows already-loaded rows so
     // there's instant feedback even while the network call is in flight.

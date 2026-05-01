@@ -53,7 +53,8 @@ QUrl firstYouTubeUrl(const QMimeData& mimeData) {
     if (!mimeData.hasUrls()) {
         return {};
     }
-    for (const QUrl& url : mimeData.urls()) {
+    const QList<QUrl> urls = mimeData.urls();
+    for (const QUrl& url : urls) {
         if (url.scheme() == QStringLiteral("youtube")) {
             return url;
         }

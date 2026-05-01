@@ -3,6 +3,7 @@
 #include <QPainter>
 #include <QPushButton>
 #include <QStyleOptionButton>
+#include <QUrl>
 
 #include "control/controlproxy.h"
 #include "mixer/playerinfo.h"
@@ -62,6 +63,10 @@ PreviewButtonDelegate::PreviewButtonDelegate(
             &PreviewButtonDelegate::loadTrackToPlayer,
             parent,
             &WLibraryTableView::loadTrackToPlayer);
+    connect(this,
+            &PreviewButtonDelegate::loadTrackLocationToPlayer,
+            parent,
+            &WLibraryTableView::loadTrackLocationToPlayer);
 
     // The button needs to be parented to receive the parent styles.
     m_pButton->setCheckable(true);
@@ -94,8 +99,8 @@ bool PreviewButtonDelegate::isTrackLoadedInPreviewDeck(
 }
 
 QWidget* PreviewButtonDelegate::createEditor(QWidget* parent,
-                                             const QStyleOptionViewItem& option,
-                                             const QModelIndex& index) const {
+        const QStyleOptionViewItem& option,
+        const QModelIndex& index) const {
     Q_UNUSED(option);
     QPushButton* btn = new LibraryPreviewButton(parent);
     // Prevent being focused by Tab key or emulated Tab sent by library controls
@@ -117,22 +122,22 @@ QWidget* PreviewButtonDelegate::createEditor(QWidget* parent,
 }
 
 void PreviewButtonDelegate::setEditorData(QWidget* editor,
-                                          const QModelIndex& index) const {
+        const QModelIndex& index) const {
     Q_UNUSED(editor);
     Q_UNUSED(index);
 }
 
 void PreviewButtonDelegate::setModelData(QWidget* editor,
-                                         QAbstractItemModel* model,
-                                         const QModelIndex& index) const {
+        QAbstractItemModel* model,
+        const QModelIndex& index) const {
     Q_UNUSED(editor);
     Q_UNUSED(model);
     Q_UNUSED(index);
 }
 
 void PreviewButtonDelegate::paintItem(QPainter* painter,
-                                      const QStyleOptionViewItem& option,
-                                      const QModelIndex& index) const {
+        const QStyleOptionViewItem& option,
+        const QModelIndex& index) const {
     paintItemBackground(painter, option, index);
 
     // Let the editor paint in this case
@@ -164,14 +169,14 @@ void PreviewButtonDelegate::paintItem(QPainter* painter,
 }
 
 void PreviewButtonDelegate::updateEditorGeometry(QWidget* editor,
-                                                 const QStyleOptionViewItem& option,
-                                                 const QModelIndex& index) const {
+        const QStyleOptionViewItem& option,
+        const QModelIndex& index) const {
     Q_UNUSED(index);
     editor->setGeometry(option.rect);
 }
 
 QSize PreviewButtonDelegate::sizeHint(const QStyleOptionViewItem& option,
-                                      const QModelIndex& index) const {
+        const QModelIndex& index) const {
     Q_UNUSED(option);
     Q_UNUSED(index);
     if (!m_pButton) {
@@ -217,6 +222,12 @@ void PreviewButtonDelegate::buttonClicked() {
     TrackPointer pOldTrack = PlayerInfo::instance().getTrackInfo(kPreviewDeckGroup);
 
     bool startedPlaying = false;
+    const QUrl url = pTrackModel->getTrackUrl(m_currentEditedCellIndex);
+    if (url.scheme() == QStringLiteral("youtube")) {
+        emit loadTrackLocationToPlayer(url.toString(), kPreviewDeckGroup, true);
+        m_pTableView->selectRow(m_currentEditedCellIndex.row());
+        return;
+    }
     TrackPointer pTrack = pTrackModel->getTrack(m_currentEditedCellIndex);
     if (pTrack && pTrack != pOldTrack) {
         // Load to preview deck and start playing

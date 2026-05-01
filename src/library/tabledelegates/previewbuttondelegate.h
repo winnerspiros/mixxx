@@ -65,6 +65,10 @@ class PreviewButtonDelegate : public TableItemDelegate {
 #else
     void loadTrackToPlayer(const TrackPointer& pTrack, const QString& group, bool);
 #endif
+    void loadTrackLocationToPlayer(
+            const QString& location,
+            const QString& group,
+            bool);
     void buttonSetChecked(bool);
 
   public slots:

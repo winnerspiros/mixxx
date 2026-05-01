@@ -6,6 +6,7 @@
 #include <QPointer>
 
 #include "analyzer/trackanalysisscheduler.h"
+#include "library/dao/playlistdao.h"
 #include "library/library_decl.h"
 #ifdef __ENGINEPRIME__
 #include "library/trackset/crate/crateid.h"
@@ -150,6 +151,7 @@ class Library : public QObject {
     void slotLoadTrackToPlayer(TrackPointer pTrack, const QString& group, bool play);
 #endif
     void slotLoadLocationToPlayer(const QString& location, const QString& group, bool play);
+    void slotAddLocationToAutoDJ(const QString& location, PlaylistDAO::AutoDJSendLoc loc);
     void slotRefreshLibraryModels();
     void slotCreatePlaylist();
     void slotCreateCrate();

@@ -436,6 +436,11 @@ void WTrackTableView::slotMouseDoubleClicked(const QModelIndex& index) {
     if (doubleClickAction == DlgPrefLibrary::TrackDoubleClickAction::LoadToDeck &&
             pTrackModel->hasCapabilities(
                     TrackModel::Capability::LoadToDeck)) {
+        const QUrl url = pTrackModel->getTrackUrl(index);
+        if (url.scheme() == QStringLiteral("youtube")) {
+            emit loadTrackLocationToPlayer(url.toString(), QString(), false);
+            return;
+        }
         TrackPointer pTrack = pTrackModel->getTrack(index);
         if (pTrack) {
             emit loadTrack(pTrack);
@@ -595,6 +600,13 @@ void WTrackTableView::slotShowHideTrackMenu(bool show) {
 }
 
 void WTrackTableView::contextMenuEvent(QContextMenuEvent* pEvent) {
+#ifdef Q_OS_ANDROID
+    // Qt 6's Android QMenu delayed-popup path can dereference null when a
+    // desktop-style context menu/submenu is opened from the legacy skin. Avoid
+    // crashing phones; core tap/drag/load interactions remain available.
+    pEvent->ignore();
+    return;
+#endif
     VERIFY_OR_DEBUG_ASSERT(m_pTrackMenu.get()) {
         initTrackMenu();
     }
@@ -1502,6 +1514,13 @@ void WTrackTableView::loadSelectedTrackToGroup(const QString& group,
     }
     auto index = indices.at(0);
     auto* pTrackModel = getTrackModel();
+    if (pTrackModel) {
+        const QUrl url = pTrackModel->getTrackUrl(index);
+        if (url.scheme() == QStringLiteral("youtube")) {
+            emit loadTrackLocationToPlayer(url.toString(), group, play);
+            return;
+        }
+    }
     TrackPointer pTrack;
     if (pTrackModel && (pTrack = pTrackModel->getTrack(index))) {
 #ifdef __STEM__
@@ -1510,11 +1529,6 @@ void WTrackTableView::loadSelectedTrackToGroup(const QString& group,
 #else
         emit loadTrackToPlayer(pTrack, group, play);
 #endif
-    } else if (pTrackModel) {
-        const QUrl url = pTrackModel->getTrackUrl(index);
-        if (url.scheme() == QStringLiteral("youtube")) {
-            emit loadTrackLocationToPlayer(url.toString(), group, play);
-        }
     }
 }
 
@@ -1644,7 +1658,28 @@ void WTrackTableView::addToAutoDJ(PlaylistDAO::AutoDJSendLoc loc) {
         return;
     }
 
+    bool queuedYoutube = false;
+    bool allSelectedRowsAreYoutubePlaceholders = true;
+    const QModelIndexList indices = getSelectedRows();
+    for (const QModelIndex& index : indices) {
+        const QUrl url = pTrackModel->getTrackUrl(index);
+        if (url.scheme() == QStringLiteral("youtube")) {
+            m_pLibrary->slotAddLocationToAutoDJ(url.toString(), loc);
+            queuedYoutube = true;
+        } else {
+            allSelectedRowsAreYoutubePlaceholders = false;
+        }
+    }
+    if (queuedYoutube && allSelectedRowsAreYoutubePlaceholders) {
+        return;
+    }
+
     const QList<TrackId> trackIds = getSelectedTrackIds();
+    if (trackIds.isEmpty()) {
+        if (queuedYoutube) {
+            return;
+        }
+    }
     if (trackIds.isEmpty()) {
         qWarning() << "No tracks selected for AutoDJ";
         return;

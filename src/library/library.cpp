@@ -604,7 +604,11 @@ void Library::slotLoadLocationToPlayer(const QString& location, const QString& g
                 ? path.mid(path.startsWith(QLatin1Char('/')) ? 1 : 0)
                 : url.host();
         if (m_pYouTubeFeature && !videoId.isEmpty()) {
-            m_pYouTubeFeature->requestDownloadToPlayer(videoId, group, play);
+            if (group.isEmpty()) {
+                m_pYouTubeFeature->requestDownload(videoId);
+            } else {
+                m_pYouTubeFeature->requestDownloadToPlayer(videoId, group, play);
+            }
         }
         return;
     }
@@ -616,6 +620,20 @@ void Library::slotLoadLocationToPlayer(const QString& location, const QString& g
 #else
         Q_EMIT loadTrackToPlayer(pTrack, group, play);
 #endif
+    }
+}
+
+void Library::slotAddLocationToAutoDJ(
+        const QString& location, PlaylistDAO::AutoDJSendLoc loc) {
+    const QUrl url(location);
+    if (url.scheme() == QStringLiteral("youtube")) {
+        const QString path = url.path();
+        const QString videoId = !path.isEmpty()
+                ? path.mid(path.startsWith(QLatin1Char('/')) ? 1 : 0)
+                : url.host();
+        if (m_pYouTubeFeature && !videoId.isEmpty()) {
+            m_pYouTubeFeature->requestDownloadToAutoDJ(videoId, loc);
+        }
     }
 }
 

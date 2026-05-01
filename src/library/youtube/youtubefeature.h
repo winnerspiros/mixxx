@@ -7,13 +7,13 @@
 
 #include "analyzer/analyzerprogress.h"
 #include "library/baseexternallibraryfeature.h"
+#include "library/dao/playlistdao.h"
 #include "library/youtube/youtubeservice.h"
 #include "track/trackid.h"
 #include "util/parented_ptr.h"
 
 class BaseTrackCache;
 class KeyboardEventFilter;
-class QNetworkAccessManager;
 class QSqlDatabase;
 class TreeItem;
 class WLibrary;
@@ -39,27 +39,20 @@ class YouTubeFeature : public BaseExternalLibraryFeature {
 
     void requestDownloadToPlayer(
             const QString& videoId, const QString& group, bool play);
+    void requestDownload(const QString& videoId);
+    void requestDownloadToAutoDJ(
+            const QString& videoId, PlaylistDAO::AutoDJSendLoc loc);
 
     /// Absolute path to the per-user yt-dlp cache directory. Created on demand.
     QString cacheDir() const;
 
-    /// Resolve the ISO 3166-1 alpha-2 region used for the YouTube "trending"
+    /// Resolve the ISO 3166-1 alpha-2 region used for the YouTube top-songs
     /// feed. Resolution order:
     ///   1. `[YouTube]/trending_region` user override (if non-empty)
-    ///   2. `[YouTube]/detected_region` previously auto-detected via geo-IP
-    ///   3. `QLocale::system().territory()` / `country()` (Qt 6 / Qt 5)
-    ///   4. The literal "GR" (Greece) — explicit project default when nothing
-    ///      else is known. This used to be "US", which surprised users (see
-    ///      "Trending in United States" bug report).
+    ///   2. The literal "GR" (Greece) — explicit project default. Stale geo-IP
+    ///      cache and en_US locales must not switch this fork to United States.
     /// Always returns a non-empty 2-letter uppercase code.
     QString resolvedTrendingRegion() const;
-
-  signals:
-    /// Emitted whenever a fresh geo-IP lookup updates the cached region.
-    /// `YouTubeFeature::activate()` listens to this so the trending feed
-    /// auto-refreshes once the user's actual country is known, even if the
-    /// pane was opened before the network call finished.
-    void detectedRegionChanged(const QString& region);
 
   protected:
     void appendTrackIdsFromRightClickIndex(
@@ -86,9 +79,6 @@ class YouTubeFeature : public BaseExternalLibraryFeature {
     /// so the user has feedback that a search returned results, even before
     /// they unfold the tree node.
     void rebuildHomeHtml();
-    /// Trigger a download (or short-circuit if already cached) for `videoId`.
-    /// The downloaded track will be auto-loaded onto the next free deck.
-    void requestDownload(const QString& videoId);
     void requestDownloadFile(const QString& videoId);
     /// Like requestDownload but does NOT load onto a deck — used for
     /// background pre-fetch / repair of missing AutoDJ-queued tracks.
@@ -107,16 +97,6 @@ class YouTubeFeature : public BaseExternalLibraryFeature {
     /// in it is present on disk — re-downloading any that have been swept.
     void prefetchAutoDjQueue();
     void syncAnalyzedTrackMetadata(const TrackPointer& pTrack);
-    /// Kick off an async geo-IP lookup against api.country.is (no API key,
-    /// no client setup). On success, persist the ISO 3166-1 alpha-2 country
-    /// code under `[YouTube]/detected_region` and emit
-    /// `detectedRegionChanged`. On any failure (offline, blocked, parse
-    /// error) the call is a silent no-op — `resolvedTrendingRegion()` will
-    /// keep returning whatever it had before (locale → "GR").
-    void detectRegionAsync();
-
-    QNetworkAccessManager* m_pNam = nullptr;
-
     /// Persistent track table backing the right-hand pane. See
     /// YouTubeTrackModel for the placeholder/downloaded row model.
     QSharedPointer<BaseTrackCache> m_pTrackCache;
@@ -152,6 +132,7 @@ class YouTubeFeature : public BaseExternalLibraryFeature {
         bool play = false;
     };
     QHash<QString, QList<PendingPlayerLoad>> m_pendingPlayerLoads;
+    QHash<QString, QList<PlaylistDAO::AutoDJSendLoc>> m_pendingAutoDjLoads;
     QSet<QString> m_videoIdsDownloading;
     /// Last error message reported by the underlying YouTubeService for the
     /// current `m_lastQuery`. Cleared when a new search is started or when
