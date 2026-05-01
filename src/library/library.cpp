@@ -443,6 +443,10 @@ void Library::bindLibraryWidget(
             &WTrackTableView::loadTrackLocationToPlayer,
             this,
             &Library::slotLoadLocationToPlayer);
+    connect(pTrackTableView,
+            &WLibraryTableView::downloadAndAnalyzeYouTubeTracks,
+            this,
+            &Library::slotDownloadAndAnalyzeYouTubeTracks);
     m_pLibraryWidget->registerView(m_sTrackViewName, pTrackTableView);
 
     connect(m_pLibraryWidget,
@@ -604,11 +608,11 @@ void Library::slotLoadLocationToPlayer(const QString& location, const QString& g
                 ? path.mid(path.startsWith(QLatin1Char('/')) ? 1 : 0)
                 : url.host();
         if (m_pYouTubeFeature && !videoId.isEmpty()) {
-            if (group.isEmpty()) {
-                m_pYouTubeFeature->requestDownload(videoId);
-            } else {
-                m_pYouTubeFeature->requestDownloadToPlayer(videoId, group, play);
-            }
+            // Route through requestDownloadToPlayer even when group is empty.
+            // An empty group is the "load to next available deck" sentinel —
+            // onDownloadFinished will emit loadTrack(pTrack) in that case so
+            // the track lands on a deck just like double-clicking a local file.
+            m_pYouTubeFeature->requestDownloadToPlayer(videoId, group, play);
         }
         return;
     }
@@ -620,6 +624,26 @@ void Library::slotLoadLocationToPlayer(const QString& location, const QString& g
 #else
         Q_EMIT loadTrackToPlayer(pTrack, group, play);
 #endif
+    }
+}
+
+void Library::slotDownloadAndAnalyzeYouTubeTracks(const QStringList& urls) {
+    if (!m_pYouTubeFeature) {
+        return;
+    }
+    for (const QString& urlStr : urls) {
+        const QUrl url(urlStr);
+        if (url.scheme() != QStringLiteral("youtube")) {
+            continue;
+        }
+        const QString path = url.path();
+        const QString videoId = !path.isEmpty()
+                ? path.mid(path.startsWith(QLatin1Char('/')) ? 1 : 0)
+                : url.host();
+        if (!videoId.isEmpty()) {
+            // requestDownload: download + analyze only, no deck load.
+            m_pYouTubeFeature->requestDownload(videoId);
+        }
     }
 }
 

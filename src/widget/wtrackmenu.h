@@ -130,6 +130,10 @@ class WTrackMenu : public QMenu {
             const QString& location,
             const QString& group,
             bool play = false);
+    /// Emitted for YouTube placeholder rows selected via "Download and Analyze"
+    /// context menu. Routes to Library::slotDownloadAndAnalyzeYouTubeTracks so
+    /// the tracks are downloaded and analyzed WITHOUT being loaded onto a deck.
+    void downloadAndAnalyzeYouTubeTracks(const QStringList& urls);
     void trackMenuVisible(bool visible);
     void saveCurrentViewState();
     void restoreCurrentViewStateOrIndex();

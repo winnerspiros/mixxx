@@ -1804,20 +1804,24 @@ void WTrackMenu::addSelectionToNewCrate() {
 }
 
 void WTrackMenu::addToAnalysis(AnalyzerTrack::Options options) {
-    int placeholderDownloads = 0;
+    // Collect YouTube placeholder URLs so we can emit a single
+    // downloadAndAnalyzeYouTubeTracks signal (download-only, no deck load).
+    QStringList youtubeUrls;
     if (m_pTrackModel) {
         for (const auto& index : std::as_const(m_trackIndexList)) {
             const QUrl url = m_pTrackModel->getTrackUrl(index);
             if (url.scheme() == QStringLiteral("youtube")) {
-                emit loadTrackLocationToPlayer(url.toString(), QString(), false);
-                ++placeholderDownloads;
+                youtubeUrls.append(url.toString());
             }
         }
+    }
+    if (!youtubeUrls.isEmpty()) {
+        emit downloadAndAnalyzeYouTubeTracks(youtubeUrls);
     }
 
     const TrackIdList trackIds = getTrackIds();
     if (trackIds.empty()) {
-        if (placeholderDownloads == 0) {
+        if (youtubeUrls.isEmpty()) {
             qWarning() << "No tracks selected for analysis";
         }
         return;
@@ -3056,9 +3060,10 @@ bool WTrackMenu::featureIsEnabled(Feature flag) const {
     case Feature::Metadata:
         return m_pTrackModel->hasCapabilities(TrackModel::Capability::EditMetadata);
     case Feature::Analyze:
-        return m_pTrackModel->hasCapabilities(
-                TrackModel::Capability::EditMetadata |
-                TrackModel::Capability::Analyze);
+        // Require Analyze capability only. External read-only models that want
+        // the Analyze submenu (e.g. YouTubeTrackModel) may not have EditMetadata
+        // because their cells are read-only, but analysis is still meaningful.
+        return m_pTrackModel->hasCapabilities(TrackModel::Capability::Analyze);
     case Feature::Reset:
         return m_pTrackModel->hasCapabilities(
                 TrackModel::Capability::EditMetadata |

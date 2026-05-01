@@ -152,6 +152,9 @@ class Library : public QObject {
 #endif
     void slotLoadLocationToPlayer(const QString& location, const QString& group, bool play);
     void slotAddLocationToAutoDJ(const QString& location, PlaylistDAO::AutoDJSendLoc loc);
+    /// Download + analyze each YouTube placeholder URL without loading any to a deck.
+    /// Called from the "Download and Analyze" right-click menu action.
+    void slotDownloadAndAnalyzeYouTubeTracks(const QStringList& urls);
     void slotRefreshLibraryModels();
     void slotCreatePlaylist();
     void slotCreateCrate();

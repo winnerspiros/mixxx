@@ -69,6 +69,10 @@ class WLibraryTableView : public QTableView, public virtual LibraryView {
             const QString& location,
             const QString& group,
             bool play = false);
+    /// Emitted by WTrackMenu "Download and Analyze" to request background
+    /// download + analysis for YouTube placeholder rows WITHOUT loading the
+    /// tracks onto any deck. Carries youtube:VIDEOID URL strings.
+    void downloadAndAnalyzeYouTubeTracks(const QStringList& urls);
     void trackSelected(TrackPointer pTrack);
     void onlyCachedCoversAndOverviews(bool);
     void scrollValueChanged(int);

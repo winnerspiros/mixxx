@@ -403,6 +403,10 @@ void WTrackTableView::initTrackMenu() {
             &WTrackMenu::loadTrackLocationToPlayer,
             this,
             &WLibraryTableView::loadTrackLocationToPlayer);
+    connect(m_pTrackMenu.get(),
+            &WTrackMenu::downloadAndAnalyzeYouTubeTracks,
+            this,
+            &WLibraryTableView::downloadAndAnalyzeYouTubeTracks);
 
     connect(m_pTrackMenu,
             &WTrackMenu::trackMenuVisible,
@@ -992,8 +996,8 @@ bool WTrackTableView::requestYouTubePlaceholderDownloads(
         return false;
     }
 
-    bool requested = false;
-    QSet<QString> requestedUrls;
+    QStringList youtubeUrls;
+    QSet<QString> seen;
     for (const QModelIndex& index : indices) {
         if (!index.isValid()) {
             continue;
@@ -1003,14 +1007,19 @@ bool WTrackTableView::requestYouTubePlaceholderDownloads(
             continue;
         }
         const QString urlString = url.toString();
-        if (requestedUrls.contains(urlString)) {
+        if (seen.contains(urlString)) {
             continue;
         }
-        requestedUrls.insert(urlString);
-        emit loadTrackLocationToPlayer(urlString, QString(), false);
-        requested = true;
+        seen.insert(urlString);
+        youtubeUrls.append(urlString);
     }
-    return requested;
+    if (!youtubeUrls.isEmpty()) {
+        // Use the download-only path so single-click/Enter triggers background
+        // download + analysis but does NOT load the track onto a deck.
+        emit downloadAndAnalyzeYouTubeTracks(youtubeUrls);
+        return true;
+    }
+    return false;
 }
 
 namespace {

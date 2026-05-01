@@ -436,7 +436,7 @@ void YouTubeFeature::requestDownload(const QString& videoId) {
 
 void YouTubeFeature::requestDownloadToPlayer(
         const QString& videoId, const QString& group, bool play) {
-    if (!isValidYouTubeVideoId(videoId) || group.isEmpty()) {
+    if (!isValidYouTubeVideoId(videoId)) {
         kLogger.warning() << "Ignoring invalid YouTube deck-load request:"
                           << videoId << group;
         return;
@@ -581,14 +581,21 @@ void YouTubeFeature::onDownloadFinished(
     }
     const QList<PendingPlayerLoad> pendingLoads = m_pendingPlayerLoads.take(videoId);
     for (const auto& pendingLoad : pendingLoads) {
+        if (pendingLoad.group.isEmpty()) {
+            // Empty group = "load to next available deck" (double-click path).
+            // Emit loadTrack so the standard deck-selection logic applies,
+            // same as double-clicking a local library track.
+            Q_EMIT loadTrack(pTrack);
+        } else {
 #ifdef __STEM__
-        Q_EMIT loadTrackToPlayer(pTrack,
-                pendingLoad.group,
-                mixxx::StemChannelSelection(),
-                pendingLoad.play);
+            Q_EMIT loadTrackToPlayer(pTrack,
+                    pendingLoad.group,
+                    mixxx::StemChannelSelection(),
+                    pendingLoad.play);
 #else
-        Q_EMIT loadTrackToPlayer(pTrack, pendingLoad.group, pendingLoad.play);
+            Q_EMIT loadTrackToPlayer(pTrack, pendingLoad.group, pendingLoad.play);
 #endif
+        }
     }
     const QList<PlaylistDAO::AutoDJSendLoc> pendingAutoDjLoads =
             m_pendingAutoDjLoads.take(videoId);

@@ -63,6 +63,14 @@ TrackId YouTubeTrackModel::getTrackId(const QModelIndex& index) const {
     return pTrack ? pTrack->getId() : TrackId();
 }
 
+TrackModel::Capabilities YouTubeTrackModel::getCapabilities() const {
+    // Include Analyze so the right-click Analyze submenu (and its
+    // "Download and Analyze" action) is shown for YouTube rows.
+    // We intentionally omit EditMetadata — cells remain read-only;
+    // analysis results are written back via Track signals, not setData().
+    return BaseExternalTrackModel::getCapabilities() | Capability::Analyze;
+}
+
 void YouTubeTrackModel::search(const QString& searchText) {
     // Forward filter to the SQL backing — narrows already-loaded rows so
     // there's instant feedback even while the network call is in flight.
