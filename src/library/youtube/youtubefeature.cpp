@@ -122,6 +122,12 @@ TrackDisplayMetadata displayMetadataForVideo(
     return metadata;
 }
 
+bool isValidYouTubeVideoId(const QString& videoId) {
+    static const QRegularExpression kVideoIdPattern(
+            QStringLiteral(R"(^[A-Za-z0-9_-]{11}$)"));
+    return kVideoIdPattern.match(videoId).hasMatch();
+}
+
 QString displayLabelForVideo(const mixxx::YouTubeVideoInfo& info) {
     const TrackDisplayMetadata metadata = displayMetadataForVideo(info);
     if (metadata.artist.isEmpty()) {
@@ -563,13 +569,19 @@ void YouTubeFeature::onSearchFailed(const QString& query, const QString& error) 
 }
 
 void YouTubeFeature::requestDownload(const QString& videoId) {
+    if (!isValidYouTubeVideoId(videoId)) {
+        kLogger.warning() << "Ignoring invalid YouTube video id:" << videoId;
+        return;
+    }
     m_videoIdsToAutoLoad.insert(videoId);
     requestDownloadFile(videoId);
 }
 
 void YouTubeFeature::requestDownloadToPlayer(
         const QString& videoId, const QString& group, bool play) {
-    if (videoId.isEmpty() || group.isEmpty()) {
+    if (!isValidYouTubeVideoId(videoId) || group.isEmpty()) {
+        kLogger.warning() << "Ignoring invalid YouTube deck-load request:"
+                          << videoId << group;
         return;
     }
     PendingPlayerLoad pendingLoad;
@@ -580,6 +592,10 @@ void YouTubeFeature::requestDownloadToPlayer(
 }
 
 void YouTubeFeature::requestDownloadFile(const QString& videoId) {
+    if (!isValidYouTubeVideoId(videoId)) {
+        kLogger.warning() << "Ignoring invalid YouTube video id:" << videoId;
+        return;
+    }
     // If we already have a cached file for this id, skip the download and load
     // it straight away.
     const QDir dir(cacheDir());

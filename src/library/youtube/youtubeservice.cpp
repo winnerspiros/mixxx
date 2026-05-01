@@ -13,6 +13,7 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QProcess>
+#include <QRegularExpression>
 #include <QSet>
 #include <QStandardPaths>
 #include <QStringList>
@@ -122,6 +123,12 @@ bool isPipedLiveStream(const QJsonObject& obj) {
     return !duration.isUndefined() && duration.isDouble() && duration.toInt() <= 0;
 }
 
+bool isValidYouTubeVideoId(const QString& videoId) {
+    static const QRegularExpression kVideoIdPattern(
+            QStringLiteral(R"(^[A-Za-z0-9_-]{11}$)"));
+    return kVideoIdPattern.match(videoId).hasMatch();
+}
+
 bool isYtDlpLiveStream(const QJsonObject& obj) {
     if (obj.value(QStringLiteral("is_live")).toBool(false)) {
         return true;
@@ -214,7 +221,7 @@ QList<YouTubeVideoInfo> parsePipedItems(const QJsonArray& items, int cap) {
             info.durationSec = static_cast<int>(dur.toDouble());
         }
         info.isLive = false;
-        if (!info.id.isEmpty() && !info.title.isEmpty()) {
+        if (isValidYouTubeVideoId(info.id) && !info.title.isEmpty()) {
             results.append(info);
         }
     }
@@ -294,6 +301,10 @@ void YouTubeService::searchVideos(const QString& query, int cap) {
 }
 
 void YouTubeService::downloadVideo(const QString& videoId, const QString& cacheDir) {
+    if (!isValidYouTubeVideoId(videoId)) {
+        Q_EMIT downloadFailed(videoId, tr("Invalid YouTube video id"));
+        return;
+    }
     QDir().mkpath(cacheDir);
     const bool hasYtDlpFallback = !m_ytDlpPath.isEmpty();
     downloadViaPiped(videoId,
@@ -778,7 +789,8 @@ void YouTubeService::searchViaYtDlp(const QString& query, int cap) {
                         info.durationSec = static_cast<int>(dur.toDouble());
                     }
                     info.isLive = isYtDlpLiveStream(entry);
-                    if (!info.isLive && !info.id.isEmpty() && !info.title.isEmpty()) {
+                    if (!info.isLive && isValidYouTubeVideoId(info.id) &&
+                            !info.title.isEmpty()) {
                         results.append(info);
                     }
                 }
