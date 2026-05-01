@@ -171,7 +171,7 @@ void appendUniqueVideos(
         const QList<YouTubeVideoInfo>& pageResults,
         int cap) {
     QSet<QString> seen;
-    for (const auto& info : *accumulated) {
+    for (const auto& info : std::as_const(*accumulated)) {
         seen.insert(info.id);
     }
     for (const auto& info : pageResults) {

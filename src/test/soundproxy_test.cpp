@@ -1125,6 +1125,7 @@ TEST_F(SoundSourceProxyTest, taglibStringToEnumFileType) {
         qDebug() << fileType;
         if (fileType != "okt" &&         // Oktalyzer
                 fileType != "stm" &&     // "Scream Tracker"
+                fileType != "webm" &&    // WebM container not supported by TagLib metadata reader
                 fileType != "youtube") { // SoundSourceYouTube (URL stream, no
                                          // on-disk taglib metadata)
             ASSERT_NE(mixxx::taglib::stringToEnumFileType(fileType),
