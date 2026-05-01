@@ -158,6 +158,12 @@ void adjustScaleFactor(CmdlineArgs* pArgs) {
     // QHighDpiScaling can not be used afterwards because it is private.
     // This means the following code may fail after down/upgrade ... a one time issue.
 
+// Android can launch on very different displays with the same profile: a phone
+// screen, tablet screen, or Samsung DeX/external monitor. A persisted
+// [Config]/ScaleFactor from the previous display must not be exported to
+// QT_SCALE_FACTOR before QApplication exists, because that freezes Qt's widget
+// scaling before maybeAutoDetectScaleFactor() can inspect the current QScreen.
+#ifndef Q_OS_ANDROID
     // Read and parse the config file from the settings path
     auto config = ConfigObject<ConfigValue>(
             QDir(pArgs->getSettingsPath()).filePath(MIXXX_SETTINGS_FILE),
@@ -171,6 +177,7 @@ void adjustScaleFactor(CmdlineArgs* pArgs) {
         qputenv(kScaleFactorEnvVar, strScaleFactor.toLocal8Bit());
         pArgs->setScaleFactor(scaleFactor);
     }
+#endif
 }
 
 // LateNight (the default skin) declares <MinimumSize>1280,668</MinimumSize>.
@@ -193,11 +200,22 @@ void adjustScaleFactor(CmdlineArgs* pArgs) {
 //
 // Must run AFTER QApplication construction (we need QScreen).
 void maybeAutoDetectScaleFactor(CmdlineArgs* pArgs) {
+#ifndef Q_OS_ANDROID
     // Respect explicit user choice from the command line / env. If the user
     // passed --scale-factor or set QT_SCALE_FACTOR themselves, never override.
     if (qEnvironmentVariableIsSet(kScaleFactorEnvVar)) {
         return;
     }
+#else
+    // On Android only a user-provided environment variable is treated as
+    // explicit. The value persisted from a previous Android launch is
+    // intentionally ignored here so phone ↔ DeX/external-screen switches
+    // recalculate every time the app opens.
+    if (qEnvironmentVariableIsSet(kScaleFactorEnvVar) &&
+            !qgetenv(kScaleFactorEnvVar).isEmpty()) {
+        return;
+    }
+#endif
 
     QScreen* pScreen = QGuiApplication::primaryScreen();
     if (!pScreen) {
