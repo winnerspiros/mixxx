@@ -128,9 +128,9 @@ const QString kDefaultRegion = QStringLiteral("GR");
 
 YouTubeFeature::YouTubeFeature(Library* pLibrary, UserSettingsPointer pConfig)
         : BaseExternalLibraryFeature(pLibrary, pConfig, "youtube"),
+          m_pNam(new QNetworkAccessManager(this)),
           m_pSidebarModel(make_parented<TreeItemModel>(this)),
-          m_service(this),
-          m_pNam(new QNetworkAccessManager(this)) {
+          m_service(this) {
     // Build the persistent track model that backs the right-hand pane.
     // Mirrors ITunesFeature ctor exactly — same column set, same cache
     // wiring — so the standard WTrackTableView UI works out of the box
@@ -172,7 +172,7 @@ YouTubeFeature::YouTubeFeature(Library* pLibrary, UserSettingsPointer pConfig)
     m_pTrackModel->setSearch(QString());
 
     // Placeholder activation: the user double-clicked a "youtube://VIDEOID"
-    // row that hasn't been downloaded yet. Re-use the existing
+    // row that hasn't been downloaded yet. Reuse the existing
     // requestDownload() path which sets up auto-load on completion.
     connect(m_pTrackModel,
             &YouTubeTrackModel::requestDownloadAndLoad,
