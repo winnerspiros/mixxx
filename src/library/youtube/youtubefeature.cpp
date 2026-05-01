@@ -10,6 +10,7 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QRegularExpression>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QStandardPaths>
@@ -53,6 +54,77 @@ const QString kCachedPrefix = QStringLiteral("yt-cached:");
 // gives them a real action with no extra UI surface.
 const QString kHomePlayScheme = QStringLiteral("ytplay");
 const QString kHomeCachedScheme = QStringLiteral("ytcached");
+
+struct TrackDisplayMetadata {
+    QString artist;
+    QString title;
+};
+
+QString cleanYouTubeSongTitle(const QString& input) {
+    QString title = input.simplified();
+    static const QRegularExpression kBracketedNoise(
+            QStringLiteral(
+                    R"(\s*[\[(](official\s*(music\s*)?video|official\s*audio|audio|lyrics?|lyric\s*video|visuali[sz]er|music\s*video|hd|hq|4k)[\])]\s*)"),
+            QRegularExpression::CaseInsensitiveOption);
+    title.remove(kBracketedNoise);
+    static const QRegularExpression kTrailingNoise(
+            QStringLiteral(
+                    R"(\s*[-–—|]\s*(official\s*(music\s*)?video|official\s*audio|audio|lyrics?|lyric\s*video|visuali[sz]er|music\s*video|hd|hq|4k)\s*$)"),
+            QRegularExpression::CaseInsensitiveOption);
+    title.remove(kTrailingNoise);
+    return title.simplified();
+}
+
+QString cleanYouTubeArtist(const QString& input) {
+    QString artist = input.simplified();
+    static const QRegularExpression kTopicSuffix(
+            QStringLiteral(R"(\s*-\s*Topic\s*$)"),
+            QRegularExpression::CaseInsensitiveOption);
+    artist.remove(kTopicSuffix);
+    return artist.simplified();
+}
+
+TrackDisplayMetadata displayMetadataForVideo(
+        const mixxx::YouTubeVideoInfo& info) {
+    TrackDisplayMetadata metadata;
+    const QString rawTitle = info.title.simplified();
+    const QStringList separators = {
+            QStringLiteral(" - "),
+            QStringLiteral(" – "),
+            QStringLiteral(" — "),
+            QStringLiteral(" | "),
+    };
+    for (const QString& separator : separators) {
+        const int separatorPos = rawTitle.indexOf(separator);
+        if (separatorPos <= 0) {
+            continue;
+        }
+        const QString artist = rawTitle.left(separatorPos).simplified();
+        const QString title =
+                rawTitle.mid(separatorPos + separator.size()).simplified();
+        if (!artist.isEmpty() && !title.isEmpty()) {
+            metadata.artist = cleanYouTubeArtist(artist);
+            metadata.title = cleanYouTubeSongTitle(title);
+            if (!metadata.artist.isEmpty() && !metadata.title.isEmpty()) {
+                return metadata;
+            }
+        }
+    }
+    metadata.artist = cleanYouTubeArtist(info.uploader);
+    metadata.title = cleanYouTubeSongTitle(rawTitle);
+    if (metadata.title.isEmpty()) {
+        metadata.title = info.id;
+    }
+    return metadata;
+}
+
+QString displayLabelForVideo(const mixxx::YouTubeVideoInfo& info) {
+    const TrackDisplayMetadata metadata = displayMetadataForVideo(info);
+    if (metadata.artist.isEmpty()) {
+        return metadata.title;
+    }
+    return metadata.artist + QStringLiteral(" - ") + metadata.title;
+}
 
 // Derive the user's ISO 3166-1 alpha-2 country code from the system locale.
 // Used as a *fallback* when no override is set and no geo-IP detection has
@@ -479,6 +551,11 @@ void YouTubeFeature::onSearchResultsReady(
     // proper Title/Artist/Duration table, sortable, draggable, double-
     // clickable — not an HTML link list.
     replaceTrackTable(results);
+    for (const auto& info : std::as_const(results)) {
+        if (!info.id.isEmpty()) {
+            requestPrefetch(info.id);
+        }
+    }
     if (m_autoLoadNextResult && !results.isEmpty()) {
         const QString videoId = results.first().id;
         kLogger.info() << "Auto-loading top YouTube hit" << videoId
@@ -545,18 +622,7 @@ void YouTubeFeature::requestDownloadFile(const QString& videoId) {
 void YouTubeFeature::requestPrefetch(const QString& videoId) {
     // Background re-download — do NOT register for auto-load. Only kicks off
     // if the file isn't already there.
-    const QDir dir(cacheDir());
-    const QStringList existing =
-            dir.entryList({videoId + QStringLiteral(".*")},
-                    QDir::Files | QDir::NoDotAndDotDot);
-    for (const QString& f : existing) {
-        if (!f.endsWith(QStringLiteral(".info.json")) &&
-                !f.endsWith(QStringLiteral(".sponsor.json"))) {
-            return; // already on disk
-        }
-    }
-    kLogger.info() << "Pre-fetching YouTube video" << videoId;
-    m_service.downloadVideo(videoId, cacheDir());
+    requestDownloadFile(videoId);
 }
 
 void YouTubeFeature::onDownloadFinished(
@@ -577,7 +643,7 @@ void YouTubeFeature::onDownloadFinished(
     QString label = videoId;
     for (const auto& info : std::as_const(m_lastResults)) {
         if (info.id == videoId) {
-            label = info.title.isEmpty() ? videoId : info.title;
+            label = displayLabelForVideo(info);
             break;
         }
     }
@@ -594,9 +660,10 @@ void YouTubeFeature::onDownloadFinished(
     QString title = label;
     for (const auto& info : std::as_const(m_lastResults)) {
         if (info.id == videoId) {
+            const TrackDisplayMetadata metadata = displayMetadataForVideo(info);
             durationSec = info.durationSec;
-            uploader = info.uploader;
-            title = info.title.isEmpty() ? videoId : info.title;
+            uploader = metadata.artist;
+            title = metadata.title;
             break;
         }
     }
@@ -612,6 +679,10 @@ void YouTubeFeature::onDownloadFinished(
                           << localPath;
         return;
     }
+    pTrack->setArtist(uploader);
+    pTrack->setTitle(title.isEmpty() ? videoId : title);
+    pTrack->setAlbum(QStringLiteral("YouTube"));
+    pTrack->setComment(videoId);
     if (m_videoIdsToAutoLoad.remove(videoId)) {
         Q_EMIT loadTrack(pTrack);
     }
@@ -771,9 +842,10 @@ void YouTubeFeature::rebuildSidebar() {
                               .arg(info.durationSec / 60)
                               .arg(info.durationSec % 60, 2, 10, QLatin1Char('0'))
                     : QString();
-            QString label = info.title;
-            if (!info.uploader.isEmpty()) {
-                label += QStringLiteral(" — ") + info.uploader;
+            const TrackDisplayMetadata metadata = displayMetadataForVideo(info);
+            QString label = metadata.title;
+            if (!metadata.artist.isEmpty()) {
+                label += QStringLiteral(" — ") + metadata.artist;
             }
             if (!durationText.isEmpty()) {
                 label += QStringLiteral(" [") + durationText + QStringLiteral("]");
@@ -862,10 +934,11 @@ void YouTubeFeature::rebuildHomeHtml() {
         } else {
             html += QStringLiteral("<ul>");
             for (const auto& info : std::as_const(m_lastResults)) {
-                QString line = info.title.toHtmlEscaped();
-                if (!info.uploader.isEmpty()) {
+                const TrackDisplayMetadata metadata = displayMetadataForVideo(info);
+                QString line = metadata.title.toHtmlEscaped();
+                if (!metadata.artist.isEmpty()) {
                     line += QStringLiteral(" — ") +
-                            info.uploader.toHtmlEscaped();
+                            metadata.artist.toHtmlEscaped();
                 }
                 if (info.durationSec > 0) {
                     line += QStringLiteral(" [%1:%2]")
@@ -962,9 +1035,9 @@ void YouTubeFeature::replaceTrackTable(
         if (location.isEmpty()) {
             location = YouTubeTrackModel::kPlaceholderScheme + info.id;
         }
-        ins.bindValue(QStringLiteral(":artist"), info.uploader);
-        ins.bindValue(QStringLiteral(":title"),
-                info.title.isEmpty() ? info.id : info.title);
+        const TrackDisplayMetadata metadata = displayMetadataForVideo(info);
+        ins.bindValue(QStringLiteral(":artist"), metadata.artist);
+        ins.bindValue(QStringLiteral(":title"), metadata.title);
         ins.bindValue(QStringLiteral(":album"), QStringLiteral("YouTube"));
         ins.bindValue(QStringLiteral(":location"), location);
         ins.bindValue(QStringLiteral(":comment"), info.id);
@@ -996,15 +1069,14 @@ void YouTubeFeature::upsertDownloadedRow(const QString& videoId,
     QSqlDatabase db = m_pTrackCollection->database();
     QSqlQuery upd(db);
     // Use comment (videoId) to find the row even if its location changed
-    // from the placeholder to a real path. Coalesce the optional metadata
-    // fields so a download triggered for an unknown id (e.g. a Spotify
-    // bridge call where we never saw a search result) still produces a
-    // reasonable Title/Artist row.
+    // from the placeholder to a real path. Keep the parsed display metadata in
+    // sync too, so old placeholder rows with channel/video-title metadata are
+    // normalized when their audio file lands.
     upd.prepare(QStringLiteral(
             "UPDATE youtube_library SET "
             "location = :location, "
-            "title = COALESCE(NULLIF(title, ''), :title), "
-            "artist = COALESCE(NULLIF(artist, ''), :artist), "
+            "title = :title, "
+            "artist = :artist, "
             "duration = COALESCE(NULLIF(duration, 0), :duration) "
             "WHERE comment = :comment"));
     upd.bindValue(QStringLiteral(":location"), localPath);
