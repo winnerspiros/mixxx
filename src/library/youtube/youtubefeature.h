@@ -82,6 +82,9 @@ class YouTubeFeature : public BaseExternalLibraryFeature {
     void requestDownloadFile(const QString& videoId);
     /// Background repair of missing AutoDJ-queued tracks.
     void requestPrefetch(const QString& videoId);
+    bool autoAnalyzeResultsEnabled() const;
+    void setAutoAnalyzeResultsEnabled(bool enabled);
+    void autoAnalyzeCurrentResults();
     /// If `pTrack` was downloaded by us and is no longer loaded on any deck,
     /// delete its cached audio file and purge it from the library DB so the
     /// disk doesn't grow unbounded. Tracks referenced by any playlist or

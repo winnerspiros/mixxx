@@ -49,6 +49,8 @@ const QString kCachedPrefix = QStringLiteral("yt-cached:");
 // gives them a real action with no extra UI surface.
 const QString kHomePlayScheme = QStringLiteral("ytplay");
 const QString kHomeCachedScheme = QStringLiteral("ytcached");
+const QString kHomeAutoAnalyzeScheme = QStringLiteral("ytautoanalyze");
+const QString kAutoAnalyzePayload = QStringLiteral("yt-auto-analyze");
 
 struct TrackDisplayMetadata {
     QString artist;
@@ -146,6 +148,8 @@ QString countryDisplayName(const QString& code) {
 // / future config dialog).
 const ConfigKey kCfgTrendingOverride(
         QStringLiteral("[YouTube]"), QStringLiteral("trending_region"));
+const ConfigKey kCfgAutoAnalyzeResults(
+        QStringLiteral("[YouTube]"), QStringLiteral("auto_analyze_results"));
 
 // Project default region. Per project requirement: open on Greek top songs
 // unless the user explicitly overrides it.
@@ -334,6 +338,10 @@ void YouTubeFeature::bindLibraryWidget(WLibrary* pLibraryWidget,
 
 void YouTubeFeature::onHomeAnchorClicked(const QUrl& url) {
     const QString scheme = url.scheme();
+    if (scheme == kHomeAutoAnalyzeScheme) {
+        setAutoAnalyzeResultsEnabled(!autoAnalyzeResultsEnabled());
+        return;
+    }
     // Both schemes carry the YouTube video id as their path component (the
     // 11-char `[A-Za-z0-9_-]+` token). Both paths ensure the track is cached,
     // registered with the library, and queued for analysis without
@@ -355,7 +363,9 @@ void YouTubeFeature::activateChild(const QModelIndex& index) {
         return;
     }
     const QString payload = pItem->getData().toString();
-    if (payload.startsWith(kSearchPrefix)) {
+    if (payload == kAutoAnalyzePayload) {
+        setAutoAnalyzeResultsEnabled(!autoAnalyzeResultsEnabled());
+    } else if (payload.startsWith(kSearchPrefix)) {
         // User clicked a search result: download (or use cache) and analyze.
         const QString videoId = payload.mid(kSearchPrefix.size());
         requestDownload(videoId);
@@ -398,6 +408,9 @@ void YouTubeFeature::onSearchResultsReady(
     // proper Title/Artist/Duration table, sortable, draggable, double-
     // clickable — not an HTML link list.
     replaceTrackTable(results);
+    if (autoAnalyzeResultsEnabled()) {
+        autoAnalyzeCurrentResults();
+    }
 }
 
 void YouTubeFeature::onSearchFailed(const QString& query, const QString& error) {
@@ -473,6 +486,25 @@ void YouTubeFeature::requestPrefetch(const QString& videoId) {
     // if the file isn't already there.
     if (isValidYouTubeVideoId(videoId)) {
         requestDownloadFile(videoId);
+    }
+}
+
+bool YouTubeFeature::autoAnalyzeResultsEnabled() const {
+    return m_pConfig->getValue<bool>(kCfgAutoAnalyzeResults, false);
+}
+
+void YouTubeFeature::setAutoAnalyzeResultsEnabled(bool enabled) {
+    m_pConfig->setValue(kCfgAutoAnalyzeResults, enabled);
+    rebuildSidebar();
+    rebuildHomeHtml();
+    if (enabled) {
+        autoAnalyzeCurrentResults();
+    }
+}
+
+void YouTubeFeature::autoAnalyzeCurrentResults() {
+    for (const auto& info : std::as_const(m_lastResults)) {
+        requestPrefetch(info.id);
     }
 }
 
@@ -731,6 +763,11 @@ void YouTubeFeature::appendTrackIdsFromRightClickIndex(
 void YouTubeFeature::rebuildSidebar() {
     auto pRoot = TreeItem::newRoot(this);
 
+    pRoot->appendChild(autoAnalyzeResultsEnabled()
+                    ? tr("Auto Analyze: On")
+                    : tr("Auto Analyze: Off"),
+            kAutoAnalyzePayload);
+
     if (!m_lastQuery.isEmpty()) {
         // Show a friendly "Trending in <Country>" label for the trending
         // sentinel rather than the raw `__trending__:US` token.
@@ -809,6 +846,16 @@ void YouTubeFeature::rebuildHomeHtml() {
                "to drag onto any deck. Audio is downloaded ad-free and "
                "SponsorBlock automatically trims sponsored intros, self-promo "
                "and other non-music segments out of the file.") +
+            QStringLiteral("</p>");
+
+    html += QStringLiteral("<p><a href=\"") + kHomeAutoAnalyzeScheme +
+            QStringLiteral(":toggle\">") +
+            (autoAnalyzeResultsEnabled() ? tr("Auto Analyze: On")
+                                         : tr("Auto Analyze: Off")) +
+            QStringLiteral("</a> — ") +
+            tr("when enabled, all YouTube results are downloaded and analyzed "
+               "automatically. Leave it off for best performance and storage "
+               "usage.") +
             QStringLiteral("</p>");
 
     if (!m_lastQuery.isEmpty()) {
