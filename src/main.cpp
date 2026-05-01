@@ -221,21 +221,7 @@ void maybeAutoDetectScaleFactor(CmdlineArgs* pArgs) {
     if (!pScreen) {
         return;
     }
-    QSize screenSize = pScreen->availableSize();
-#ifdef Q_OS_ANDROID
-    // Qt reports Android screens in device-independent pixels. That makes a
-    // high-density phone like an S23 Ultra look "small" to the fit-to-screen
-    // math and shrinks the skin, exactly the tiny UI seen on the phone
-    // screenshot. For Android/touch use physical pixels for the autoscale
-    // calculation so phone panels and DeX/external monitors both get a
-    // touch-sized interface.
-    const qreal devicePixelRatio = pScreen->devicePixelRatio();
-    if (devicePixelRatio > 1.0) {
-        screenSize = QSize(
-                static_cast<int>(std::round(screenSize.width() * devicePixelRatio)),
-                static_cast<int>(std::round(screenSize.height() * devicePixelRatio)));
-    }
-#endif
+    const QSize screenSize = pScreen->availableSize();
     if (screenSize.isEmpty()) {
         return;
     }

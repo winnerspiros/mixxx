@@ -41,7 +41,7 @@
 namespace {
 const mixxx::Logger kLogger("YouTubeFeature");
 
-constexpr int kSearchResultsMax = 25;
+constexpr int kSearchResultsMax = 50;
 constexpr int kAutoPrefetchResultsMax = 10;
 
 // We tag the TreeItem `data` payload so activateChild() can tell apart
@@ -438,8 +438,6 @@ void YouTubeFeature::activate() {
         m_lastQuery = mixxx::YouTubeService::kTrendingQueryPrefix + country;
         m_lastResults.clear();
         m_lastSearchError.clear();
-        m_autoLoadNextResult = false;
-        m_autoLoadDisplayLabel.clear();
         rebuildSidebar();
         rebuildHomeHtml();
         kLogger.info() << "Fetching YouTube trending for region" << country;
@@ -523,22 +521,6 @@ void YouTubeFeature::searchAndActivate(const QString& query) {
     m_lastQuery = query;
     m_lastResults.clear();
     m_lastSearchError.clear();
-    m_autoLoadNextResult = false;
-    m_autoLoadDisplayLabel.clear();
-    rebuildSidebar();
-    rebuildHomeHtml();
-    m_service.searchVideos(query, kSearchResultsMax);
-}
-
-void YouTubeFeature::searchAndAutoLoadFirst(
-        const QString& query, const QString& displayLabel) {
-    kLogger.info() << "Searching YouTube for auto-load:" << query
-                   << "(display:" << displayLabel << ")";
-    m_lastQuery = query;
-    m_lastResults.clear();
-    m_lastSearchError.clear();
-    m_autoLoadNextResult = true;
-    m_autoLoadDisplayLabel = displayLabel.isEmpty() ? query : displayLabel;
     rebuildSidebar();
     rebuildHomeHtml();
     m_service.searchVideos(query, kSearchResultsMax);
@@ -567,15 +549,6 @@ void YouTubeFeature::onSearchResultsReady(
             }
         }
     }
-    if (m_autoLoadNextResult && !results.isEmpty()) {
-        const QString videoId = results.first().id;
-        kLogger.info() << "Auto-loading top YouTube hit" << videoId
-                       << "for" << m_autoLoadDisplayLabel;
-        requestDownload(videoId);
-    }
-    // Always clear the auto-load flag once we've handled this batch — empty
-    // results, mismatched-query results, and a successful auto-load alike.
-    m_autoLoadNextResult = false;
 }
 
 void YouTubeFeature::onSearchFailed(const QString& query, const QString& error) {
@@ -584,9 +557,6 @@ void YouTubeFeature::onSearchFailed(const QString& query, const QString& error) 
     }
     kLogger.warning() << "YouTube search failed:" << error;
     m_lastSearchError = error;
-    // A failed search must not keep an auto-load pending — otherwise the next
-    // unrelated search would silently inherit the auto-load intent.
-    m_autoLoadNextResult = false;
     rebuildHomeHtml();
 }
 
@@ -1151,9 +1121,9 @@ void YouTubeFeature::upsertDownloadedRow(const QString& videoId,
     }
     if (upd.numRowsAffected() == 0) {
         // No matching row — happens when the download was triggered from
-        // outside the current search (e.g. AutoDJ pre-fetch, Spotify
-        // bridge). Insert a fresh row so the user still sees it in the
-        // table when they switch back to the YouTube tab.
+        // outside the current search (e.g. AutoDJ pre-fetch). Insert a fresh
+        // row so the user still sees it in the table when they switch back to
+        // the YouTube tab.
         QSqlQuery ins(db);
         ins.prepare(QStringLiteral(
                 "INSERT OR IGNORE INTO youtube_library "

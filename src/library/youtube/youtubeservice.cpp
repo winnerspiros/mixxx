@@ -108,11 +108,33 @@ QString extFromMime(const QString& mime, const QString& codec) {
     return QStringLiteral("m4a"); // safe default — FFmpeg SoundSource handles it
 }
 
+bool isPipedLiveStream(const QJsonObject& obj) {
+    if (obj.value(QStringLiteral("isLive")).toBool(false)) {
+        return true;
+    }
+    const QJsonValue duration = obj.value(QStringLiteral("duration"));
+    return duration.isDouble() && duration.toInt() <= 0;
+}
+
+bool isYtDlpLiveStream(const QJsonObject& obj) {
+    if (obj.value(QStringLiteral("is_live")).toBool(false)) {
+        return true;
+    }
+    const QString liveStatus =
+            obj.value(QStringLiteral("live_status")).toString().toLower();
+    if (liveStatus == QStringLiteral("is_live") ||
+            liveStatus == QStringLiteral("is_upcoming")) {
+        return true;
+    }
+    const QJsonValue duration = obj.value(QStringLiteral("duration"));
+    return duration.isDouble() && duration.toInt() <= 0;
+}
+
 // Parse a Piped JSON array of stream items (the same `items[]` shape returned
 // by /search and the top-level array returned by /trending) into our internal
 // YouTubeVideoInfo list, capped at `cap`. Non-stream entries (channels,
-// playlists) and items with missing id/title are skipped. Factored out so the
-// trending and search response paths share one parser.
+// playlists), live/current streams and items with missing id/title are skipped.
+// Factored out so the trending and search response paths share one parser.
 QList<YouTubeVideoInfo> parsePipedItems(const QJsonArray& items, int cap) {
     QList<YouTubeVideoInfo> results;
     results.reserve(items.size());
@@ -123,6 +145,9 @@ QList<YouTubeVideoInfo> parsePipedItems(const QJsonArray& items, int cap) {
         const QJsonObject obj = v.toObject();
         const QString type = obj.value(QStringLiteral("type")).toString();
         if (!type.isEmpty() && type != QStringLiteral("stream")) {
+            continue;
+        }
+        if (isPipedLiveStream(obj)) {
             continue;
         }
         YouTubeVideoInfo info;
@@ -139,6 +164,7 @@ QList<YouTubeVideoInfo> parsePipedItems(const QJsonArray& items, int cap) {
         if (dur.isDouble()) {
             info.durationSec = static_cast<int>(dur.toDouble());
         }
+        info.isLive = false;
         if (!info.id.isEmpty() && !info.title.isEmpty()) {
             results.append(info);
         }
@@ -582,6 +608,8 @@ void YouTubeService::searchViaYtDlp(const QString& query, int cap) {
             QStringLiteral("--no-warnings"),
             QStringLiteral("--no-cache-dir"),
             QStringLiteral("--ignore-config"),
+            QStringLiteral("--match-filter"),
+            QStringLiteral("!is_live & live_status != is_live & live_status != is_upcoming"),
             QStringLiteral("--default-search"),
             QStringLiteral("ytsearch"),
             QStringLiteral("ytsearch%1:%2").arg(cap).arg(query),
@@ -614,7 +642,8 @@ void YouTubeService::searchViaYtDlp(const QString& query, int cap) {
                     if (dur.isDouble()) {
                         info.durationSec = static_cast<int>(dur.toDouble());
                     }
-                    if (!info.id.isEmpty() && !info.title.isEmpty()) {
+                    info.isLive = isYtDlpLiveStream(entry);
+                    if (!info.isLive && !info.id.isEmpty() && !info.title.isEmpty()) {
                         results.append(info);
                     }
                 }

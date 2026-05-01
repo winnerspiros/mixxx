@@ -9,7 +9,6 @@
 #include "library/library.h"
 #include "library/librarytablemodel.h"
 #include "library/mixxxlibraryfeature.h"
-#include "library/spotify/spotifyfeature.h"
 #include "library/trackset/crate/cratefeature.h"
 #include "library/trackset/playlistfeature.h"
 #include "library/treeitem.h"
@@ -75,11 +74,6 @@ LibraryFeature* QmlLibraryCratesSource::internal() {
 LibraryFeature* QmlLibraryBrowseSource::internal() {
     auto* pLibrary = QmlLibraryProxy::get();
     return pLibrary ? pLibrary->browseFeature() : nullptr;
-}
-
-LibraryFeature* QmlLibrarySpotifySource::internal() {
-    auto* pLibrary = QmlLibraryProxy::get();
-    return pLibrary ? pLibrary->spotifyFeature() : nullptr;
 }
 
 LibraryFeature* QmlLibraryYouTubeSource::internal() {

@@ -115,11 +115,6 @@ Mixxx.LibrarySourceTree {
         label: qsTr("Browse")
     }
 
-    Mixxx.LibrarySpotifySource {
-        columns: root.defaultColumns
-        label: qsTr("Spotify")
-    }
-
     Mixxx.LibraryYouTubeSource {
         columns: root.defaultColumns
         label: qsTr("YouTube")

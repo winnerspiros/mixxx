@@ -24,6 +24,7 @@ struct YouTubeVideoInfo {
     QString title;
     QString uploader;
     int durationSec = 0;
+    bool isLive = false;
 };
 
 /// YouTube extractor + downloader.

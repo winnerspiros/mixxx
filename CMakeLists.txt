@@ -2974,25 +2974,18 @@ if(FFMPEG)
   endif()
 
   target_sources(mixxx-lib PRIVATE src/sources/soundsourceffmpeg.cpp)
-  # YouTube/Spotify library features require FFmpeg (for yt-dlp's transcoded
-  # output) but do NOT require Qt NetworkAuth: YouTube uses anonymous InnerTube
-  # via QNetworkAccessManager, and SpotifyFeature wraps every QOAuth* call in
-  # `#ifdef NETWORKAUTH` so it compiles+constructs cleanly without the module.
-  # Compile them unconditionally so they appear in the library sidebar even on
-  # platforms (e.g. our Android dependency bundle) that ship Qt without the
-  # NetworkAuth submodule. The NETWORKAUTH preprocessor define is only set
-  # below when find_package(NetworkAuth) actually succeeds, so the OAuth code
-  # paths inside SpotifyFeature stay opt-in.
+  # YouTube library support requires FFmpeg for cached audio playback and uses
+  # anonymous Piped/yt-dlp requests via QNetworkAccessManager. Spotify is not
+  # compiled or shown because Spotify's public API does not provide playable
+  # audio.
   target_sources(
     mixxx-lib
     PRIVATE
-      src/library/spotify/spotifyfeature.cpp
       src/library/youtube/sponsorblockcontroller.cpp
       src/library/youtube/youtubeaudiocutter.cpp
       src/library/youtube/youtubefeature.cpp
       src/library/youtube/youtubeservice.cpp
       src/library/youtube/youtubetrackmodel.cpp
-      src/sources/spotify/soundsourcespotify.cpp
       src/sources/youtube/soundsourceyoutube.cpp
   )
   target_compile_definitions(
@@ -5321,7 +5314,7 @@ else()
 endif()
 
 # NETWORKAUTH
-option(NETWORKAUTH "Enable Spotify AND YouTube features" OFF)
+option(NETWORKAUTH "Enable Qt NetworkAuth-dependent features" OFF)
 if(NETWORKAUTH)
   find_package(Qt${QT_VERSION_MAJOR} COMPONENTS NetworkAuth QUIET)
   if(Qt${QT_VERSION_MAJOR}NetworkAuth_FOUND)
@@ -5329,7 +5322,7 @@ if(NETWORKAUTH)
     list(APPEND QT_EXTRA_COMPONENTS "NetworkAuth")
   else()
     message(WARNING "QtNetworkAuth not found, disabling NETWORKAUTH")
-    set(NETWORKAUTH OFF CACHE BOOL "Enable Spotify AND YouTube features" FORCE)
+    set(NETWORKAUTH OFF CACHE BOOL "Enable Qt NetworkAuth-dependent features" FORCE)
   endif()
 endif()
 

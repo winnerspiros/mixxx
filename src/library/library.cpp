@@ -25,7 +25,6 @@
 #include "library/rhythmbox/rhythmboxfeature.h"
 #include "library/serato/seratofeature.h"
 #include "library/sidebarmodel.h"
-#include "library/spotify/spotifyfeature.h"
 #include "library/trackcollection.h"
 #include "library/trackcollectionmanager.h"
 #include "library/trackmodel.h"
@@ -166,20 +165,11 @@ Library::Library(
             m_pAnalysisFeature,
             &AnalysisFeature::analyzeTracks);
     addFeature(m_pAnalysisFeature);
-    // YouTube and Spotify are full library sidebar features (siblings of
-    // Tracks/Auto DJ/Playlists/Crates/...). They are intentionally registered
-    // unconditionally — without the QtNetworkAuth Qt module Spotify cannot
-    // sign in, but YouTube still works (anonymous InnerTube) and the Spotify
-    // home pane shows a "build without NetworkAuth — Spotify sign-in
-    // unavailable" notice instead of disappearing entirely. Compile the
-    // YouTube backend before Spotify so SpotifyFeature can wire it up as the
-    // audio resolver (Spotify's Web API does not return audio; we search
-    // YouTube for the same title+artist and download from there — the same
-    // approach `spotdl` and similar tools use).
+    // YouTube is a full library sidebar feature (sibling of Tracks/Auto DJ/
+    // Playlists/Crates/...). Spotify is intentionally not registered: Spotify's
+    // Web API does not return playable audio, so the usable online music path is
+    // YouTube search/download/cache.
     m_pYouTubeFeature = make_parented<YouTubeFeature>(this, m_pConfig);
-    m_pSpotifyFeature = make_parented<SpotifyFeature>(
-            this, m_pConfig, m_pYouTubeFeature.get());
-    addFeature(m_pSpotifyFeature);
     addFeature(m_pYouTubeFeature);
     // The SponsorBlock controller observes deck loads globally and skips
     // segments inside YouTube-cached tracks. It is owned by Library so it
@@ -820,13 +810,8 @@ void Library::searchTracksInCollection(const QString& query) {
         return;
     }
     m_pMixxxLibraryFeature->searchAndActivate(query);
-    // YouTube/Spotify features are always registered now (see ctor); forward
-    // the search to them so the library search box drives all sources at
-    // once. SpotifyFeature::searchAndActivate is a no-op without OAuth, so
-    // it is safe to call regardless of the NETWORKAUTH build define.
-    if (m_pSpotifyFeature) {
-        m_pSpotifyFeature->searchAndActivate(query);
-    }
+    // Forward the search to YouTube too so the library search box drives the
+    // online track table like it drives the local library.
     if (m_pYouTubeFeature) {
         m_pYouTubeFeature->searchAndActivate(query);
     }
