@@ -604,13 +604,6 @@ void WTrackTableView::slotShowHideTrackMenu(bool show) {
 }
 
 void WTrackTableView::contextMenuEvent(QContextMenuEvent* pEvent) {
-#ifdef Q_OS_ANDROID
-    // Qt 6's Android QMenu delayed-popup path can dereference null when a
-    // desktop-style context menu/submenu is opened from the legacy skin. Avoid
-    // crashing phones; core tap/drag/load interactions remain available.
-    pEvent->ignore();
-    return;
-#endif
     VERIFY_OR_DEBUG_ASSERT(m_pTrackMenu.get()) {
         initTrackMenu();
     }

@@ -153,6 +153,21 @@ void adjustScaleFactor(CmdlineArgs* pArgs) {
             return;
         }
     }
+#ifdef Q_OS_ANDROID
+    // Android phone/tablet builds run the fixed-pixel LateNight desktop skin.
+    // Qt must know the scale factor before QApplication is constructed or
+    // widget metrics, dialogs, menus, and fonts remain far too large for the
+    // display. We cannot inspect QScreen before QApplication exists, so use the
+    // minimum supported skin scale as a safe default that fits phones; users can
+    // still override this with QT_SCALE_FACTOR in their environment.
+    constexpr double kAndroidDefaultScaleFactor = 0.45;
+    const QByteArray scaleFactor =
+            QByteArray::number(kAndroidDefaultScaleFactor, 'f', 2);
+    qDebug() << "Using Android default" << kScaleFactorEnvVar << scaleFactor;
+    qputenv(kScaleFactorEnvVar, scaleFactor);
+    pArgs->setScaleFactor(kAndroidDefaultScaleFactor);
+    return;
+#endif
     // We cannot use SettingsManager, because it depends on MixxxApplication
     // but the scale factor is read during it's constructor.
     // QHighDpiScaling can not be used afterwards because it is private.

@@ -36,9 +36,10 @@ namespace {
 const mixxx::Logger kLogger("YouTubeFeature");
 
 constexpr int kSearchResultsMax = 100;
-// Keep background traffic bounded: enough songs are cached for immediate deck
-// use near the top of the list without downloading every visible result.
-constexpr int kAutoPrefetchResultsMax = 10;
+// Download every visible result in the background so YouTube rows quickly
+// become normal library tracks with a real local file, metadata, analysis,
+// drag/drop, and full context-menu support.
+constexpr int kAutoPrefetchResultsMax = kSearchResultsMax;
 
 // We tag the TreeItem `data` payload so activateChild() can tell apart
 // "search result the user wants to load" from "already-downloaded track".

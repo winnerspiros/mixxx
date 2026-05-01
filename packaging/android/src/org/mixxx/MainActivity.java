@@ -16,6 +16,8 @@ import org.qtproject.qt.android.QtActivityBase;
 
 public class MainActivity extends QtActivityBase {
     private static final int MEDIA_PERMISSION_REQUEST = 1001;
+    private boolean mRequestedAllFilesAccess;
+    private boolean mWaitingForMediaPermission;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -40,23 +42,56 @@ public class MainActivity extends QtActivityBase {
         if (Build.VERSION.SDK_INT >= 33) {
             if (checkSelfPermission(Manifest.permission.READ_MEDIA_AUDIO)
                 != PackageManager.PERMISSION_GRANTED) {
+                mWaitingForMediaPermission = true;
                 requestPermissions(
                     new String[] {Manifest.permission.READ_MEDIA_AUDIO},
                     MEDIA_PERMISSION_REQUEST);
+                return;
             }
         } else if (Build.VERSION.SDK_INT >= 23) {
             if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
                 != PackageManager.PERMISSION_GRANTED) {
+                mWaitingForMediaPermission = true;
                 requestPermissions(
                     new String[] {Manifest.permission.READ_EXTERNAL_STORAGE},
                     MEDIA_PERMISSION_REQUEST);
+                return;
             }
         }
 
-        if (Build.VERSION.SDK_INT >= 30 && !Environment.isExternalStorageManager()) {
-            Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
-            intent.setData(Uri.parse("package:" + getPackageName()));
+        requestAllFilesAccessIfNeeded();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(
+        int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == MEDIA_PERMISSION_REQUEST) {
+            mWaitingForMediaPermission = false;
+            requestAllFilesAccessIfNeeded();
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        requestAllFilesAccessIfNeeded();
+    }
+
+    private void requestAllFilesAccessIfNeeded() {
+        if (mWaitingForMediaPermission
+            || mRequestedAllFilesAccess
+            || Build.VERSION.SDK_INT < 30
+            || Environment.isExternalStorageManager()) {
+            return;
+        }
+        mRequestedAllFilesAccess = true;
+        Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+        intent.setData(Uri.parse("package:" + getPackageName()));
+        try {
             startActivity(intent);
+        } catch (Exception e) {
+            startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
         }
     }
 }

@@ -593,24 +593,27 @@ void YouTubeService::downloadAudioStream(const QString& videoId,
         const QString& cacheDir,
         const QJsonArray& audioStreams,
         const std::function<void(const QString&)>& onFailure) {
-    // Pick the highest-bitrate stream. Prefer opus (better quality per bit)
-    // when bitrates are tied or close, since Piped sometimes lists a low
-    // bitrate AAC alongside high bitrate opus.
+    // Pick the highest-bitrate M4A/AAC stream first because Mixxx already
+    // supports this container everywhere the YouTube feature is built. Fall
+    // back to WebM/Opus only if Piped does not expose an M4A stream.
     QJsonObject best;
     int bestBitrate = -1;
-    bool bestIsOpus = false;
+    bool bestIsM4a = false;
     for (const QJsonValue& v : audioStreams) {
         const QJsonObject s = v.toObject();
         const int br = s.value(QStringLiteral("bitrate")).toInt();
         const QString codec =
                 s.value(QStringLiteral("codec")).toString().toLower();
-        const bool isOpus = codec.startsWith(QStringLiteral("opus"));
-        // Prefer higher bitrate; on a tie prefer opus.
-        if (br > bestBitrate ||
-                (br == bestBitrate && isOpus && !bestIsOpus)) {
+        const QString ext = extFromMime(
+                s.value(QStringLiteral("mimeType")).toString(), codec);
+        const bool isM4a = ext == QStringLiteral("m4a");
+        // Prefer M4A/AAC over WebM/Opus for playback compatibility; within
+        // the chosen family prefer higher bitrate.
+        if (best.isEmpty() || (isM4a && !bestIsM4a) ||
+                (isM4a == bestIsM4a && br > bestBitrate)) {
             best = s;
             bestBitrate = br;
-            bestIsOpus = isOpus;
+            bestIsM4a = isM4a;
         }
     }
     const QString streamUrl = best.value(QStringLiteral("url")).toString();
