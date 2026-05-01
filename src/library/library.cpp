@@ -3,6 +3,7 @@
 #include <QApplication>
 #include <QDir>
 #include <QMessageBox>
+#include <QUrl>
 
 #include "control/controlobject.h"
 #include "controllers/keyboard/keyboardeventfilter.h"
@@ -31,10 +32,9 @@
 #include "library/trackset/playlistfeature.h"
 #include "library/trackset/setlogfeature.h"
 #include "library/traktor/traktorfeature.h"
-#include "mixer/playermanager.h"
-#include "library/spotify/spotifyfeature.h"
 #include "library/youtube/sponsorblockcontroller.h"
 #include "library/youtube/youtubefeature.h"
+#include "mixer/playermanager.h"
 #include "moc_library.cpp"
 #include "util/assert.h"
 #include "util/logger.h"
@@ -165,20 +165,11 @@ Library::Library(
             m_pAnalysisFeature,
             &AnalysisFeature::analyzeTracks);
     addFeature(m_pAnalysisFeature);
-    // YouTube and Spotify are full library sidebar features (siblings of
-    // Tracks/Auto DJ/Playlists/Crates/...). They are intentionally registered
-    // unconditionally — without the QtNetworkAuth Qt module Spotify cannot
-    // sign in, but YouTube still works (anonymous InnerTube) and the Spotify
-    // home pane shows a "build without NetworkAuth — Spotify sign-in
-    // unavailable" notice instead of disappearing entirely. Compile the
-    // YouTube backend before Spotify so SpotifyFeature can wire it up as the
-    // audio resolver (Spotify's Web API does not return audio; we search
-    // YouTube for the same title+artist and download from there — the same
-    // approach `spotdl` and similar tools use).
+    // YouTube is a full library sidebar feature (sibling of Tracks/Auto DJ/
+    // Playlists/Crates/...). Spotify is intentionally not registered: Spotify's
+    // Web API does not return playable audio, so the usable online music path is
+    // YouTube search/download/cache.
     m_pYouTubeFeature = make_parented<YouTubeFeature>(this, m_pConfig);
-    m_pSpotifyFeature = make_parented<SpotifyFeature>(
-            this, m_pConfig, m_pYouTubeFeature.get());
-    addFeature(m_pSpotifyFeature);
     addFeature(m_pYouTubeFeature);
     // The SponsorBlock controller observes deck loads globally and skips
     // segments inside YouTube-cached tracks. It is owned by Library so it
@@ -448,6 +439,14 @@ void Library::bindLibraryWidget(
             &WTrackTableView::loadTrackToPlayer,
             this,
             &Library::slotLoadTrackToPlayer);
+    connect(pTrackTableView,
+            &WTrackTableView::loadTrackLocationToPlayer,
+            this,
+            &Library::slotLoadLocationToPlayer);
+    connect(pTrackTableView,
+            &WLibraryTableView::downloadAndAnalyzeYouTubeTracks,
+            this,
+            &Library::slotDownloadAndAnalyzeYouTubeTracks);
     m_pLibraryWidget->registerView(m_sTrackViewName, pTrackTableView);
 
     connect(m_pLibraryWidget,
@@ -552,6 +551,12 @@ void Library::addFeature(LibraryFeature* feature) {
             &LibraryFeature::trackSelected,
             this,
             &Library::trackSelected);
+    if (m_pAnalysisFeature) {
+        connect(feature,
+                &LibraryFeature::analyzeTracks,
+                m_pAnalysisFeature,
+                &AnalysisFeature::analyzeTracks);
+    }
     connect(feature,
             &LibraryFeature::saveModelState,
             this,
@@ -596,6 +601,21 @@ void Library::slotLoadTrack(TrackPointer pTrack) {
 }
 
 void Library::slotLoadLocationToPlayer(const QString& location, const QString& group, bool play) {
+    const QUrl url(location);
+    if (url.scheme() == QStringLiteral("youtube")) {
+        const QString path = url.path();
+        const QString videoId = !path.isEmpty()
+                ? path.mid(path.startsWith(QLatin1Char('/')) ? 1 : 0)
+                : url.host();
+        if (m_pYouTubeFeature && !videoId.isEmpty()) {
+            // Route through requestDownloadToPlayer even when group is empty.
+            // An empty group is the "load to next available deck" sentinel —
+            // onDownloadFinished will emit loadTrack(pTrack) in that case so
+            // the track lands on a deck just like double-clicking a local file.
+            m_pYouTubeFeature->requestDownloadToPlayer(videoId, group, play);
+        }
+        return;
+    }
     auto trackRef = TrackRef::fromFilePath(location);
     TrackPointer pTrack = m_pTrackCollectionManager->getOrAddTrack(trackRef);
     if (pTrack) {
@@ -604,6 +624,40 @@ void Library::slotLoadLocationToPlayer(const QString& location, const QString& g
 #else
         Q_EMIT loadTrackToPlayer(pTrack, group, play);
 #endif
+    }
+}
+
+void Library::slotDownloadAndAnalyzeYouTubeTracks(const QStringList& urls) {
+    if (!m_pYouTubeFeature) {
+        return;
+    }
+    for (const QString& urlStr : urls) {
+        const QUrl url(urlStr);
+        if (url.scheme() != QStringLiteral("youtube")) {
+            continue;
+        }
+        const QString path = url.path();
+        const QString videoId = !path.isEmpty()
+                ? path.mid(path.startsWith(QLatin1Char('/')) ? 1 : 0)
+                : url.host();
+        if (!videoId.isEmpty()) {
+            // requestDownload: download + analyze only, no deck load.
+            m_pYouTubeFeature->requestDownload(videoId);
+        }
+    }
+}
+
+void Library::slotAddLocationToAutoDJ(
+        const QString& location, PlaylistDAO::AutoDJSendLoc loc) {
+    const QUrl url(location);
+    if (url.scheme() == QStringLiteral("youtube")) {
+        const QString path = url.path();
+        const QString videoId = !path.isEmpty()
+                ? path.mid(path.startsWith(QLatin1Char('/')) ? 1 : 0)
+                : url.host();
+        if (m_pYouTubeFeature && !videoId.isEmpty()) {
+            m_pYouTubeFeature->requestDownloadToAutoDJ(videoId, loc);
+        }
     }
 }
 
@@ -798,13 +852,8 @@ void Library::searchTracksInCollection(const QString& query) {
         return;
     }
     m_pMixxxLibraryFeature->searchAndActivate(query);
-    // YouTube/Spotify features are always registered now (see ctor); forward
-    // the search to them so the library search box drives all sources at
-    // once. SpotifyFeature::searchAndActivate is a no-op without OAuth, so
-    // it is safe to call regardless of the NETWORKAUTH build define.
-    if (m_pSpotifyFeature) {
-        m_pSpotifyFeature->searchAndActivate(query);
-    }
+    // Forward the search to YouTube too so the library search box drives the
+    // online track table like it drives the local library.
     if (m_pYouTubeFeature) {
         m_pYouTubeFeature->searchAndActivate(query);
     }

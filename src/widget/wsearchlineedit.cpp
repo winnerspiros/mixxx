@@ -402,12 +402,6 @@ void WSearchLineEdit::keyPressEvent(QKeyEvent* keyEvent) {
             emit setLibraryFocus(FocusWidget::TracksTable);
             return;
         }
-        if (hasCompletionAvailable()) {
-            QComboBox::keyPressEvent(keyEvent);
-            slotTriggerSearch();
-            return;
-        }
-
         if (findCurrentTextIndex() == -1) {
             slotSaveSearch();
         }

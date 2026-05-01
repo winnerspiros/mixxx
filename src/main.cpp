@@ -153,11 +153,35 @@ void adjustScaleFactor(CmdlineArgs* pArgs) {
             return;
         }
     }
+#ifdef Q_OS_ANDROID
+    // Android phone/tablet builds run the fixed-pixel LateNight desktop skin.
+    // Qt must know the scale factor before QApplication is constructed or
+    // widget metrics, dialogs, menus, and fonts remain far too large for the
+    // display. We cannot inspect QScreen before QApplication exists, so use the
+    // minimum supported skin scale as a safe default that fits phones. 0.45 is
+    // the same lower bound used by maybeAutoDetectScaleFactor() below; it
+    // renders LateNight's 1280x668 nominal layout as ~576x301 logical pixels,
+    // which fits modern landscape phones without oversized Qt dialogs. Users
+    // can still override this with QT_SCALE_FACTOR in their environment.
+    constexpr double kAndroidDefaultScaleFactor = 0.45;
+    const QByteArray scaleFactor =
+            QByteArray::number(kAndroidDefaultScaleFactor, 'f', 2);
+    qDebug() << "Using Android default" << kScaleFactorEnvVar << scaleFactor;
+    qputenv(kScaleFactorEnvVar, scaleFactor);
+    pArgs->setScaleFactor(kAndroidDefaultScaleFactor);
+    return;
+#endif
     // We cannot use SettingsManager, because it depends on MixxxApplication
     // but the scale factor is read during it's constructor.
     // QHighDpiScaling can not be used afterwards because it is private.
     // This means the following code may fail after down/upgrade ... a one time issue.
 
+// Android can launch on very different displays with the same profile: a phone
+// screen, tablet screen, or Samsung DeX/external monitor. A persisted
+// [Config]/ScaleFactor from the previous display must not be exported to
+// QT_SCALE_FACTOR before QApplication exists, because that freezes Qt's widget
+// scaling before maybeAutoDetectScaleFactor() can inspect the current QScreen.
+#ifndef Q_OS_ANDROID
     // Read and parse the config file from the settings path
     auto config = ConfigObject<ConfigValue>(
             QDir(pArgs->getSettingsPath()).filePath(MIXXX_SETTINGS_FILE),
@@ -171,6 +195,7 @@ void adjustScaleFactor(CmdlineArgs* pArgs) {
         qputenv(kScaleFactorEnvVar, strScaleFactor.toLocal8Bit());
         pArgs->setScaleFactor(scaleFactor);
     }
+#endif
 }
 
 // LateNight (the default skin) declares <MinimumSize>1280,668</MinimumSize>.
@@ -193,17 +218,34 @@ void adjustScaleFactor(CmdlineArgs* pArgs) {
 //
 // Must run AFTER QApplication construction (we need QScreen).
 void maybeAutoDetectScaleFactor(CmdlineArgs* pArgs) {
+#ifndef Q_OS_ANDROID
     // Respect explicit user choice from the command line / env. If the user
     // passed --scale-factor or set QT_SCALE_FACTOR themselves, never override.
     if (qEnvironmentVariableIsSet(kScaleFactorEnvVar)) {
         return;
     }
+#else
+    // On Android only a user-provided environment variable is treated as
+    // explicit. The value persisted from a previous Android launch is
+    // intentionally ignored here so phone ↔ DeX/external-screen switches
+    // recalculate every time the app opens.
+    if (qEnvironmentVariableIsSet(kScaleFactorEnvVar) &&
+            !qgetenv(kScaleFactorEnvVar).isEmpty()) {
+        return;
+    }
+#endif
 
     QScreen* pScreen = QGuiApplication::primaryScreen();
     if (!pScreen) {
         return;
     }
-    const QSize screenSize = pScreen->availableSize();
+    QSize screenSize = pScreen->availableSize();
+#ifdef Q_OS_ANDROID
+    const qreal devicePixelRatio = pScreen->devicePixelRatio();
+    if (devicePixelRatio > 1.0) {
+        screenSize = (QSizeF(screenSize) / devicePixelRatio).toSize();
+    }
+#endif
     if (screenSize.isEmpty()) {
         return;
     }

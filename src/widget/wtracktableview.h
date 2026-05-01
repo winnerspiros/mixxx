@@ -175,6 +175,7 @@ class WTrackTableView : public WLibraryTableView {
                           const QItemSelection &deselected) override;
 
     void mousePressEvent(QMouseEvent* pEvent) override;
+    void mouseReleaseEvent(QMouseEvent* pEvent) override;
     // Mouse move event, implemented to hide the text and show an icon instead
     // when dragging.
     void mouseMoveEvent(QMouseEvent *pEvent) override;
@@ -189,6 +190,7 @@ class WTrackTableView : public WLibraryTableView {
 
     void initTrackMenu();
     void showTrackMenu(const QPoint pos, const QModelIndex& index);
+    bool requestYouTubePlaceholderDownloads(const QModelIndexList& indices);
 
     void hideOrRemoveSelectedTracks();
 

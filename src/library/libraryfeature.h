@@ -18,6 +18,7 @@
 
 class KeyboardEventFilter;
 class Library;
+class AnalyzerScheduledTrack;
 class WLibrary;
 class WLibrarySidebar;
 class QAbstractItemModel;
@@ -169,6 +170,7 @@ class LibraryFeature : public QObject {
     // emit this signal to enable/disable the cover art widget
     void enableCoverArtDisplay(bool);
     void trackSelected(TrackPointer pTrack);
+    void analyzeTracks(const QList<AnalyzerScheduledTrack>& tracks);
 
   protected:
     // TODO: Move common crate/playlist functions into

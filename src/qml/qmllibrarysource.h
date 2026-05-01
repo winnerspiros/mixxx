@@ -136,14 +136,6 @@ class QmlLibraryBrowseSource : public QmlLibrarySource {
     LibraryFeature* internal() override;
 };
 
-class QmlLibrarySpotifySource : public QmlLibrarySource {
-    Q_OBJECT
-    QML_NAMED_ELEMENT(LibrarySpotifySource)
-  public:
-    using QmlLibrarySource::QmlLibrarySource;
-    LibraryFeature* internal() override;
-};
-
 class QmlLibraryYouTubeSource : public QmlLibrarySource {
     Q_OBJECT
     QML_NAMED_ELEMENT(LibraryYouTubeSource)

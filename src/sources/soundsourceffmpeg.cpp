@@ -403,6 +403,9 @@ QStringList SoundSourceProviderFFmpeg::getSupportedFileTypes() const {
                     !strcmp(pavInputFormat->name, "libopus")) {
                 list.append("opus");
                 continue;
+            } else if (!strcmp(pavInputFormat->name, "matroska,webm")) {
+                list.append("webm");
+                continue;
             } else if (!strcmp(pavInputFormat->name, "wav")) {
                 list.append("wav");
                 continue;

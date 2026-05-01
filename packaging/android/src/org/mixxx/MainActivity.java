@@ -1,14 +1,24 @@
 package org.mixxx;
 
+import android.Manifest;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.Settings;
 import android.view.WindowManager;
-import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import org.qtproject.qt.android.QtActivityBase;
 
 public class MainActivity extends QtActivityBase {
+    private static final int MEDIA_PERMISSION_REQUEST = 1001;
+    private boolean mRequestedAllFilesAccess;
+    private boolean mWaitingForMediaPermission;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -16,6 +26,7 @@ public class MainActivity extends QtActivityBase {
         // Disable drawing over cutout - isn't working
         WindowManager.LayoutParams lp = this.getWindow().getAttributes();
         lp.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_NEVER;
+        this.getWindow().setAttributes(lp);
 
         // Disable system and navigation bar to prevent accidental back or app switch
         WindowInsetsControllerCompat windowInsetsController =
@@ -23,5 +34,64 @@ public class MainActivity extends QtActivityBase {
         windowInsetsController.setSystemBarsBehavior(
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
         windowInsetsController.hide(WindowInsetsCompat.Type.navigationBars());
+
+        requestMusicLibraryPermissions();
+    }
+
+    private void requestMusicLibraryPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(Manifest.permission.READ_MEDIA_AUDIO)
+                != PackageManager.PERMISSION_GRANTED) {
+                mWaitingForMediaPermission = true;
+                requestPermissions(
+                    new String[] {Manifest.permission.READ_MEDIA_AUDIO},
+                    MEDIA_PERMISSION_REQUEST);
+                return;
+            }
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED) {
+                mWaitingForMediaPermission = true;
+                requestPermissions(
+                    new String[] {Manifest.permission.READ_EXTERNAL_STORAGE},
+                    MEDIA_PERMISSION_REQUEST);
+                return;
+            }
+        }
+
+        requestAllFilesAccessIfNeeded();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(
+        int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == MEDIA_PERMISSION_REQUEST) {
+            mWaitingForMediaPermission = false;
+            requestAllFilesAccessIfNeeded();
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        requestAllFilesAccessIfNeeded();
+    }
+
+    private void requestAllFilesAccessIfNeeded() {
+        if (mWaitingForMediaPermission
+            || mRequestedAllFilesAccess
+            || Build.VERSION.SDK_INT < Build.VERSION_CODES.R
+            || Environment.isExternalStorageManager()) {
+            return;
+        }
+        mRequestedAllFilesAccess = true;
+        Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+        intent.setData(Uri.parse("package:" + getPackageName()));
+        try {
+            startActivity(intent);
+        } catch (Exception e) {
+            startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
+        }
     }
 }

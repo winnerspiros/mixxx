@@ -6,6 +6,7 @@
 #include <QPointer>
 
 #include "analyzer/trackanalysisscheduler.h"
+#include "library/dao/playlistdao.h"
 #include "library/library_decl.h"
 #ifdef __ENGINEPRIME__
 #include "library/trackset/crate/crateid.h"
@@ -16,7 +17,6 @@
 #include "util/parented_ptr.h"
 
 class AnalysisFeature;
-class SpotifyFeature;
 class YouTubeFeature;
 namespace mixxx {
 class SponsorBlockController;
@@ -93,9 +93,6 @@ class Library : public QObject {
     BrowseFeature* browseFeature() const {
         return m_pBrowseFeature.get();
     }
-    SpotifyFeature* spotifyFeature() const {
-        return m_pSpotifyFeature.get();
-    }
     YouTubeFeature* youtubeFeature() const {
         return m_pYouTubeFeature.get();
     }
@@ -154,6 +151,10 @@ class Library : public QObject {
     void slotLoadTrackToPlayer(TrackPointer pTrack, const QString& group, bool play);
 #endif
     void slotLoadLocationToPlayer(const QString& location, const QString& group, bool play);
+    void slotAddLocationToAutoDJ(const QString& location, PlaylistDAO::AutoDJSendLoc loc);
+    /// Download + analyze each YouTube placeholder URL without loading any to a deck.
+    /// Called from the "Download and Analyze" right-click menu action.
+    void slotDownloadAndAnalyzeYouTubeTracks(const QStringList& urls);
     void slotRefreshLibraryModels();
     void slotCreatePlaylist();
     void slotCreateCrate();
@@ -226,12 +227,8 @@ class Library : public QObject {
     parented_ptr<CrateFeature> m_pCrateFeature;
     parented_ptr<BrowseFeature> m_pBrowseFeature;
     parented_ptr<AnalysisFeature> m_pAnalysisFeature;
-    // YouTube/Spotify are always-on library features. SpotifyFeature compiles
-    // and constructs cleanly without NETWORKAUTH (its OAuth code is per-method
-    // `#ifdef`-guarded); without the QtNetworkAuth Qt module Spotify simply
-    // shows a "sign-in unavailable on this build" home pane and the YouTube
-    // sidebar continues to work via anonymous InnerTube. See library.cpp.
-    parented_ptr<SpotifyFeature> m_pSpotifyFeature;
+    // YouTube is the only always-on online music library feature. Spotify is
+    // deliberately omitted because its public API does not provide audio.
     parented_ptr<YouTubeFeature> m_pYouTubeFeature;
     parented_ptr<mixxx::SponsorBlockController> m_pSponsorBlockController;
     QFont m_trackTableFont;

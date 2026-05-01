@@ -6,6 +6,7 @@
 #include <QList>
 #include <QListWidget>
 #include <QModelIndex>
+#include <QUrl>
 #include <QVBoxLayout>
 
 #include "analyzer/analyzerscheduledtrack.h"
@@ -143,6 +144,20 @@ int WTrackMenu::getTrackCount() const {
     } else {
         return m_pTrack ? 1 : 0;
     }
+}
+
+int WTrackMenu::getYouTubePlaceholderTrackCount() const {
+    if (!m_pTrackModel) {
+        return 0;
+    }
+    int count = 0;
+    for (const auto& index : std::as_const(m_trackIndexList)) {
+        if (m_pTrackModel->getTrackUrl(index).scheme() ==
+                QStringLiteral("youtube")) {
+            ++count;
+        }
+    }
+    return count;
 }
 
 const QString WTrackMenu::getDeckGroup() const {
@@ -554,6 +569,13 @@ void WTrackMenu::createActions() {
     }
 
     if (featureIsEnabled(Feature::Analyze)) {
+        m_pDownloadAndAnalyzeAction =
+                make_parented<QAction>(tr("Download and Analyze"), this);
+        connect(m_pDownloadAndAnalyzeAction,
+                &QAction::triggered,
+                this,
+                &WTrackMenu::slotDownloadAndAnalyze);
+
         m_pAnalyzeAction = make_parented<QAction>(tr("Analyze"), this);
         connect(m_pAnalyzeAction, &QAction::triggered, this, &WTrackMenu::slotAnalyze);
 
@@ -742,6 +764,8 @@ void WTrackMenu::setupActions() {
     }
 
     if (featureIsEnabled(Feature::Analyze)) {
+        m_pAnalyzeMenu->addAction(m_pDownloadAndAnalyzeAction);
+        m_pAnalyzeMenu->addSeparator();
         m_pAnalyzeMenu->addAction(m_pAnalyzeAction);
         m_pAnalyzeMenu->addAction(m_pReanalyzeAction);
         m_pAnalyzeMenu->addAction(m_pReanalyzeConstBpmAction);
@@ -1120,6 +1144,9 @@ void WTrackMenu::updateMenus() {
     }
 
     if (featureIsEnabled(Feature::Analyze)) {
+        const int youTubePlaceholderTrackCount = getYouTubePlaceholderTrackCount();
+        m_pDownloadAndAnalyzeAction->setVisible(youTubePlaceholderTrackCount > 0);
+        m_pDownloadAndAnalyzeAction->setEnabled(youTubePlaceholderTrackCount > 0);
         bool useFixedTempo = m_pConfig->getValue<bool>(
                 ConfigKey("[BPM]", "BeatDetectionFixedTempoAssumption"));
         // Since we already have a 'Reanalyze' action that uses the configured
@@ -1777,9 +1804,26 @@ void WTrackMenu::addSelectionToNewCrate() {
 }
 
 void WTrackMenu::addToAnalysis(AnalyzerTrack::Options options) {
+    // Collect YouTube placeholder URLs so we can emit a single
+    // downloadAndAnalyzeYouTubeTracks signal (download-only, no deck load).
+    QStringList youtubeUrls;
+    if (m_pTrackModel) {
+        for (const auto& index : std::as_const(m_trackIndexList)) {
+            const QUrl url = m_pTrackModel->getTrackUrl(index);
+            if (url.scheme() == QStringLiteral("youtube")) {
+                youtubeUrls.append(url.toString());
+            }
+        }
+    }
+    if (!youtubeUrls.isEmpty()) {
+        emit downloadAndAnalyzeYouTubeTracks(youtubeUrls);
+    }
+
     const TrackIdList trackIds = getTrackIds();
     if (trackIds.empty()) {
-        qWarning() << "No tracks selected for analysis";
+        if (youtubeUrls.isEmpty()) {
+            qWarning() << "No tracks selected for analysis";
+        }
         return;
     }
 
@@ -1790,6 +1834,10 @@ void WTrackMenu::addToAnalysis(AnalyzerTrack::Options options) {
     }
 
     emit m_pLibrary->analyzeTracks(tracks);
+}
+
+void WTrackMenu::slotDownloadAndAnalyze() {
+    addToAnalysis();
 }
 
 void WTrackMenu::slotAnalyze() {
@@ -2013,6 +2061,16 @@ void WTrackMenu::loadSelectionToGroup(const QString& group,
 #endif
     TrackPointer pTrack = getFirstTrackPointer();
     if (!pTrack) {
+        // For YouTube placeholder rows getFirstTrackPointer() returns null
+        // because the file hasn't been downloaded yet. In that case, dispatch
+        // via the loadTrackLocationToPlayer path so the feature can download
+        // the audio and load it into the requested deck.
+        if (m_pTrackModel && !m_trackIndexList.isEmpty()) {
+            const QUrl url = m_pTrackModel->getTrackUrl(m_trackIndexList.first());
+            if (url.scheme() == QStringLiteral("youtube")) {
+                emit loadTrackLocationToPlayer(url.toString(), group, play);
+            }
+        }
         return;
     }
 
@@ -3002,9 +3060,10 @@ bool WTrackMenu::featureIsEnabled(Feature flag) const {
     case Feature::Metadata:
         return m_pTrackModel->hasCapabilities(TrackModel::Capability::EditMetadata);
     case Feature::Analyze:
-        return m_pTrackModel->hasCapabilities(
-                TrackModel::Capability::EditMetadata |
-                TrackModel::Capability::Analyze);
+        // Require Analyze capability only. External read-only models that want
+        // the Analyze submenu (e.g. YouTubeTrackModel) may not have EditMetadata
+        // because their cells are read-only, but analysis is still meaningful.
+        return m_pTrackModel->hasCapabilities(TrackModel::Capability::Analyze);
     case Feature::Reset:
         return m_pTrackModel->hasCapabilities(
                 TrackModel::Capability::EditMetadata |

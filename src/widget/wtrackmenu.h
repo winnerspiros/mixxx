@@ -126,6 +126,14 @@ class WTrackMenu : public QMenu {
             const QString& group,
             bool play = false);
 #endif
+    void loadTrackLocationToPlayer(
+            const QString& location,
+            const QString& group,
+            bool play = false);
+    /// Emitted for YouTube placeholder rows selected via "Download and Analyze"
+    /// context menu. Routes to Library::slotDownloadAndAnalyzeYouTubeTracks so
+    /// the tracks are downloaded and analyzed WITHOUT being loaded onto a deck.
+    void downloadAndAnalyzeYouTubeTracks(const QStringList& urls);
     void trackMenuVisible(bool visible);
     void saveCurrentViewState();
     void restoreCurrentViewStateOrIndex();
@@ -157,6 +165,7 @@ class WTrackMenu : public QMenu {
     void slotClearAllMetadata();
 
     // Analysis
+    void slotDownloadAndAnalyze();
     void slotAnalyze();
     void slotReanalyze();
     void slotReanalyzeWithFixedTempo();
@@ -227,6 +236,7 @@ class WTrackMenu : public QMenu {
         return getTrackCount() == 0;
     }
     int getTrackCount() const;
+    int getYouTubePlaceholderTrackCount() const;
 
     void createMenus();
     void createActions();
@@ -357,6 +367,7 @@ class WTrackMenu : public QMenu {
     parented_ptr<WColorPickerAction> m_pColorPickerAction;
 
     // Analysis actions
+    parented_ptr<QAction> m_pDownloadAndAnalyzeAction;
     parented_ptr<QAction> m_pAnalyzeAction;
     parented_ptr<QAction> m_pReanalyzeAction;
     parented_ptr<QAction> m_pReanalyzeConstBpmAction;

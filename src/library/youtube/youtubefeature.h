@@ -3,15 +3,22 @@
 #include <QHash>
 #include <QPointer>
 #include <QSet>
+#include <QSharedPointer>
 
+#include "analyzer/analyzerprogress.h"
 #include "library/baseexternallibraryfeature.h"
+#include "library/dao/playlistdao.h"
 #include "library/youtube/youtubeservice.h"
+#include "track/trackid.h"
 #include "util/parented_ptr.h"
 
+class BaseTrackCache;
 class KeyboardEventFilter;
+class QSqlDatabase;
 class TreeItem;
 class WLibrary;
 class WLibraryTextBrowser;
+class YouTubeTrackModel;
 
 class YouTubeFeature : public BaseExternalLibraryFeature {
     Q_OBJECT
@@ -30,16 +37,22 @@ class YouTubeFeature : public BaseExternalLibraryFeature {
 
     void searchAndActivate(const QString& query);
 
-    /// Like searchAndActivate, but in addition to populating the sidebar,
-    /// auto-loads the first (top) YouTube result onto the next free deck once
-    /// the search returns. Used by the Spotify→YouTube bridge so that
-    /// clicking a Spotify track gives the user audio without an extra step.
-    /// `displayLabel` is shown in logs/UI to make the cross-source mapping
-    /// transparent.
-    void searchAndAutoLoadFirst(const QString& query, const QString& displayLabel = QString());
+    void requestDownloadToPlayer(
+            const QString& videoId, const QString& group, bool play);
+    void requestDownload(const QString& videoId);
+    void requestDownloadToAutoDJ(
+            const QString& videoId, PlaylistDAO::AutoDJSendLoc loc);
 
     /// Absolute path to the per-user yt-dlp cache directory. Created on demand.
     QString cacheDir() const;
+
+    /// Resolve the ISO 3166-1 alpha-2 region used for the YouTube top-songs
+    /// feed. Resolution order:
+    ///   1. `[YouTube]/trending_region` user override (if non-empty)
+    ///   2. The literal "GR" (Greece) — explicit project default. Stale geo-IP
+    ///      cache and en_US locales must not switch this fork to United States.
+    /// Always returns a non-empty 2-letter uppercase code.
+    QString resolvedTrendingRegion() const;
 
   protected:
     void appendTrackIdsFromRightClickIndex(
@@ -51,9 +64,10 @@ class YouTubeFeature : public BaseExternalLibraryFeature {
     void onSearchFailed(const QString& query, const QString& error);
     void onDownloadFinished(const QString& videoId, const QString& localPath);
     void onDownloadFailed(const QString& videoId, const QString& error);
+    void onTrackAnalysisProgress(TrackId trackId, AnalyzerProgress analyzerProgress);
     /// Dispatch clicks on links rendered in the home pane HTML.
-    /// `ytplay:VIDEOID`     → download (or load from cache) and load on a deck.
-    /// `ytcached:LOCALPATH` → load the already-downloaded file on a deck.
+    /// `ytplay:VIDEOID`     → download/cache/analyze the track.
+    /// `ytcached:LOCALPATH` → refresh the already-downloaded row.
     void onHomeAnchorClicked(const QUrl& url);
 
   private:
@@ -65,12 +79,12 @@ class YouTubeFeature : public BaseExternalLibraryFeature {
     /// so the user has feedback that a search returned results, even before
     /// they unfold the tree node.
     void rebuildHomeHtml();
-    /// Trigger a download (or short-circuit if already cached) for `videoId`.
-    /// The downloaded track will be auto-loaded onto the next free deck.
-    void requestDownload(const QString& videoId);
-    /// Like requestDownload but does NOT load onto a deck — used for
-    /// background pre-fetch / repair of missing AutoDJ-queued tracks.
+    void requestDownloadFile(const QString& videoId);
+    /// Background repair of missing AutoDJ-queued tracks.
     void requestPrefetch(const QString& videoId);
+    bool autoAnalyzeResultsEnabled() const;
+    void setAutoAnalyzeResultsEnabled(bool enabled);
+    void autoAnalyzeCurrentResults();
     /// If `pTrack` was downloaded by us and is no longer loaded on any deck,
     /// delete its cached audio file and purge it from the library DB so the
     /// disk doesn't grow unbounded. Tracks referenced by any playlist or
@@ -84,6 +98,25 @@ class YouTubeFeature : public BaseExternalLibraryFeature {
     /// Walk the AutoDJ queue at startup and ensure every YouTube-cache track
     /// in it is present on disk — re-downloading any that have been swept.
     void prefetchAutoDjQueue();
+    void syncAnalyzedTrackMetadata(const TrackPointer& pTrack);
+    /// Persistent track table backing the right-hand pane. See
+    /// YouTubeTrackModel for the placeholder/downloaded row model.
+    QSharedPointer<BaseTrackCache> m_pTrackCache;
+    YouTubeTrackModel* m_pTrackModel = nullptr;
+    /// Replace all rows in `youtube_library` with the supplied YouTube
+    /// videos, then refresh the model so the view picks up the new rows.
+    /// `videos` may include both downloaded (file present in cacheDir())
+    /// and not-yet-downloaded entries; we resolve which is which row by
+    /// row when building the INSERT.
+    void replaceTrackTable(const QList<mixxx::YouTubeVideoInfo>& videos);
+    /// Append a single downloaded entry (or update its row to point at the
+    /// real file path) so the "Downloaded" column reflects the new file
+    /// without a full table rebuild.
+    void upsertDownloadedRow(const QString& videoId,
+            const QString& localPath,
+            const QString& title,
+            const QString& uploader,
+            int durationSec);
 
     parented_ptr<TreeItemModel> m_pSidebarModel;
     QPointer<WLibraryTextBrowser> m_pHomeView;
@@ -92,15 +125,13 @@ class YouTubeFeature : public BaseExternalLibraryFeature {
     QList<mixxx::YouTubeVideoInfo> m_lastResults;
     // videoId -> human-readable label (used for the "Downloaded" branch).
     QHash<QString, QString> m_downloadedTracks;
-    // videoIds whose download was triggered by a user click and should be
-    // auto-loaded onto a deck once finished. Background prefetch downloads
-    // are NOT in this set, so they don't yank the deck.
-    QSet<QString> m_videoIdsToAutoLoad;
-    /// When set, the next batch of search results that matches `m_lastQuery`
-    /// will trigger an auto-download+load of the top result. Cleared once
-    /// consumed so subsequent user-driven searches don't accidentally autoload.
-    bool m_autoLoadNextResult = false;
-    QString m_autoLoadDisplayLabel;
+    struct PendingPlayerLoad {
+        QString group;
+        bool play = false;
+    };
+    QHash<QString, QList<PendingPlayerLoad>> m_pendingPlayerLoads;
+    QHash<QString, QList<PlaylistDAO::AutoDJSendLoc>> m_pendingAutoDjLoads;
+    QSet<QString> m_videoIdsDownloading;
     /// Last error message reported by the underlying YouTubeService for the
     /// current `m_lastQuery`. Cleared when a new search is started or when
     /// results arrive successfully. When non-empty, the home pane shows the

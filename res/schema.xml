@@ -593,4 +593,28 @@ reapplying those migrations.
       ALTER TABLE library ADD COLUMN tuning_frequency_hz FLOAT DEFAULT 0.0;
     </sql>
   </revision>
+  <revision version="41" min_compatible="3">
+    <description>
+      Add youtube_library table backing the YouTube library feature's track
+      table view. Mirrors the iTunes/Traktor schema so the same
+      BaseExternalTrackModel infrastructure works unchanged. Rows whose
+      `location` column starts with the literal "youtube://" are placeholder
+      entries for not-yet-downloaded tracks; YouTubeTrackModel intercepts
+      those in getTrack() to kick off the download instead of trying to load
+      a non-existent file.
+    </description>
+    <sql>
+      CREATE TABLE IF NOT EXISTS youtube_library (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        artist varchar(96), title varchar(192),
+        album varchar(48), year varchar(16),
+        genre varchar(32), tracknumber varchar(3),
+        location varchar(512) UNIQUE,
+        comment varchar(60),
+        duration INTEGER,
+        bitrate INTEGER,
+        bpm FLOAT,
+        rating INTEGER);
+    </sql>
+  </revision>
 </schema>

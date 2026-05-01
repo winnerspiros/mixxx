@@ -28,8 +28,7 @@ namespace mixxx {
 ///    the controller writes `playposition` to the segment's end → instant skip.
 ///
 /// The controller does **nothing** for tracks that are not from the YouTube
-/// cache, and it is safe to compile in unconditionally — when `NETWORKAUTH` is
-/// off it just observes nothing.
+/// cache, so it is safe to compile in unconditionally.
 class SponsorBlockController : public QObject {
     Q_OBJECT
   public:
