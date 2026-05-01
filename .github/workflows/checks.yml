@@ -46,6 +46,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Debug \
             -DWARNINGS_FATAL=ON \
             -DQT6=ON \
+            -DQML=OFF \
             -DOPTIMIZE=off \
             -DBATTERY=ON \
             -DBROADCAST=ON \

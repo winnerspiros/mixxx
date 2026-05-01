@@ -66,8 +66,8 @@ class YouTubeFeature : public BaseExternalLibraryFeature {
     void onDownloadFailed(const QString& videoId, const QString& error);
     void onTrackAnalysisProgress(TrackId trackId, AnalyzerProgress analyzerProgress);
     /// Dispatch clicks on links rendered in the home pane HTML.
-    /// `ytplay:VIDEOID`     → download (or load from cache) and load on a deck.
-    /// `ytcached:LOCALPATH` → load the already-downloaded file on a deck.
+    /// `ytplay:VIDEOID`     → download/cache/analyze the track.
+    /// `ytcached:LOCALPATH` → refresh the already-downloaded row.
     void onHomeAnchorClicked(const QUrl& url);
 
   private:
@@ -80,8 +80,7 @@ class YouTubeFeature : public BaseExternalLibraryFeature {
     /// they unfold the tree node.
     void rebuildHomeHtml();
     void requestDownloadFile(const QString& videoId);
-    /// Like requestDownload but does NOT load onto a deck — used for
-    /// background pre-fetch / repair of missing AutoDJ-queued tracks.
+    /// Background repair of missing AutoDJ-queued tracks.
     void requestPrefetch(const QString& videoId);
     /// If `pTrack` was downloaded by us and is no longer loaded on any deck,
     /// delete its cached audio file and purge it from the library DB so the
@@ -123,10 +122,6 @@ class YouTubeFeature : public BaseExternalLibraryFeature {
     QList<mixxx::YouTubeVideoInfo> m_lastResults;
     // videoId -> human-readable label (used for the "Downloaded" branch).
     QHash<QString, QString> m_downloadedTracks;
-    // videoIds whose download was triggered by a user click and should be
-    // auto-loaded onto a deck once finished. Background prefetch downloads
-    // are NOT in this set, so they don't yank the deck.
-    QSet<QString> m_videoIdsToAutoLoad;
     struct PendingPlayerLoad {
         QString group;
         bool play = false;

@@ -36,10 +36,6 @@ namespace {
 const mixxx::Logger kLogger("YouTubeFeature");
 
 constexpr int kSearchResultsMax = 100;
-// Download every visible result in the background so YouTube rows quickly
-// become normal library tracks with a real local file, metadata, analysis,
-// drag/drop, and full context-menu support.
-constexpr int kAutoPrefetchResultsMax = kSearchResultsMax;
 
 // We tag the TreeItem `data` payload so activateChild() can tell apart
 // "search result the user wants to load" from "already-downloaded track".
@@ -339,11 +335,9 @@ void YouTubeFeature::bindLibraryWidget(WLibrary* pLibraryWidget,
 void YouTubeFeature::onHomeAnchorClicked(const QUrl& url) {
     const QString scheme = url.scheme();
     // Both schemes carry the YouTube video id as their path component (the
-    // 11-char `[A-Za-z0-9_-]+` token). For ytplay we kick off a download (or
-    // short-circuit if cached); for ytcached we go through the same path
-    // because requestDownload() already handles the cached case by calling
-    // onDownloadFinished synchronously, which is exactly what we want for a
-    // user click on a previously-downloaded track.
+    // 11-char `[A-Za-z0-9_-]+` token). Both paths ensure the track is cached,
+    // registered with the library, and queued for analysis without
+    // automatically loading it onto a deck.
     if (scheme == kHomePlayScheme || scheme == kHomeCachedScheme) {
         const QString videoId = url.path();
         if (!videoId.isEmpty()) {
@@ -362,8 +356,7 @@ void YouTubeFeature::activateChild(const QModelIndex& index) {
     }
     const QString payload = pItem->getData().toString();
     if (payload.startsWith(kSearchPrefix)) {
-        // User clicked a search result: download (or use cache) and load into
-        // the first available deck.
+        // User clicked a search result: download (or use cache) and analyze.
         const QString videoId = payload.mid(kSearchPrefix.size());
         requestDownload(videoId);
     } else if (payload.startsWith(kCachedPrefix)) {
@@ -405,16 +398,6 @@ void YouTubeFeature::onSearchResultsReady(
     // proper Title/Artist/Duration table, sortable, draggable, double-
     // clickable — not an HTML link list.
     replaceTrackTable(results);
-    int prefetchedResults = 0;
-    for (const auto& info : std::as_const(results)) {
-        if (!info.id.isEmpty()) {
-            requestPrefetch(info.id);
-            ++prefetchedResults;
-            if (prefetchedResults >= kAutoPrefetchResultsMax) {
-                break;
-            }
-        }
-    }
 }
 
 void YouTubeFeature::onSearchFailed(const QString& query, const QString& error) {
@@ -431,7 +414,6 @@ void YouTubeFeature::requestDownload(const QString& videoId) {
         kLogger.warning() << "Ignoring invalid YouTube video id:" << videoId;
         return;
     }
-    m_videoIdsToAutoLoad.insert(videoId);
     requestDownloadFile(videoId);
 }
 
@@ -539,8 +521,8 @@ void YouTubeFeature::onDownloadFinished(
     upsertDownloadedRow(videoId, localPath, title, uploader, durationSec);
 
     // Always register with the track collection so analysis runs and the DB
-    // entry exists. Only emit loadTrack for downloads triggered by a user
-    // click — background prefetches must not yank what's currently on a deck.
+    // entry exists. Downloads triggered by selection or context-menu Analyze
+    // stay in the library; explicit Load-to-deck requests are handled below.
     TrackRef ref = TrackRef::fromFilePath(localPath);
     TrackPointer pTrack = m_pLibrary->trackCollectionManager()->getOrAddTrack(ref);
     if (!pTrack) {
@@ -560,9 +542,6 @@ void YouTubeFeature::onDownloadFinished(
             tracks.append(AnalyzerScheduledTrack(pTrack->getId()));
             Q_EMIT analyzeTracks(tracks);
         }
-    }
-    if (m_videoIdsToAutoLoad.remove(videoId)) {
-        Q_EMIT loadTrack(pTrack);
     }
     const QList<PendingPlayerLoad> pendingLoads = m_pendingPlayerLoads.take(videoId);
     for (const auto& pendingLoad : pendingLoads) {
@@ -592,7 +571,6 @@ void YouTubeFeature::onDownloadFailed(const QString& videoId, const QString& err
     m_videoIdsDownloading.remove(videoId);
     m_pendingPlayerLoads.remove(videoId);
     m_pendingAutoDjLoads.remove(videoId);
-    m_videoIdsToAutoLoad.remove(videoId);
     kLogger.warning() << "YouTube download failed for" << videoId << ":" << error;
 }
 
@@ -900,8 +878,8 @@ void YouTubeFeature::rebuildHomeHtml() {
                 ++it) {
             // Same href shape as search results — videoId in the path. The
             // anchor handler routes via requestDownload(), which short-
-            // circuits when the cached file is on disk and loads it onto a
-            // deck via the standard onDownloadFinished path.
+            // circuits when the cached file is on disk and refreshes the
+            // library/analyzer state through onDownloadFinished().
             html += QStringLiteral("<li><a href=\"") + kHomeCachedScheme +
                     QStringLiteral(":") + it.key() +
                     QStringLiteral("\">") + it.value().toHtmlEscaped() +

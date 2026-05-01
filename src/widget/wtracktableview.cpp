@@ -3,6 +3,7 @@
 #include <QDrag>
 #include <QModelIndex>
 #include <QScrollBar>
+#include <QSet>
 #include <QShortcut>
 #include <QStylePainter>
 #include <QUrl>
@@ -686,6 +687,21 @@ void WTrackTableView::mousePressEvent(QMouseEvent* pEvent) {
     WLibraryTableView::mousePressEvent(pEvent);
 }
 
+void WTrackTableView::mouseReleaseEvent(QMouseEvent* pEvent) {
+    WLibraryTableView::mouseReleaseEvent(pEvent);
+    if (pEvent->button() != Qt::LeftButton) {
+        return;
+    }
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    const QModelIndex index = indexAt(pEvent->position().toPoint());
+#else
+    const QModelIndex index = indexAt(pEvent->pos());
+#endif
+    if (index.isValid()) {
+        requestYouTubePlaceholderDownloads({index});
+    }
+}
+
 void WTrackTableView::mouseMoveEvent(QMouseEvent* pEvent) {
     // Only use this for drag and drop if the LeftButton is pressed we need to
     // check for this because mousetracking is activated and this function is
@@ -967,6 +983,34 @@ QList<int> WTrackTableView::getSelectedRowNumbers() const {
 TrackModel* WTrackTableView::getTrackModel() const {
     TrackModel* pTrackModel = dynamic_cast<TrackModel*>(model());
     return pTrackModel;
+}
+
+bool WTrackTableView::requestYouTubePlaceholderDownloads(
+        const QModelIndexList& indices) {
+    TrackModel* pTrackModel = getTrackModel();
+    if (!pTrackModel) {
+        return false;
+    }
+
+    bool requested = false;
+    QSet<QString> requestedUrls;
+    for (const QModelIndex& index : indices) {
+        if (!index.isValid()) {
+            continue;
+        }
+        const QUrl url = pTrackModel->getTrackUrl(index);
+        if (url.scheme() != QStringLiteral("youtube")) {
+            continue;
+        }
+        const QString urlString = url.toString();
+        if (requestedUrls.contains(urlString)) {
+            continue;
+        }
+        requestedUrls.insert(urlString);
+        emit loadTrackLocationToPlayer(urlString, QString(), false);
+        requested = true;
+    }
+    return requested;
 }
 
 namespace {
@@ -1305,6 +1349,14 @@ void WTrackTableView::keyPressEvent(QKeyEvent* event) {
 
         if (event->matches(QKeySequence::Copy)) {
             copySelectedTracks();
+            return;
+        }
+
+        if (event->modifiers() == Qt::NoModifier &&
+                (event->key() == Qt::Key_Return ||
+                        event->key() == Qt::Key_Enter ||
+                        event->key() == Qt::Key_Space) &&
+                requestYouTubePlaceholderDownloads(getSelectedRows())) {
             return;
         }
 

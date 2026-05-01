@@ -1778,9 +1778,22 @@ void WTrackMenu::addSelectionToNewCrate() {
 }
 
 void WTrackMenu::addToAnalysis(AnalyzerTrack::Options options) {
+    int placeholderDownloads = 0;
+    if (m_pTrackModel) {
+        for (const auto& index : std::as_const(m_trackIndexList)) {
+            const QUrl url = m_pTrackModel->getTrackUrl(index);
+            if (url.scheme() == QStringLiteral("youtube")) {
+                emit loadTrackLocationToPlayer(url.toString(), QString(), false);
+                ++placeholderDownloads;
+            }
+        }
+    }
+
     const TrackIdList trackIds = getTrackIds();
     if (trackIds.empty()) {
-        qWarning() << "No tracks selected for analysis";
+        if (placeholderDownloads == 0) {
+            qWarning() << "No tracks selected for analysis";
+        }
         return;
     }
 

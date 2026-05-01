@@ -1,5 +1,7 @@
 #include "library/youtube/youtubetrackmodel.h"
 
+#include <QBrush>
+#include <QColor>
 #include <QSharedPointer>
 #include <QString>
 #include <QUrl>
@@ -61,6 +63,17 @@ TrackId YouTubeTrackModel::getTrackId(const QModelIndex& index) const {
     }
     TrackPointer pTrack = BaseExternalTrackModel::getTrack(index);
     return pTrack ? pTrack->getId() : TrackId();
+}
+
+QVariant YouTubeTrackModel::data(const QModelIndex& index, int role) const {
+    if (index.isValid() && role == Qt::ForegroundRole) {
+        const QString rawLocation = getFieldString(
+                index, ColumnCache::COLUMN_TRACKLOCATIONSTABLE_LOCATION);
+        if (rawLocation.startsWith(kPlaceholderScheme)) {
+            return QBrush(QColor(128, 128, 128));
+        }
+    }
+    return BaseExternalTrackModel::data(index, role);
 }
 
 void YouTubeTrackModel::search(const QString& searchText) {
