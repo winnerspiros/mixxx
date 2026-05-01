@@ -1673,7 +1673,7 @@ void WTrackTableView::addToAutoDJ(PlaylistDAO::AutoDJSendLoc loc) {
 
     const QList<TrackId> trackIds = getSelectedTrackIds();
     if (trackIds.isEmpty()) {
-        if (queuedYoutube) {
+        if (queuedYouTubePlaceholder) {
             return;
         }
         qWarning() << "No tracks selected for AutoDJ";
