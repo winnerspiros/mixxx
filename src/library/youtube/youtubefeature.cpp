@@ -241,13 +241,6 @@ YouTubeFeature::YouTubeFeature(Library* pLibrary, UserSettingsPointer pConfig)
     // when youtube_library has rows from a previous session.
     m_pTrackModel->setSearch(QString());
 
-    // Placeholder activation: the user double-clicked a "youtube://VIDEOID"
-    // row that hasn't been downloaded yet. Reuse the existing
-    // requestDownload() path which sets up auto-load on completion.
-    connect(m_pTrackModel,
-            &YouTubeTrackModel::requestDownloadAndLoad,
-            this,
-            &YouTubeFeature::requestDownload);
     // Per-view search box: typing in the search bar while the YouTube
     // pane is active fires YouTubeTrackModel::searchRequested → here →
     // a fresh YouTubeService search via the existing pipeline.

@@ -126,6 +126,10 @@ class WTrackMenu : public QMenu {
             const QString& group,
             bool play = false);
 #endif
+    void loadTrackLocationToPlayer(
+            const QString& location,
+            const QString& group,
+            bool play = false);
     void trackMenuVisible(bool visible);
     void saveCurrentViewState();
     void restoreCurrentViewStateOrIndex();

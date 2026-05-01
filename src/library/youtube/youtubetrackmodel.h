@@ -26,14 +26,13 @@ struct YouTubeVideoInfo;
 ///      deck loads the file directly.
 ///
 ///   2. **Placeholder** rows whose `location` is the sentinel
-///      `youtube://VIDEOID`. `getTrack()` recognizes the sentinel, emits
-///      `requestDownloadAndLoad(videoId)` so the feature kicks off a
-///      download (with auto-load on completion via the existing
-///      `m_videoIdsToAutoLoad`/`onDownloadFinished` chain), and returns a
-///      null `TrackPointer`. The deck won't load anything immediately —
-///      `LibraryFeature::loadTrack` will fire once the download lands.
-///      This is the "double-click does the right thing eventually with no
-///      extra clicks" UX the user asked for.
+///      `youtube://VIDEOID`. `getTrack()` returns null so callers that only
+///      need to read metadata don't trigger inadvertent downloads. Actual
+///      load actions (double-click, drag-to-deck, right-click → Load to Deck)
+///      go through `getTrackUrl()` which returns a `youtube://VIDEOID` QUrl;
+///      `WTrackTableView` and `WTrackMenu` detect that scheme and dispatch
+///      `loadTrackLocationToPlayer` so the feature downloads and loads the
+///      track to the correct deck.
 class YouTubeTrackModel : public BaseExternalTrackModel {
     Q_OBJECT
   public:
@@ -58,10 +57,6 @@ class YouTubeTrackModel : public BaseExternalTrackModel {
     void search(const QString& searchText) override;
 
   signals:
-    /// Emitted from `getTrack()` when the user activates a placeholder
-    /// row. The feature's slot turns this into a download request with
-    /// auto-load-on-completion semantics.
-    void requestDownloadAndLoad(const QString& videoId);
     /// Emitted from `search()` to ask the feature to dispatch a fresh
     /// `YouTubeService::searchVideos(query)`. The feature owns the
     /// service and the network/auth state so we keep that in one place.

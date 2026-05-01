@@ -32,21 +32,10 @@ TrackPointer YouTubeTrackModel::getTrack(const QModelIndex& index) const {
     const QString rawLocation = getFieldString(
             index, ColumnCache::COLUMN_TRACKLOCATIONSTABLE_LOCATION);
     if (rawLocation.startsWith(kPlaceholderScheme)) {
-        const QString videoId = rawLocation.mid(kPlaceholderScheme.size());
-        if (!videoId.isEmpty()) {
-            // const_cast: getTrack() is `const` (inherited from
-            // QAbstractItemModel) but we need to fire a signal. const_cast
-            // is the documented Qt-idiomatic way; the alternative (declare
-            // the signal `const`) works but is less common in this code
-            // base. Connection is auto/direct, so the slot runs synchronously
-            // before getTrack returns — safe because the slot only kicks
-            // off an async network request.
-            emit const_cast<YouTubeTrackModel*>(this)
-                    ->requestDownloadAndLoad(videoId);
-        }
-        // Return null so WTrackTableView doesn't try to load a non-existent
-        // file. The actual deck-load happens via LibraryFeature::loadTrack
-        // when YouTubeFeature::onDownloadFinished fires.
+        // Return null — callers that only need metadata (e.g. context-menu
+        // builders) must not trigger unintended downloads. Actual load
+        // actions go through getTrackUrl() and the loadTrackLocationToPlayer
+        // signal path which carries the target deck group.
         return TrackPointer();
     }
     return BaseExternalTrackModel::getTrack(index);

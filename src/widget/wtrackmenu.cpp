@@ -6,6 +6,7 @@
 #include <QList>
 #include <QListWidget>
 #include <QModelIndex>
+#include <QUrl>
 #include <QVBoxLayout>
 
 #include "analyzer/analyzerscheduledtrack.h"
@@ -2013,6 +2014,16 @@ void WTrackMenu::loadSelectionToGroup(const QString& group,
 #endif
     TrackPointer pTrack = getFirstTrackPointer();
     if (!pTrack) {
+        // For YouTube placeholder rows getFirstTrackPointer() returns null
+        // because the file hasn't been downloaded yet. In that case, dispatch
+        // via the loadTrackLocationToPlayer path so the feature can download
+        // the audio and load it into the requested deck.
+        if (m_pTrackModel && !m_trackIndexList.isEmpty()) {
+            const QUrl url = m_pTrackModel->getTrackUrl(m_trackIndexList.first());
+            if (url.scheme() == QStringLiteral("youtube")) {
+                emit loadTrackLocationToPlayer(url.toString(), group, play);
+            }
+        }
         return;
     }
 
