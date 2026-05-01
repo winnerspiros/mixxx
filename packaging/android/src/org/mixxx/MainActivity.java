@@ -39,17 +39,17 @@ public class MainActivity extends QtActivityBase {
     private void requestMusicLibraryPermissions() {
         if (Build.VERSION.SDK_INT >= 33) {
             if (checkSelfPermission(Manifest.permission.READ_MEDIA_AUDIO)
-                    != PackageManager.PERMISSION_GRANTED) {
+                != PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(
-                        new String[] {Manifest.permission.READ_MEDIA_AUDIO},
-                        MEDIA_PERMISSION_REQUEST);
+                    new String[] {Manifest.permission.READ_MEDIA_AUDIO},
+                    MEDIA_PERMISSION_REQUEST);
             }
         } else if (Build.VERSION.SDK_INT >= 23) {
             if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
-                    != PackageManager.PERMISSION_GRANTED) {
+                != PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(
-                        new String[] {Manifest.permission.READ_EXTERNAL_STORAGE},
-                        MEDIA_PERMISSION_REQUEST);
+                    new String[] {Manifest.permission.READ_EXTERNAL_STORAGE},
+                    MEDIA_PERMISSION_REQUEST);
             }
         }
 

@@ -130,48 +130,6 @@ QString displayLabelForVideo(const mixxx::YouTubeVideoInfo& info) {
     return metadata.artist + QStringLiteral(" - ") + metadata.title;
 }
 
-// Derive the user's ISO 3166-1 alpha-2 country code from the system locale.
-// Used as a *fallback* when no override is set and no geo-IP detection has
-// landed yet. Tries QLocale::system().territory()/country() (the OS's region
-// setting, which is what users intuitively expect) before parsing
-// bcp47Name(). Returns an empty string when nothing usable is available so
-// the caller can fall through to the project default ("GR") rather than
-// silently hardcoding "US" — that "US" default was the source of the
-// "Trending in United States" bug.
-QString localeCountryCode() {
-    const QLocale sys = QLocale::system();
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-    // Qt5: QLocale::name() returns "language_TERRITORY" (e.g. "el_GR").
-    // QLocale::countryToString gives a localized *display name*, not the ISO
-    // code, so we extract the code from name() instead.
-    const QString name = sys.name(); // e.g. "el_GR", "en_US", "C"
-    const QStringList nameParts = name.split(QLatin1Char('_'));
-    if (nameParts.size() >= 2 && nameParts.at(1).size() == 2) {
-        return nameParts.at(1).toUpper();
-    }
-#else
-    const QLocale::Territory territory = sys.territory();
-    if (territory != QLocale::AnyTerritory) {
-        // territoryToCode returns QLatin1StringView (Qt 6.2+) — convert
-        // explicitly via QString() rather than relying on .toString(), which
-        // isn't available on every Qt 6.x point release.
-        const QString code = QString(QLocale::territoryToCode(territory));
-        if (code.size() == 2) {
-            return code.toUpper();
-        }
-    }
-#endif
-    // Last-ditch BCP-47 parse — handles oddballs like "zh-Hans-CN".
-    const QStringList parts =
-            sys.bcp47Name().split(QLatin1Char('-'));
-    for (const QString& part : parts) {
-        if (part.size() == 2 && part.at(0).isUpper() && part.at(1).isUpper()) {
-            return part;
-        }
-    }
-    return QString();
-}
-
 // Human-readable country name for display in the "Trending in <Country>"
 // header. QLocale knows how to localize country names from the alpha-2 code,
 // but the API names changed between Qt 5 (countryToString / Country) and
