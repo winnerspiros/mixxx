@@ -5,8 +5,10 @@
 #include <QSet>
 #include <QSharedPointer>
 
+#include "analyzer/analyzerprogress.h"
 #include "library/baseexternallibraryfeature.h"
 #include "library/youtube/youtubeservice.h"
+#include "track/trackid.h"
 #include "util/parented_ptr.h"
 
 class BaseTrackCache;
@@ -76,6 +78,7 @@ class YouTubeFeature : public BaseExternalLibraryFeature {
     void onSearchFailed(const QString& query, const QString& error);
     void onDownloadFinished(const QString& videoId, const QString& localPath);
     void onDownloadFailed(const QString& videoId, const QString& error);
+    void onTrackAnalysisProgress(TrackId trackId, AnalyzerProgress analyzerProgress);
     /// Dispatch clicks on links rendered in the home pane HTML.
     /// `ytplay:VIDEOID`     → download (or load from cache) and load on a deck.
     /// `ytcached:LOCALPATH` → load the already-downloaded file on a deck.
@@ -110,6 +113,7 @@ class YouTubeFeature : public BaseExternalLibraryFeature {
     /// Walk the AutoDJ queue at startup and ensure every YouTube-cache track
     /// in it is present on disk — re-downloading any that have been swept.
     void prefetchAutoDjQueue();
+    void syncAnalyzedTrackMetadata(const TrackPointer& pTrack);
     /// Kick off an async geo-IP lookup against api.country.is (no API key,
     /// no client setup). On success, persist the ISO 3166-1 alpha-2 country
     /// code under `[YouTube]/detected_region` and emit

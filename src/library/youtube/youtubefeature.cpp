@@ -18,6 +18,7 @@
 #include <QTimer>
 #include <QUrl>
 
+#include "analyzer/analyzerscheduledtrack.h"
 #include "library/basetrackcache.h"
 #include "library/dao/trackschema.h"
 #include "library/library.h"
@@ -41,6 +42,7 @@ namespace {
 const mixxx::Logger kLogger("YouTubeFeature");
 
 constexpr int kSearchResultsMax = 25;
+constexpr int kAutoPrefetchResultsMax = 10;
 
 // We tag the TreeItem `data` payload so activateChild() can tell apart
 // "search result the user wants to load" from "already-downloaded track".
@@ -62,12 +64,12 @@ struct TrackDisplayMetadata {
 
 QString cleanYouTubeSongTitle(const QString& input) {
     QString title = input.simplified();
-    static const QRegularExpression kBracketedNoise(
+    const QRegularExpression kBracketedNoise(
             QStringLiteral(
                     R"(\s*[\[(](official\s*(music\s*)?video|official\s*audio|audio|lyrics?|lyric\s*video|visuali[sz]er|music\s*video|hd|hq|4k)[\])]\s*)"),
             QRegularExpression::CaseInsensitiveOption);
     title.remove(kBracketedNoise);
-    static const QRegularExpression kTrailingNoise(
+    const QRegularExpression kTrailingNoise(
             QStringLiteral(
                     R"(\s*[-–—|]\s*(official\s*(music\s*)?video|official\s*audio|audio|lyrics?|lyric\s*video|visuali[sz]er|music\s*video|hd|hq|4k)\s*$)"),
             QRegularExpression::CaseInsensitiveOption);
@@ -77,7 +79,7 @@ QString cleanYouTubeSongTitle(const QString& input) {
 
 QString cleanYouTubeArtist(const QString& input) {
     QString artist = input.simplified();
-    static const QRegularExpression kTopicSuffix(
+    const QRegularExpression kTopicSuffix(
             QStringLiteral(R"(\s*-\s*Topic\s*$)"),
             QRegularExpression::CaseInsensitiveOption);
     artist.remove(kTopicSuffix);
@@ -257,6 +259,10 @@ YouTubeFeature::YouTubeFeature(Library* pLibrary, UserSettingsPointer pConfig)
             &YouTubeTrackModel::searchRequested,
             this,
             &YouTubeFeature::searchAndActivate);
+    connect(m_pLibrary,
+            &Library::onTrackAnalyzerProgress,
+            this,
+            &YouTubeFeature::onTrackAnalysisProgress);
 
     connect(&m_service,
             &mixxx::YouTubeService::searchResultsReady,
@@ -551,9 +557,14 @@ void YouTubeFeature::onSearchResultsReady(
     // proper Title/Artist/Duration table, sortable, draggable, double-
     // clickable — not an HTML link list.
     replaceTrackTable(results);
+    int prefetchedResults = 0;
     for (const auto& info : std::as_const(results)) {
         if (!info.id.isEmpty()) {
             requestPrefetch(info.id);
+            ++prefetchedResults;
+            if (prefetchedResults >= kAutoPrefetchResultsMax) {
+                break;
+            }
         }
     }
     if (m_autoLoadNextResult && !results.isEmpty()) {
@@ -683,6 +694,15 @@ void YouTubeFeature::onDownloadFinished(
     pTrack->setTitle(title.isEmpty() ? videoId : title);
     pTrack->setAlbum(QStringLiteral("YouTube"));
     pTrack->setComment(videoId);
+    if (pTrack->getId().isValid()) {
+        if (pTrack->getBpm() > 0) {
+            syncAnalyzedTrackMetadata(pTrack);
+        } else {
+            QList<AnalyzerScheduledTrack> tracks;
+            tracks.append(AnalyzerScheduledTrack(pTrack->getId()));
+            Q_EMIT analyzeTracks(tracks);
+        }
+    }
     if (m_videoIdsToAutoLoad.remove(videoId)) {
         Q_EMIT loadTrack(pTrack);
     }
@@ -704,6 +724,46 @@ void YouTubeFeature::onDownloadFailed(const QString& videoId, const QString& err
     m_pendingPlayerLoads.remove(videoId);
     m_videoIdsToAutoLoad.remove(videoId);
     kLogger.warning() << "YouTube download failed for" << videoId << ":" << error;
+}
+
+void YouTubeFeature::onTrackAnalysisProgress(
+        TrackId trackId, AnalyzerProgress analyzerProgress) {
+    if (analyzerProgress != kAnalyzerProgressDone || !trackId.isValid()) {
+        return;
+    }
+    syncAnalyzedTrackMetadata(
+            m_pLibrary->trackCollectionManager()->getTrackById(trackId));
+}
+
+void YouTubeFeature::syncAnalyzedTrackMetadata(const TrackPointer& pTrack) {
+    if (!pTrack || !m_pTrackModel || !m_pTrackCache) {
+        return;
+    }
+    const QFileInfo fileInfo(pTrack->getLocation());
+    const QDir cache(cacheDir());
+    if (!fileInfo.absoluteFilePath().startsWith(
+                cache.absolutePath() + QLatin1Char('/'))) {
+        return;
+    }
+    const QString videoId = fileInfo.completeBaseName();
+    const double bpm = pTrack->getBpm();
+    QSqlDatabase db = m_pTrackCollection->database();
+    QSqlQuery query(db);
+    query.prepare(QStringLiteral(
+            "UPDATE youtube_library SET "
+            "bpm = CASE WHEN :bpm > 0 THEN :bpm ELSE bpm END, "
+            "duration = CASE WHEN :duration > 0 THEN :duration ELSE duration END "
+            "WHERE comment = :comment"));
+    query.bindValue(QStringLiteral(":bpm"), bpm);
+    query.bindValue(QStringLiteral(":duration"), pTrack->getDurationSecondsInt());
+    query.bindValue(QStringLiteral(":comment"), videoId);
+    if (!query.exec()) {
+        kLogger.warning() << "youtube_library analysis metadata UPDATE failed:"
+                          << query.lastError().text();
+        return;
+    }
+    m_pTrackCache->buildIndex();
+    m_pTrackModel->select();
 }
 
 void YouTubeFeature::maybeReleaseCachedTrack(const TrackPointer& pTrack) {

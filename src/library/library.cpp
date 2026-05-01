@@ -553,6 +553,12 @@ void Library::addFeature(LibraryFeature* feature) {
             &LibraryFeature::trackSelected,
             this,
             &Library::trackSelected);
+    if (m_pAnalysisFeature) {
+        connect(feature,
+                &LibraryFeature::analyzeTracks,
+                m_pAnalysisFeature,
+                &AnalysisFeature::analyzeTracks);
+    }
     connect(feature,
             &LibraryFeature::saveModelState,
             this,
